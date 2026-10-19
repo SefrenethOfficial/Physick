@@ -3,6 +3,8 @@ const kbd = (rows) => rows.map(([k, d]) => `<div><kbd>${k}</kbd><span>${d}</span
 
 const ON_FOOT = [['W A S D', 'Walk'], ['Space', 'Jump'], ['Shift', 'Run'], ['LMB', 'Pick up / put down'], ['RMB', 'Throw held item'], ['F', 'Use held item'], ['E', 'Take the helm / man a gun']];
 const ON_GUN = [['Mouse', 'Aim'], ['LMB', 'Fire'], ['E', 'Leave the gun']];
+const IN_JET = [['W / S', 'Throttle'], ['Shift', 'Afterburner (full throttle)'], ['Mouse', 'Pitch / roll'], ['A / D', 'Rudder / steer'],
+  ['B', 'Brakes'], ['G', 'Gear'], ['LMB', 'Cannon'], ['C', 'Cockpit / chase view'], ['E', 'Get out (stopped)']];
 const AT_HELM = [['W / S', 'Engine order up / down'], ['A / D', 'Rudder port / starboard'], ['H', 'Ship\'s horn'], ['Mouse', 'Look around'], ['E', 'Leave the helm']];
 
 // All DOM UI: logo, health, compass, helm readout, prompts, toasts, title and death screens.
@@ -33,6 +35,16 @@ export class Hud {
         <div class="row"><span>Targets destroyed</span><b id="score">0</b></div>
       </div>
       <div class="holding" id="holding"></div>
+      <div class="flight" id="flight">
+        <div class="row"><span>Speed</span><b id="fspd">0 kn</b></div>
+        <div class="row"><span>Altitude</span><b id="falt">0 ft</b></div>
+        <div class="row"><span>Climb</span><b id="fvs">0 ft/min</b></div>
+        <div class="row"><span>Throttle</span><b id="fthr">0%</b></div>
+        <div class="thrbar"><i id="fthrbar"></i></div>
+        <div class="row"><span>Gear</span><b id="fgear">DOWN</b></div>
+      </div>
+      <div class="fpm" id="fpm"></div>
+      <div class="warn" id="fwarn"></div>
       <div class="hurt" id="hurt"></div>
       <div class="death" id="death"><h2>You died</h2><p>Respawning…</p></div>
     `;
@@ -52,6 +64,9 @@ export class Hud {
     this.lastHp = -1;
     this.overlay = document.getElementById('overlay');
     this.gunEl = $('gunpanel');
+    this.flightEl = $('flight');
+    this.fpmEl = $('fpm');
+    this.warnEl = $('fwarn');
     this.holdingEl = $('holding');
     this.setMode('deck');
   }
@@ -61,8 +76,10 @@ export class Hud {
     this.helmEl.classList.toggle('on', mode === 'helm');
     this.gunEl.classList.toggle('on', mode === 'gun');
     this.el.classList.toggle('gunning', mode === 'gun');
-    const title = { deck: 'On deck', helm: 'At the helm', gun: gun ? `Manning the ${gun.name}` : 'Gun' }[mode];
-    const rows = { deck: ON_FOOT, helm: AT_HELM, gun: gun?.kind === 'bullet' ? [['Mouse', 'Aim'], ['LMB (hold)', 'Fire'], ['E', 'Leave the gun']] : ON_GUN }[mode];
+    this.el.classList.toggle('flying', mode === 'jet');
+    this.flightEl.classList.toggle('on', mode === 'jet');
+    const title = { deck: 'On deck', shore: 'Ashore', helm: 'At the helm', gun: gun ? `Manning the ${gun.name}` : 'Gun', jet: 'Flying' }[mode];
+    const rows = { deck: ON_FOOT, shore: ON_FOOT, helm: AT_HELM, jet: IN_JET, gun: gun?.kind === 'bullet' ? [['Mouse', 'Aim'], ['LMB (hold)', 'Fire'], ['E', 'Leave the gun']] : ON_GUN }[mode];
     this.hintsEl.innerHTML = `<div class="hint-title">${title}</div>` + kbd(rows);
     if (gun) this.gunEl.querySelector('#gunname').textContent = gun.name;
   }
@@ -71,6 +88,28 @@ export class Hud {
     const brg = ((Math.round(-gun.yaw.rotation.y * 57.2958) % 360) + 360) % 360;
     this.gunEl.querySelector('#gunbrg').textContent = String(brg).padStart(3, '0') + '° rel';
     this.gunEl.querySelector('#gunelev').textContent = Math.round(gun.pitch.rotation.x * 57.2958) + '°';
+  }
+
+  // Flight readout + flight-path marker (screen position of where the jet is heading).
+  setFlight(jet, camera) {
+    const $ = (id) => this.flightEl.querySelector('#' + id);
+    $('fspd').textContent = `${Math.round(jet.airspeed * 1.944)} kn`;
+    $('falt').textContent = `${Math.round(jet.pos.y * 3.281)} ft`;
+    $('fvs').textContent = `${Math.round(jet.vel.y * 196.85 / 10) * 10} ft/min`;
+    $('fthr').textContent = jet.ab ? 'AB' : `${Math.round(jet.throttle * 100)}%`;
+    $('fthrbar').style.width = `${jet.throttle * 100}%`;
+    $('fthrbar').classList.toggle('ab', jet.ab);
+    $('fgear').textContent = jet.gearDown ? 'DOWN' : 'UP';
+    const p = jet.pos.clone().addScaledVector(jet.onGround || jet.vel.lengthSq() < 4 ? jet.fwd : jet.vel.clone().normalize(), 400).project(camera);
+    const vis = p.z < 1 && Math.abs(p.x) < 1 && Math.abs(p.y) < 1;
+    this.fpmEl.style.display = vis ? 'block' : 'none';
+    if (vis) this.fpmEl.style.transform = `translate(${(p.x * 0.5 + 0.5) * innerWidth}px, ${(-p.y * 0.5 + 0.5) * innerHeight}px)`;
+    let warn = '';
+    if (!jet.onGround && jet.stall) warn = 'STALL';
+    else if (!jet.onGround && jet.pos.y < 120 && jet.vel.y < -25) warn = 'PULL UP';
+    else if (!jet.onGround && !jet.gearDown && jet.pos.y < 60 && jet.airspeed < 90) warn = 'GEAR';
+    if (this.warnEl.textContent !== warn) this.warnEl.textContent = warn;
+    this.warnEl.classList.toggle('on', !!warn);
   }
 
   setScore(n) { this.gunEl.querySelector('#score').textContent = n; }

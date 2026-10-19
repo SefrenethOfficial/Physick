@@ -288,6 +288,7 @@ export class Gunnery {
 
   // Gun whose firing position you're standing at, if any.
   nearby() {
+    if (this.game.onShore || this.game.flying) return null;
     const e = this.game.player.body.translation();
     let best = null, bd = 2.2;
     for (const gun of this.game.ship.guns) {

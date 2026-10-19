@@ -42,7 +42,7 @@ export class Npcs {
   // Random open spot on the main deck, optionally away from the player or near a point.
   randomPoint(minDistFromPlayer = 0, near = null, range = 25) {
     const sb = this.game.sandbox;
-    const pp = this.game.player?.body.translation();
+    const pp = this.game.shipPlayer?.body.translation();
     for (let i = 0; i < 30; i++) {
       let z = near ? near.z + (Math.random() - 0.5) * 2 * range : -48 + Math.random() * 100;
       z = Math.max(-48, Math.min(52, z));
@@ -201,7 +201,8 @@ export class Npcs {
   // ---------- physics step ----------
   update(dt) {
     const g = this.game;
-    const pp = g.player.body.translation();
+    const pp = g.shipPlayer.body.translation();
+    const aboard = !g.onShore && !g.flying;
 
     for (const npc of [...this.list]) {
       const t = npc.body.translation();
@@ -218,7 +219,7 @@ export class Npcs {
       }
       // When you come up to a sailor they stop what they're doing and look at you.
       const pd = Math.hypot(t.x - pp.x, t.z - pp.z);
-      const facePlayer = pd < 2.6 && Math.abs(t.y - pp.y) < 1.5 && npc.fear <= 0;
+      const facePlayer = aboard && pd < 2.6 && Math.abs(t.y - pp.y) < 1.5 && npc.fear <= 0;
 
       // --- decide where to go ---
       let want = null;

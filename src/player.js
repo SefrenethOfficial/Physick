@@ -6,9 +6,11 @@ const EYE = 0.7; // eye height above capsule centre
 
 // First-person walker using Rapier's kinematic character controller.
 export class Player {
-  constructor(game, spawn = new THREE.Vector3(0, 2, 10)) {
+  // opts.world / opts.sandbox let a second walker live in another physics world (ashore).
+  constructor(game, spawn = new THREE.Vector3(0, 2, 10), opts = {}) {
     this.game = game;
-    const world = game.world;
+    const world = opts.world || game.world;
+    this.sb = opts.sandbox || null;
     this.body = world.createRigidBody(
       RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(spawn.x, spawn.y, spawn.z),
     );
@@ -144,7 +146,7 @@ export class Player {
   // Prop directly under the player's feet, if any (a few rays so edges count too).
   groundProp() {
     const t = this.body.translation();
-    const sb = this.game.sandbox;
+    const sb = this.sb || this.game.sandbox;
     const down = { x: 0, y: -1, z: 0 };
     const feet = t.y - 0.85 + 0.1;
     for (const [ox, oz] of [[0, 0], [0.22, 0], [-0.22, 0], [0, 0.22], [0, -0.22]]) {

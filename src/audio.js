@@ -112,6 +112,40 @@ export class Sfx {
     }
   }
 
+  // Jet engine: a roaring noise bed plus a turbine whine that follows the throttle.
+  setJet(on, throttle = 0, ab = false) {
+    if (!this.ctx) return;
+    if (on && !this.jet) {
+      const len = this.ctx.sampleRate * 2;
+      const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      const src = this.ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+      const f = this.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 400;
+      const g = this.ctx.createGain(); g.gain.value = 0;
+      const whine = this.ctx.createOscillator(); whine.type = 'sawtooth';
+      const wg = this.ctx.createGain(); wg.gain.value = 0;
+      const wf = this.ctx.createBiquadFilter(); wf.type = 'bandpass'; wf.Q.value = 6;
+      src.connect(f).connect(g).connect(this.master);
+      whine.connect(wf).connect(wg).connect(this.master);
+      src.start(); whine.start();
+      this.jet = { src, f, g, whine, wg, wf };
+    } else if (!on && this.jet) {
+      const j = this.jet; this.jet = null;
+      j.g.gain.setTargetAtTime(0, this.ctx.currentTime, 0.2);
+      j.wg.gain.setTargetAtTime(0, this.ctx.currentTime, 0.2);
+      j.src.stop(this.ctx.currentTime + 1); j.whine.stop(this.ctx.currentTime + 1);
+    }
+    if (on && this.jet) {
+      const t = this.ctx.currentTime, j = this.jet;
+      j.g.gain.setTargetAtTime(0.05 + throttle * 0.18 + (ab ? 0.15 : 0), t, 0.15);
+      j.f.frequency.setTargetAtTime(300 + throttle * 900 + (ab ? 900 : 0), t, 0.15);
+      j.whine.frequency.setTargetAtTime(900 + throttle * 1800, t, 0.3);
+      j.wf.frequency.setTargetAtTime(900 + throttle * 1800, t, 0.3);
+      j.wg.gain.setTargetAtTime(0.012 + throttle * 0.02, t, 0.2);
+    }
+  }
+
   setEngine(on, rev = 0) {
     if (!this.ctx) return;
     if (on && !this.engine) {

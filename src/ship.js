@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { SHIP_LEN, halfBeam } from './ocean.js';
+import { onLand } from './port.js';
 
 // A guided-missile-destroyer-style warship, built procedurally.
 // Ship frame: forward is -Z, starboard is +X, the waterline is y = 0.
@@ -154,11 +155,14 @@ export class Ship {
     this.pos = new THREE.Vector3(0, 0, 0);
     this.heading = 0; // radians, 0 = sailing toward -Z
     this.speed = 0; // m/s along heading
-    this.telegraph = 3; // index into SPEEDS
+    this.telegraph = 1; // index into SPEEDS (STOP: we start alongside the quay)
     this.rudder = 0; // -1..1 (positive = turn to starboard)
     this.heave = 0; this.pitch = 0; this.roll = 0;
     this.time = 0;
-    this.speed = Ship.SPEEDS[this.telegraph].v; // start under way
+    this.speed = 0;
+    this.moored = true; // alongside the quay at the naval air station
+    this.side = 1; // starboard side to the quay
+    this.mooring = false;
   }
 
   static SPEEDS = [
@@ -775,6 +779,10 @@ export class Ship {
   // steer: -1 (port) .. 1 (starboard) while the helm is held; 0 lets the rudder return amidships.
   update(dt, ocean, steer = 0) {
     this.time += dt;
+    if (this.moored) {
+      if (this.telegraph !== 1) { this.moored = false; this.game.hud.toast('Lines cast off'); }
+      else { this.speed = 0; this.rudder *= 0.9; }
+    }
     // engines
     const target = this.order.v;
     const accel = target > this.speed ? 0.35 : 0.5;
@@ -785,8 +793,46 @@ export class Ship {
     const rudderAngle = this.rudder * 0.61; // 35 degrees
     this.heading -= rudderAngle * this.speed * 0.011 * dt;
     // move along heading (forward is -Z rotated by heading)
+    const prevX = this.pos.x, prevZ = this.pos.z;
     this.pos.x += -Math.sin(this.heading) * this.speed * dt;
     this.pos.z += -Math.cos(this.heading) * this.speed * dt;
+
+    // running aground on the coast
+    if (!this.moored) {
+      const f = [-Math.sin(this.heading), -Math.cos(this.heading)], r = [-f[1], f[0]];
+      for (const [a, b] of [[54, 0], [-54, 0], [0, 7.4], [0, -7.4], [35, 6], [35, -6], [-35, 6], [-35, -6]]) {
+        if (onLand(this.pos.x + f[0] * a + r[0] * b, this.pos.z + f[1] * a + r[1] * b, -0.3)) {
+          this.pos.x = prevX; this.pos.z = prevZ;
+          if (Math.abs(this.speed) > 0.5) { this.game.hud.toast('Ran aground!', 0xff8a6a); this.game.shake = 0.8; this.game.sfx.play('thud'); }
+          this.speed = 0;
+          this.telegraph = 1;
+          break;
+        }
+      }
+    }
+
+    // coming alongside: slow, engines stopped, near the berth and roughly parallel -> warp in and moor
+    if (!this.moored && this.telegraph === 1) {
+      const d = Math.hypot(this.pos.x, this.pos.z);
+      const hd = Math.atan2(Math.sin(this.heading), Math.cos(this.heading));
+      const flip = Math.abs(hd) > Math.PI / 2; // either way round
+      const err = flip ? Math.atan2(Math.sin(hd - Math.PI), Math.cos(hd - Math.PI)) : hd;
+      if (d < 40 && Math.abs(this.speed) < 2.5 && Math.abs(err) < 0.35) {
+        this.mooring = true;
+        const k = Math.min(dt * 0.6, 1);
+        this.pos.x -= this.pos.x * k;
+        this.pos.z -= this.pos.z * k;
+        this.heading -= err * k;
+        this.speed *= 1 - k;
+        if (d < 0.4 && Math.abs(err) < 0.01) {
+          this.moored = true; this.mooring = false;
+          this.pos.set(0, 0, 0);
+          this.heading = flip ? Math.PI : 0;
+          this.side = flip ? -1 : 1; // which side of the ship faces the quay
+          this.game.hud.toast('Moored alongside', 0x7be08a);
+        }
+      } else this.mooring = false;
+    }
 
     // ride the waves: sample the ocean at bow, stern and both sides
     const fwd = new THREE.Vector2(-Math.sin(this.heading), -Math.cos(this.heading));

@@ -13,6 +13,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Viewmodel } from './viewmodel.js';
 import { ITEMS } from './items.js';
 import { Gunnery } from './guns.js';
+import { Port, GANGWAY_FOOT, LAND_Y } from './port.js';
+import { Jets } from './jets.js';
 
 const FOV = 75;
 const SKY_TOP = 0x4a83c4;
@@ -28,6 +30,8 @@ class Game {
     this.locked = false;
     this.started = false;
     this.atHelm = false;
+    this.onShore = false;
+    this.jetTrigger = false;
     this.heldProp = null;
     this.held = null; // item def carried in the robot arm
     this.mouseDX = 0;
@@ -72,6 +76,13 @@ class Game {
     this.ship = new Ship(this);
     this.world.step(); // scene queries only see new colliders after a step
 
+    // The naval air station has its own physics world in world coordinates.
+    loadingEl.textContent = 'Building the air station…';
+    this.portWorld = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
+    this.portSandbox = new Sandbox(this, { world: this.portWorld, scene: this.scene });
+    this.port = new Port(this, this.portSandbox);
+    this.portWorld.step();
+
     loadingEl.textContent = 'Loading robot arm…';
     const gltf = await new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}assets/robotic_arm.glb`, (e) => {
       if (e.total) loadingEl.textContent = `Loading robot arm… ${Math.round((e.loaded / e.total) * 100)}%`;
@@ -79,12 +90,14 @@ class Game {
     this.viewmodel = new Viewmodel(gltf.scene, FOV);
     this.viewmodel.setColor(0x7fd3ff);
 
-    this.player = new Player(this, new THREE.Vector3(0, DECK + 1.3, 44));
+    this.shipPlayer = new Player(this, new THREE.Vector3(0, DECK + 1.3, 44));
+    this.shorePlayer = new Player(this, GANGWAY_FOOT.clone().add(new THREE.Vector3(2, 1, 0)), { world: this.portWorld, sandbox: this.portSandbox });
     this.health = new Health(this);
     this.hud = new Hud(this);
     this.npcs = new Npcs(this);
     this.npcs.populate();
     this.gunnery = new Gunnery(this);
+    this.jets = new Jets(this);
     this.stockStores();
     this.eye = new THREE.Object3D(); // camera pose in the ship frame
 
@@ -101,6 +114,72 @@ class Game {
     this.fpsAcc = 0; this.fpsFrames = 0;
     this.renderer.setAnimationLoop(() => this.tick());
     window.physick = this;
+  }
+
+  // The walker you're controlling: aboard (ship frame) or ashore (world frame).
+  get player() { return this.onShore ? this.shorePlayer : this.shipPlayer; }
+  // Physics props in whichever world you're standing in.
+  get sb() { return this.onShore ? this.portSandbox : this.sandbox; }
+  get flying() { return !!this.jets?.active; }
+
+  // ---------- ship <-> shore ----------
+  gangwayTop() {
+    return new THREE.Vector3(this.ship.side * 7.3, DECK, 0);
+  }
+
+  nearGangwayTop() {
+    if (this.onShore || !this.ship.moored) return false;
+    const t = this.shipPlayer.body.translation();
+    return t.x * this.ship.side > 5.6 && Math.abs(t.z) < 2.6 && t.y < DECK + 2;
+  }
+
+  nearGangwayFoot() {
+    if (!this.onShore || !this.ship.moored) return false;
+    const t = this.shorePlayer.body.translation();
+    return Math.hypot(t.x - GANGWAY_FOOT.x, t.z - GANGWAY_FOOT.z) < 3.2;
+  }
+
+  goAshore() {
+    const yaw = this.ship.heading + this.shipPlayer.yaw;
+    this.onShore = true;
+    this.shorePlayer.body.setTranslation({ x: GANGWAY_FOOT.x + 1.5, y: LAND_Y + 0.95, z: GANGWAY_FOOT.z }, true);
+    this.shorePlayer.vel.set(0, 0, 0);
+    this.shorePlayer.yaw = yaw;
+    this.shorePlayer.pitch = this.shipPlayer.pitch;
+    this.hud.setMode('shore');
+    this.hud.toast('Ashore at the naval air station');
+    this.sfx.play('drop');
+  }
+
+  boardShip() {
+    this.onShore = false;
+    this.shipPlayer.body.setTranslation({ x: this.ship.side * 5.7, y: DECK + 0.95, z: 0 }, true);
+    this.shipPlayer.vel.set(0, 0, 0);
+    this.shipPlayer.yaw = this.shorePlayer.yaw - this.ship.heading;
+    this.shipPlayer.pitch = this.shorePlayer.pitch;
+    this.hud.setMode('deck');
+    this.hud.toast('Welcome aboard');
+    this.sfx.play('drop');
+  }
+
+  leaveJetAt(pos, yaw) {
+    this.onShore = true;
+    this.shorePlayer.body.setTranslation(pos, true);
+    this.shorePlayer.vel.set(0, 0, 0);
+    this.shorePlayer.yaw = yaw;
+    this.shorePlayer.pitch = 0;
+    this.hud.setMode('shore');
+  }
+
+  jetCrashed() {
+    this.jetTrigger = false;
+    this.health.damage(1000, 'jet');
+  }
+
+  respawnPlayer() {
+    this.onShore = false;
+    this.shipPlayer.respawn();
+    this.hud.setMode('deck');
   }
 
   buildSky() {
@@ -144,6 +223,7 @@ class Game {
 
   // ---------- helm ----------
   nearHelm() {
+    if (this.onShore) return false;
     const e = this.player.eye;
     return e.distanceTo(HELM) < 1.9;
   }
@@ -186,14 +266,14 @@ class Game {
   }
 
   lookHit(max = 2.6) {
-    return this.sandbox.raycast(this.player.eye, this.lookDir(), max, this.player.collider);
+    return this.sb.raycast(this.player.eye, this.lookDir(), max, this.player.collider);
   }
 
   pickUp() {
     const hit = this.lookHit();
     if (!hit?.prop?.def.item) return false;
     const def = hit.prop.def;
-    this.sandbox.remove(hit.prop);
+    this.sb.remove(hit.prop);
     this.held = def;
     this.viewmodel.setHeld(def.build().mesh);
     this.hud.setHolding(def.name);
@@ -206,12 +286,12 @@ class Game {
     const def = this.held;
     if (!def) return;
     const eye = this.player.eye, dir = this.lookDir();
-    const hit = this.sandbox.raycast(eye, dir, throwIt ? 1.0 : 2.4, this.player.collider);
+    const hit = this.sb.raycast(eye, dir, throwIt ? 1.0 : 2.4, this.player.collider);
     let pos;
     if (hit) pos = hit.point.clone().addScaledVector(hit.normal, def.radius * 0.7).addScaledVector(dir, -0.05);
     else pos = eye.clone().addScaledVector(dir, throwIt ? 0.9 : 1.3);
     const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.player.yaw);
-    const prop = this.sandbox.spawn(def, pos, q, { noHistory: true });
+    const prop = this.sb.spawn(def, pos, q, { noHistory: true });
     if (throwIt) {
       const v = dir.multiplyScalar(13).add(this.player.vel);
       prop.body.setLinvel(v, true);
@@ -278,11 +358,13 @@ class Game {
       if (Math.abs(e.movementX) > 400 || Math.abs(e.movementY) > 400) return;
       this.mouseDX += e.movementX;
       this.mouseDY += e.movementY;
-      if (this.gunnery.active) this.gunnery.aim(e.movementX, e.movementY);
+      if (this.flying) this.jets.mouse(e.movementX, e.movementY);
+      else if (this.gunnery.active) this.gunnery.aim(e.movementX, e.movementY);
       else this.player.look(e.movementX, e.movementY);
     });
     addEventListener('mousedown', (e) => {
       if (!this.locked || this.health.dead) return;
+      if (this.flying) { if (e.button === 0) this.jetTrigger = true; return; }
       if (this.gunnery.active) { if (e.button === 0) this.gunnery.trigger = true; return; }
       if (this.atHelm) return;
       if (e.button === 0) { if (this.held) this.release(false); else this.pickUp(); }
@@ -290,6 +372,7 @@ class Game {
     });
     addEventListener('mouseup', (e) => {
       if (e.button === 0 && this.gunnery.gun?.kind === 'bullet') this.gunnery.trigger = false;
+      if (e.button === 0) this.jetTrigger = false;
     });
     addEventListener('contextmenu', (e) => e.preventDefault());
     addEventListener('keydown', (e) => {
@@ -297,10 +380,17 @@ class Game {
       if (e.repeat || !this.locked) return;
       this.keys.add(e.code);
       if (this.health.dead) return;
+      if (this.flying && e.code !== 'KeyE') { this.jets.key(e.code); return; }
       if (e.code === 'KeyE') {
+        if (this.flying) { this.jets.exit(); return; }
         if (this.atHelm) this.leaveHelm();
         else if (this.gunnery.active) this.gunnery.leave();
-        else if (this.nearHelm()) this.takeHelm();
+        else if (this.nearGangwayTop()) this.goAshore();
+        else if (this.nearGangwayFoot()) this.boardShip();
+        else if (this.onShore) {
+          const jet = this.jets.nearby(this.shorePlayer.body.translation());
+          if (jet) this.jets.enter(jet);
+        } else if (this.nearHelm()) this.takeHelm();
         else {
           const gun = this.gunnery.nearby();
           if (gun) this.gunnery.man(gun);
@@ -330,7 +420,13 @@ class Game {
   }
 
   promptText() {
-    if (this.health.dead || this.atHelm || this.gunnery.active) return null;
+    if (this.health.dead || this.atHelm || this.gunnery.active || this.flying) return null;
+    if (this.nearGangwayTop()) return '<kbd>E</kbd> Go ashore';
+    if (this.nearGangwayFoot()) return '<kbd>E</kbd> Board the ship';
+    if (this.onShore) {
+      const jet = this.jets.nearby(this.shorePlayer.body.translation());
+      if (jet) return '<kbd>E</kbd> Fly the jet';
+    }
     if (this.nearHelm()) return '<kbd>E</kbd> Take the helm';
     const gun = this.gunnery.nearby();
     if (gun) return `<kbd>E</kbd> Man the ${gun.name}`;
@@ -348,16 +444,26 @@ class Game {
     const steer = this.atHelm ? (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0) : 0;
     this.ship.update(dt, this.ocean, steer);
 
-    const keys = this.locked && !this.health.dead && !this.atHelm && !this.gunnery.active ? k : new Set();
+    const alive = this.locked && !this.health.dead;
+    const walking = alive && !this.atHelm && !this.gunnery.active && !this.flying;
+    const keys = walking ? k : new Set();
     const steps = Math.min(Math.max(Math.ceil(dt / (1 / 60) - 0.01), 1), 4);
     const sub = dt / steps;
     for (let i = 0; i < steps; i++) {
-      this.player.update(sub, keys);
+      // the jets fly in world space; sub-stepped for stable flight at low frame rates
+      this.jets.update(sub, alive ? k : new Set(), this.jetTrigger && alive);
+      if (!this.onShore) this.shipPlayer.update(sub, keys);
       this.npcs.update(sub);
-      this.health.checkImpacts();
+      if (!this.onShore) this.health.checkImpacts();
       this.world.timestep = sub;
       this.world.step();
+      if (this.onShore && !this.flying) this.shorePlayer.update(sub, keys);
+      this.portWorld.timestep = sub;
+      this.portWorld.step();
     }
+    this.portSandbox.sync();
+    this.port.update(dt, this.ship.time);
+    this.port.updateGangway(this.frame.localToWorld(this.gangwayTop()), this.ship.moored);
     this.health.update(dt);
     this.hud.frame(dt);
     this.sandbox.sync();
@@ -367,20 +473,37 @@ class Game {
     this.gunnery.update(dt);
 
     const pt = this.player.body.translation();
-    if (!this.health.dead && pt.y < DECK - 3.5) this.overboard();
-
-    // camera: player's eye (or the gun sight) in the ship frame, carried by the ship
-    if (this.gunnery.active && !this.health.dead) this.gunnery.cameraPose(this.eye);
-    else this.player.applyCamera(this.eye);
-    if (this.shake > 0) {
-      this.shake = Math.max(this.shake - dt * 3, 0);
-      const s = this.shake * 0.03;
-      this.eye.rotation.x += (Math.random() - 0.5) * s;
-      this.eye.rotation.y += (Math.random() - 0.5) * s;
+    if (!this.health.dead && !this.flying) {
+      if (!this.onShore && pt.y < DECK - 3.5) this.overboard();
+      if (this.onShore && pt.y < LAND_Y - 3) {
+        this.sfx.play('splash');
+        this.hud.toast('Fell in the harbour!', 0xff8a6a);
+        this.health.damage(20, 'overboard');
+        if (!this.health.dead) this.shorePlayer.body.setTranslation({ x: GANGWAY_FOOT.x + 3, y: LAND_Y + 1, z: GANGWAY_FOOT.z }, true);
+      }
     }
-    this.eye.updateMatrix();
-    this.camera.position.copy(this.frame.localToWorld(this.eye.position.clone()));
-    this.camera.quaternion.copy(this.frame.quaternion).multiply(this.eye.quaternion);
+
+    if (this.flying) {
+      this.jets.cameraPose(this.camera, dt);
+    } else {
+      // camera: player's eye (or the gun sight); aboard it's in the ship frame and carried by the ship
+      if (this.gunnery.active && !this.health.dead) this.gunnery.cameraPose(this.eye);
+      else this.player.applyCamera(this.eye);
+      if (this.shake > 0) {
+        this.shake = Math.max(this.shake - dt * 3, 0);
+        const s = this.shake * 0.03;
+        this.eye.rotation.x += (Math.random() - 0.5) * s;
+        this.eye.rotation.y += (Math.random() - 0.5) * s;
+      }
+      this.eye.updateMatrix();
+      if (this.onShore) {
+        this.camera.position.copy(this.eye.position);
+        this.camera.quaternion.copy(this.eye.quaternion);
+      } else {
+        this.camera.position.copy(this.frame.localToWorld(this.eye.position.clone()));
+        this.camera.quaternion.copy(this.frame.quaternion).multiply(this.eye.quaternion);
+      }
+    }
     this.camera.updateMatrixWorld();
 
     this.sky.position.copy(this.camera.position);
@@ -390,10 +513,13 @@ class Game {
     this.sun.target.position.copy(cp);
 
     // HUD
-    const viewYaw = this.ship.heading + (this.gunnery.active ? this.gunnery.gun.yaw.rotation.y : this.player.yaw);
+    const viewYaw = this.flying ? this.jets.active.heading
+      : this.onShore ? this.player.yaw
+        : this.ship.heading + (this.gunnery.active ? this.gunnery.gun.yaw.rotation.y : this.player.yaw);
     this.hud.setHeading(THREE.MathUtils.radToDeg(-viewYaw));
     if (this.atHelm) this.hud.setShip(this.ship, Ship.SPEEDS);
     if (this.gunnery.active) this.hud.setGun(this.gunnery.gun);
+    if (this.flying) this.hud.setFlight(this.jets.active, this.camera);
     this.hud.setPrompt(this.promptText());
     this.sfx.setEngine(this.started, 0.15 + Math.abs(this.ship.speed) / 22);
     this.sfx.setOcean(this.started, 0.6 + Math.abs(this.ship.speed) / 20);
@@ -401,7 +527,7 @@ class Game {
     const r = this.renderer;
     r.autoClear = true;
     r.render(this.scene, this.camera);
-    const showArm = !this.atHelm && !this.gunnery.active && !this.health.dead;
+    const showArm = !this.atHelm && !this.gunnery.active && !this.health.dead && !this.flying;
     this.viewmodel.update(dt, this.player, this.mouseDX, this.mouseDY, false);
     this.mouseDX = this.mouseDY = 0;
     if (showArm) {

@@ -9,10 +9,10 @@ const mats = (o) => (Array.isArray(o.material) ? o.material : [o.material]);
 
 // Owns every physics prop in the world, the static level geometry, and welds.
 export class Sandbox {
-  constructor(game) {
+  constructor(game, opts = {}) {
     this.game = game;
-    this.world = game.world;
-    this.scene = game.scene;
+    this.world = opts.world || game.world;
+    this.scene = opts.scene || game.scene;
     this.props = new Set();
     this.byCollider = new Map(); // collider handle -> prop
     this.history = []; // spawn order, for undo

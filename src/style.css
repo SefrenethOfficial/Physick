@@ -186,3 +186,21 @@ kbd {
   background: rgba(12,13,15,.6); border-radius: 4px; }
 .holding.on { display: block; }
 .holding b { color: #ffd166; }
+
+/* ---------------- flight ---------------- */
+.flight { position: absolute; right: 16px; bottom: 18px; width: 230px; display: none; gap: 6px; padding: 12px;
+  background: rgba(8,20,14,.62); border: 3px solid var(--ink); border-radius: 5px; font-size: 13px; color: #8dffb4; }
+.flight.on { display: grid; }
+.flight .row { display: flex; justify-content: space-between; align-items: baseline; }
+.flight .row span { opacity: .7; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; }
+.flight .row b { font-size: 17px; font-variant-numeric: tabular-nums; }
+.thrbar { height: 8px; background: rgba(141,255,180,.15); border-radius: 2px; overflow: hidden; }
+.thrbar i { display: block; height: 100%; background: #8dffb4; }
+.thrbar i.ab { background: #ffb060; }
+.fpm { position: absolute; left: -11px; top: -11px; width: 22px; height: 22px; display: none; border: 2px solid #8dffb4; border-radius: 50%; }
+.fpm::before, .fpm::after { content: ''; position: absolute; top: 8px; width: 10px; height: 2px; background: #8dffb4; }
+.fpm::before { left: -12px; } .fpm::after { right: -12px; }
+#hud.flying .crosshair { display: none; }
+.warn { position: absolute; left: 50%; top: 28%; transform: translateX(-50%); display: none; padding: 4px 14px; font-weight: 700; font-size: 26px;
+  letter-spacing: .12em; color: #ff5a3a; border: 3px solid #ff5a3a; border-radius: 4px; background: rgba(0,0,0,.35); animation: pulse .5s infinite alternate; }
+.warn.on { display: block; }

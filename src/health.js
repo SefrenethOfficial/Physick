@@ -40,6 +40,7 @@ export class Health {
       fall: 'You fell too far',
       prop: 'Flattened',
       overboard: 'Lost at sea',
+      jet: 'Your jet went down',
     }[kind] || 'You died';
     g.hud.showDeath(true, msg);
     g.sfx.play('die');
@@ -48,14 +49,15 @@ export class Health {
   respawn() {
     this.dead = false;
     this.hp = this.max;
-    this.game.player.respawn();
+    if (this.game.respawnPlayer) this.game.respawnPlayer();
+    else this.game.player.respawn();
     this.game.hud.showDeath(false);
   }
 
   // Every physics sub-step while on foot: anything flying into you hurts.
   checkImpacts() {
     const g = this.game;
-    if (this.dead || g.atHelm || g.gunnery?.active) return;
+    if (this.dead || g.atHelm || g.gunnery?.active || g.onShore || g.flying) return;
     const p = g.player;
     const t = p.body.translation();
     const ignore = new Set();
