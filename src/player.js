@@ -25,7 +25,6 @@ export class Player {
     this.pitch = 0;
     this.vel = new THREE.Vector3();
     this.grounded = false;
-    this.noclip = false;
     this.spawn = spawn.clone();
     this.walkPhase = 0;
     this.speedNow = 0;
@@ -65,24 +64,6 @@ export class Player {
     if (keys.has('KeyA')) wish.sub(right);
     if (wish.lengthSq() > 0) wish.normalize();
     const sprint = keys.has('ShiftLeft') || keys.has('ShiftRight');
-
-    if (this.noclip) {
-      const camFwd = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(this.pitch, this.yaw, 0, 'YXZ'));
-      const fly = new THREE.Vector3();
-      if (keys.has('KeyW')) fly.add(camFwd);
-      if (keys.has('KeyS')) fly.sub(camFwd);
-      if (keys.has('KeyD')) fly.add(right);
-      if (keys.has('KeyA')) fly.sub(right);
-      if (keys.has('Space')) fly.y += 1;
-      if (keys.has('ControlLeft') || keys.has('KeyC')) fly.y -= 1;
-      if (fly.lengthSq() > 0) fly.normalize();
-      const sp = sprint ? 30 : 12;
-      const t = this.body.translation();
-      this.body.setNextKinematicTranslation({ x: t.x + fly.x * sp * dt, y: t.y + fly.y * sp * dt, z: t.z + fly.z * sp * dt });
-      this.vel.set(0, 0, 0);
-      this.speedNow = 0;
-      return;
-    }
 
     const vyBefore = this.vel.y;
     // What are we standing on? A moving prop carries you along with it.

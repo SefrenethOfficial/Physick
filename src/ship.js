@@ -317,7 +317,8 @@ export class Ship {
   // ------------------------------------------------------------ foredeck & afterdeck
   buildDeckFittings() {
     const M = this.M;
-    // 5-inch gun
+    // 5-inch gun: turret (yaws) + gun cradle (elevates). Mannable.
+    this.guns = [];
     const gz = -37, gy = deckY(tAt(gz));
     this.cyl(1.9, 2.1, 0.5, 0, gy, gz, M.greyDark, { collide: true, seg: 24 });
     const turret = new THREE.Group();
@@ -327,16 +328,33 @@ export class Ship {
     const nose = new THREE.Mesh(new THREE.BoxGeometry(3.0, 1.2, 1.6), M.grey);
     nose.position.set(0, 0.95, -2.3);
     nose.rotation.x = -0.55;
-    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.15, 6.4, 12), M.greyDark);
-    barrel.rotation.x = Math.PI / 2 - 0.1;
-    barrel.position.set(0, 1.05, -5.6);
+    const slot = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.9, 0.3), M.black);
+    slot.position.set(0, 1.0, -2.75);
+    turret.add(tb, nose, slot);
+    const cradle = new THREE.Group();
+    cradle.position.set(0, 1.0, -2.6);
+    const recoil = new THREE.Group(); // slides back when firing
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.16, 6.4, 12), M.greyDark);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.z = -3.0;
     const brake = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.5, 12), M.black);
-    brake.rotation.x = Math.PI / 2 - 0.1;
-    brake.position.set(0, 1.37, -8.75);
-    turret.add(tb, nose, barrel, brake);
+    brake.rotation.x = Math.PI / 2;
+    brake.position.z = -6.2;
+    const muzzle = new THREE.Object3D();
+    muzzle.position.z = -6.5;
+    recoil.add(barrel, brake, muzzle);
+    cradle.add(recoil);
+    turret.add(cradle);
     this.mesh.add(turret);
-    this.turret = turret;
     this.sb.addStaticCollider(RAPIER.ColliderDesc.cuboid(1.5, 0.8, 2.3).setTranslation(0, gy + 1.3, gz));
+    this.guns.push({
+      id: 'main', name: '5-inch gun', kind: 'shell',
+      yaw: turret, pitch: cradle, recoil, muzzle,
+      stand: new THREE.Vector3(0, gy, gz + 3.0),
+      cam: new THREE.Vector3(0, 3.9, 9.0),
+      yawCenter: 0, yawLimit: 2.1, pitchMin: -0.06, pitchMax: 1.1,
+      interval: 1.1, speed: 240, pitch0: 0.05,
+    });
 
     // forward VLS
     const vz = -28.5, vy = deckY(tAt(vz));
@@ -385,18 +403,7 @@ export class Ship {
   // ------------------------------------------------------------ superstructure
   buildSuperstructure() {
     const M = this.M;
-    // 01 level block
-    this.box(10, DECK01 - DECK, 40, 0, DECK, -2, M.grey);
-    // doors & portholes on the sides (visual)
-    for (const side of [1, -1]) {
-      for (const z of [-15, 4, 13]) this.box(0.08, 1.9, 1.0, side * 5.02, DECK, z, M.greyDark, { collide: false });
-      for (let z = -19; z < 16; z += 3.2) {
-        const p = new THREE.Mesh(new THREE.CircleGeometry(0.22, 12), M.black);
-        p.position.set(side * 5.03, DECK + 2.1, z);
-        p.rotation.y = side * Math.PI / 2;
-        this.mesh.add(p);
-      }
-    }
+    this.buildInterior();
     // hangar
     this.box(11, 5.6, 12, 0, DECK, 24, M.grey);
     const door = new THREE.Mesh(new THREE.PlaneGeometry(8, 4.6), new THREE.MeshStandardMaterial({ map: hangarTex(), roughness: 0.7 }));
@@ -436,20 +443,48 @@ export class Ship {
     }
     this.railing([new THREE.Vector3(-4.95, y, 17.9), new THREE.Vector3(4.95, y, 17.9)]);
 
-    // CIWS mounts
-    const ciws = (x, yy, z) => {
+    // CIWS mounts on the 01 deck aft. Mannable, rapid fire.
+    const ciws = (x, yy, z, id, center) => {
       this.cyl(0.6, 0.75, 0.8, x, yy, z, M.greyDark, { collide: true });
-      this.cyl(0.55, 0.55, 1.1, x, yy + 0.8, z, M.white);
+      const yaw = new THREE.Group();
+      yaw.position.set(x, yy + 0.8, z);
+      const housing = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 1.1, 16), M.white);
+      housing.position.y = 0.55;
       const dome = new THREE.Mesh(new THREE.SphereGeometry(0.55, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), M.white);
-      dome.position.set(x, yy + 1.9, z);
-      this.mesh.add(dome);
-      const gun = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.6, 8), M.black);
-      gun.rotation.x = Math.PI / 2 - 0.2;
-      gun.position.set(x, yy + 1.2, z - 1.1);
-      this.mesh.add(gun);
+      dome.position.y = 1.1;
+      const radome = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.42, 0.7, 12), M.white);
+      radome.position.set(0, 1.9, 0.15);
+      yaw.add(housing, dome, radome);
+      const pitch = new THREE.Group();
+      pitch.position.set(0, 0.45, -0.45);
+      const recoil = new THREE.Group();
+      for (let k = 0; k < 6; k++) {
+        const a = (k / 6) * Math.PI * 2;
+        const b = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.5, 6), M.black);
+        b.rotation.x = Math.PI / 2;
+        b.position.set(Math.cos(a) * 0.07, Math.sin(a) * 0.07, -0.75);
+        recoil.add(b);
+      }
+      const clamp = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.1, 10), M.black);
+      clamp.rotation.x = Math.PI / 2;
+      clamp.position.z = -1.35;
+      const muzzle = new THREE.Object3D();
+      muzzle.position.z = -1.55;
+      recoil.add(clamp, muzzle);
+      pitch.add(recoil);
+      yaw.add(pitch);
+      this.mesh.add(yaw);
+      this.guns.push({
+        id, name: 'CIWS', kind: 'bullet',
+        yaw, pitch, recoil, muzzle,
+        stand: new THREE.Vector3(x, yy, z + 1.7),
+        cam: new THREE.Vector3(0, 3.1, 3.8),
+        yawCenter: center, yawLimit: 2.0, pitchMin: -0.15, pitchMax: 1.2, // covers its own side and astern
+        interval: 0.05, speed: 650, pitch0: 0.1,
+      });
     };
-    ciws(-3, DECK + 5.6, 27);
-    ciws(3, DECK01, 15);
+    ciws(-3, DECK01, 15, 'ciwsPort', Math.PI / 2);
+    ciws(3, DECK01, 15, 'ciwsStbd', -Math.PI / 2);
 
     // boats on the 01 level between the funnels
     for (const side of [1, -1]) {
@@ -479,6 +514,135 @@ export class Ship {
       p.position.set(side * 3.0, DECK + 1.55, -22.08);
       this.mesh.add(p);
     }
+  }
+
+  // ------------------------------------------------------------ interior (01 level)
+  // The block between the main deck and the 01 deck is hollow: a doorway on each side opens
+  // into a cross passage, with the crew mess forward and the storeroom aft.
+  buildInterior() {
+    const M = this.M;
+    const inner = new THREE.MeshStandardMaterial({ color: 0xdfe2dc, roughness: 0.8 });
+    const lino = new THREE.MeshStandardMaterial({ map: canvasTex(128, 128, (g, w) => {
+      g.fillStyle = '#7d8a96'; g.fillRect(0, 0, w, w);
+      g.fillStyle = '#6f7c88'; g.fillRect(0, 0, w / 2, w / 2); g.fillRect(w / 2, w / 2, w / 2, w / 2);
+      g.strokeStyle = 'rgba(0,0,0,.2)'; g.strokeRect(0, 0, w, w);
+    }, [10, 40]), roughness: 0.6 });
+    const H = DECK01 - DECK - 0.3; // clear height inside
+    const x0 = -5, x1 = 5, z0 = -22, z1 = 18;
+    // wall with exterior paint on one face and interior paint on the rest
+    const wall = (w, h, d, x, y, z, extFace) => {
+      const mats = [inner, inner, inner, inner, inner, inner];
+      if (extFace != null) mats[extFace] = M.grey;
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mats);
+      m.position.set(x, y + h / 2, z);
+      this.mesh.add(m);
+      this.sb.addStaticCollider(RAPIER.ColliderDesc.cuboid(w / 2, h / 2, d / 2).setTranslation(x, y + h / 2, z));
+      return m;
+    };
+    // roof (= 01 deck), painted grey on top, white underneath
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(10, 0.3, 40), [M.grey, M.grey, M.grey, inner, M.grey, M.grey]);
+    roof.position.set(0, DECK01 - 0.15, -2);
+    this.mesh.add(roof);
+    this.sb.addStaticCollider(RAPIER.ColliderDesc.cuboid(5, 0.15, 20).setTranslation(0, DECK01 - 0.15, -2));
+    // floor
+    const fl = new THREE.Mesh(new THREE.PlaneGeometry(9.8, 39.8), lino);
+    fl.rotation.x = -Math.PI / 2;
+    fl.position.set(0, DECK + 0.02, -2);
+    this.mesh.add(fl);
+    // front and back walls
+    wall(10, H, 0.2, 0, DECK, z0 + 0.1, 5);
+    wall(10, H, 0.2, 0, DECK, z1 - 0.1, 4);
+    // side walls with a doorway at z 3.4..4.6
+    const dz0 = 3.4, dz1 = 4.6, dh = 2.15;
+    for (const side of [1, -1]) {
+      const x = side * (x1 - 0.1), ext = side > 0 ? 0 : 1;
+      wall(0.2, H, dz0 - z0, x, DECK, (z0 + dz0) / 2, ext);
+      wall(0.2, H, z1 - dz1, x, DECK, (dz1 + z1) / 2, ext);
+      wall(0.2, H - dh, dz1 - dz0, x, DECK + dh, (dz0 + dz1) / 2, ext);
+      // door frame + sign
+      for (const z of [dz0 - 0.06, dz1 + 0.06]) this.box(0.3, dh, 0.12, x, DECK, z, M.greyDark, { collide: false });
+      this.box(0.3, 0.12, 1.36, x, DECK + dh, 4, M.greyDark, { collide: false });
+      for (let z = -19; z < 16; z += 3.2) {
+        if (Math.abs(z - 4) < 1.5) continue;
+        const p = new THREE.Mesh(new THREE.CircleGeometry(0.22, 12), M.black);
+        p.position.set(side * 5.01, DECK + 1.9, z);
+        p.rotation.y = side * Math.PI / 2;
+        this.mesh.add(p);
+      }
+    }
+    // partitions either side of the cross passage, each with a centre doorway
+    for (const z of [2.6, 5.4]) {
+      wall(4.3, H, 0.15, -2.85, DECK, z);
+      wall(4.3, H, 0.15, 2.85, DECK, z);
+      wall(1.4, H - dh, 0.15, 0, DECK + dh, z);
+    }
+    // ceiling lights
+    const lampM = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff6e8, emissiveIntensity: 1.2 });
+    for (const z of [-17, -11, -5, 0, 4, 8, 12.5, 16]) {
+      const l = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.05, 0.3), lampM);
+      l.position.set(0, DECK01 - 0.33, z);
+      this.mesh.add(l);
+    }
+    for (const [z, i] of [[-9, 18], [11.5, 18], [4, 8]]) {
+      const pl = new THREE.PointLight(0xfff3e2, i, 16, 1.4);
+      pl.position.set(0, DECK01 - 0.6, z);
+      this.mesh.add(pl);
+    }
+    // signs over the inner doorways
+    const sign = (text, z, flip) => {
+      const t = canvasTex(256, 64, (g, w, h) => {
+        g.fillStyle = '#1f3b63'; g.fillRect(0, 0, w, h);
+        g.fillStyle = '#f2f2ee'; g.font = 'bold 34px "Chakra Petch", Arial'; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText(text, w / 2, h / 2 + 2);
+      });
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.32), new THREE.MeshStandardMaterial({ map: t, roughness: 0.6 }));
+      m.position.set(0, DECK + dh + 0.25, z);
+      if (flip) m.rotation.y = Math.PI;
+      this.mesh.add(m);
+    };
+    sign('CREW MESS', 2.6 + 0.09, false);
+    sign('STORES', 5.4 - 0.09, true);
+
+    // ---- storeroom (aft): shelving along both sides, a double rack down the middle, lockers ----
+    this.storeSpots = [];
+    const shelfM = new THREE.MeshStandardMaterial({ color: 0x8f979e, roughness: 0.5, metalness: 0.4 });
+    const rack = (x, zc, len, depth) => {
+      for (const zz of [zc - len / 2 + 0.05, zc + len / 2 - 0.05]) for (const xx of [x - depth / 2 + 0.03, x + depth / 2 - 0.03]) {
+        this.box(0.05, 2.3, 0.05, xx, DECK, zz, shelfM, { collide: false });
+      }
+      for (const h of [0.12, 0.85, 1.55, 2.25]) {
+        this.box(depth, 0.04, len, x, DECK + h, zc, shelfM);
+        if (h < 2) for (let k = 0; k < Math.floor(len / 0.75); k++) {
+          this.storeSpots.push(new THREE.Vector3(x + (Math.random() - 0.5) * depth * 0.4, DECK + h + 0.3, zc - len / 2 + 0.45 + k * 0.75));
+        }
+      }
+    };
+    rack(4.35, 9.0, 4.4, 0.75);
+    rack(4.35, 14.2, 4.4, 0.75);
+    rack(-4.35, 9.0, 4.4, 0.75);
+    rack(-4.35, 14.2, 4.4, 0.75);
+    rack(0, 11.4, 5.2, 1.0);
+    for (let k = 0; k < 6; k++) {
+      const x = -2.6 + k * 1.05;
+      if (Math.abs(x) < 0.5) continue;
+      const lk = this.box(0.95, 2.0, 0.55, x, DECK, 17.45, new THREE.MeshStandardMaterial({ color: 0x5f6f7f, roughness: 0.5, metalness: 0.3 }));
+      void lk;
+    }
+
+    // ---- crew mess (forward): tables, benches, galley counter ----
+    this.messSpots = [];
+    const tableM = new THREE.MeshStandardMaterial({ color: 0xb7bcc1, roughness: 0.4, metalness: 0.4 });
+    const benchM = new THREE.MeshStandardMaterial({ color: 0x2f4f7a, roughness: 0.7 });
+    for (const z of [-5.5, -10.5, -15.5]) {
+      for (const x of [-2.4, 2.4]) {
+        this.box(1.0, 0.76, 2.6, x, DECK, z, tableM);
+        for (const bx of [x - 0.85, x + 0.85]) this.box(0.4, 0.45, 2.6, bx, DECK, z, benchM);
+        this.messSpots.push(new THREE.Vector3(x + (Math.random() - 0.5) * 0.4, DECK + 1.0, z + (Math.random() - 0.5) * 1.6));
+      }
+    }
+    this.box(9.0, 0.95, 0.75, 0, DECK, -21.35, new THREE.MeshStandardMaterial({ color: 0x9ea6ad, roughness: 0.4, metalness: 0.6 }));
+    this.box(0.5, 0.6, 0.45, -3.2, DECK + 0.95, -21.4, M.black); // coffee machine
+    this.messSpots.push(new THREE.Vector3(-2.4, DECK + 1.2, -21.3), new THREE.Vector3(1.5, DECK + 1.2, -21.3));
   }
 
   // ------------------------------------------------------------ bridge (walk-in)

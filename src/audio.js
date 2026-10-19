@@ -78,6 +78,10 @@ export class Sfx {
       case 'shipHorn':
         this.tone('sawtooth', 98, 96, 2.2, 0.32); this.tone('sawtooth', 147, 145, 2.2, 0.22); this.tone('sine', 49, 49, 2.2, 0.4);
         break;
+      case 'bigGun': this.noise(0.6, 0.9, 260, 0.5); this.tone('sine', 90, 30, 0.7, 0.8); this.noise(0.15, 0.5, 2000, 0.6); break;
+      case 'ciws': this.noise(0.04, 0.35, 1800, 0.9); this.tone('square', 160, 120, 0.03, 0.12); break;
+      case 'splashFar': this.noise(0.6, 0.18, 500, 0.5, 0.25); break;
+      case 'explosion': this.noise(1.2, 0.9, 180, 0.4); this.tone('sine', 70, 25, 1.0, 0.7); break;
       case 'engineStart': this.tone('sawtooth', 50, 140, 0.4, 0.25); this.noise(0.3, 0.3, 400, 1); break;
     }
   }

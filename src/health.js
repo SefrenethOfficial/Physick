@@ -26,11 +26,16 @@ export class Health {
     if (this.hp <= 0) this.die(kind);
   }
 
+  heal(n) {
+    this.hp = Math.min(this.max, this.hp + n);
+  }
+
   die(kind) {
     this.dead = true;
     this.deadT = 3;
     const g = this.game;
     g.leaveHelm?.();
+    g.gunnery?.leave();
     const msg = {
       fall: 'You fell too far',
       prop: 'Flattened',
@@ -50,7 +55,7 @@ export class Health {
   // Every physics sub-step while on foot: anything flying into you hurts.
   checkImpacts() {
     const g = this.game;
-    if (this.dead || g.atHelm || g.player.noclip) return;
+    if (this.dead || g.atHelm || g.gunnery?.active) return;
     const p = g.player;
     const t = p.body.translation();
     const ignore = new Set();

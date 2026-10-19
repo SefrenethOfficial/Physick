@@ -9,6 +9,10 @@ import { Npcs } from './npcs.js';
 import { Health } from './health.js';
 import { Ocean } from './ocean.js';
 import { Ship, HELM, DECK } from './ship.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { Viewmodel } from './viewmodel.js';
+import { ITEMS } from './items.js';
+import { Gunnery } from './guns.js';
 
 const FOV = 75;
 const SKY_TOP = 0x4a83c4;
@@ -25,6 +29,10 @@ class Game {
     this.started = false;
     this.atHelm = false;
     this.heldProp = null;
+    this.held = null; // item def carried in the robot arm
+    this.mouseDX = 0;
+    this.mouseDY = 0;
+    this.shake = 0;
     this.events = { on() {}, emit() {} }; // sandbox hooks (no listeners needed here)
   }
 
@@ -64,11 +72,20 @@ class Game {
     this.ship = new Ship(this);
     this.world.step(); // scene queries only see new colliders after a step
 
+    loadingEl.textContent = 'Loading robot arm…';
+    const gltf = await new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}assets/robotic_arm.glb`, (e) => {
+      if (e.total) loadingEl.textContent = `Loading robot arm… ${Math.round((e.loaded / e.total) * 100)}%`;
+    });
+    this.viewmodel = new Viewmodel(gltf.scene, FOV);
+    this.viewmodel.setColor(0x7fd3ff);
+
     this.player = new Player(this, new THREE.Vector3(0, DECK + 1.3, 44));
     this.health = new Health(this);
     this.hud = new Hud(this);
     this.npcs = new Npcs(this);
     this.npcs.populate();
+    this.gunnery = new Gunnery(this);
+    this.stockStores();
     this.eye = new THREE.Object3D(); // camera pose in the ship frame
 
     this.bindInput();
@@ -139,7 +156,7 @@ class Game {
     this.player.body.setTranslation({ x: 0, y: t.y, z: HELM.z + 1.15 }, true);
     this.player.yaw = 0;
     this.player.pitch = -0.08;
-    this.hud.setHelm(true);
+    this.hud.setMode('helm');
     this.hud.toast('You have the conn');
     this.sfx.play('select');
   }
@@ -147,7 +164,86 @@ class Game {
   leaveHelm() {
     if (!this.atHelm) return;
     this.atHelm = false;
-    this.hud.setHelm(false);
+    this.hud.setMode('deck');
+  }
+
+  // ---------- stores & the robot arm ----------
+  stockStores() {
+    const sb = this.sandbox;
+    const pick = (a) => a[Math.floor(Math.random() * a.length)];
+    const shelfItems = ITEMS.filter((i) => i.id !== 'mug');
+    const spots = [...this.ship.storeSpots].sort(() => Math.random() - 0.5);
+    spots.slice(0, Math.min(spots.length, 30)).forEach((p) => {
+      const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * 0.6 - 0.3 + (Math.abs(p.x) > 1 ? Math.PI / 2 : 0));
+      sb.spawn(pick(shelfItems), p, q, { noHistory: true });
+    });
+    const mug = ITEMS.find((i) => i.id === 'mug'), rations = ITEMS.find((i) => i.id === 'rations');
+    this.ship.messSpots.forEach((p, i) => sb.spawn(i % 3 === 2 ? rations : mug, p, new THREE.Quaternion(), { noHistory: true }));
+  }
+
+  lookDir() {
+    return new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(this.player.pitch, this.player.yaw, 0, 'YXZ'));
+  }
+
+  lookHit(max = 2.6) {
+    return this.sandbox.raycast(this.player.eye, this.lookDir(), max, this.player.collider);
+  }
+
+  pickUp() {
+    const hit = this.lookHit();
+    if (!hit?.prop?.def.item) return false;
+    const def = hit.prop.def;
+    this.sandbox.remove(hit.prop);
+    this.held = def;
+    this.viewmodel.setHeld(def.build().mesh);
+    this.hud.setHolding(def.name);
+    this.sfx.play('grab');
+    return true;
+  }
+
+  // Put the held item down where you're looking (or just in front of you), or throw it.
+  release(throwIt) {
+    const def = this.held;
+    if (!def) return;
+    const eye = this.player.eye, dir = this.lookDir();
+    const hit = this.sandbox.raycast(eye, dir, throwIt ? 1.0 : 2.4, this.player.collider);
+    let pos;
+    if (hit) pos = hit.point.clone().addScaledVector(hit.normal, def.radius * 0.7).addScaledVector(dir, -0.05);
+    else pos = eye.clone().addScaledVector(dir, throwIt ? 0.9 : 1.3);
+    const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.player.yaw);
+    const prop = this.sandbox.spawn(def, pos, q, { noHistory: true });
+    if (throwIt) {
+      const v = dir.multiplyScalar(13).add(this.player.vel);
+      prop.body.setLinvel(v, true);
+      prop.body.setAngvel({ x: (Math.random() - 0.5) * 6, y: (Math.random() - 0.5) * 6, z: (Math.random() - 0.5) * 6 }, true);
+      this.viewmodel.kick(0.8);
+      this.sfx.play('drop');
+    } else {
+      this.sfx.play('drop');
+    }
+    this.held = null;
+    this.viewmodel.setHeld(null);
+    this.hud.setHolding(null);
+  }
+
+  useHeld() {
+    const def = this.held;
+    if (!def) return;
+    if (def.use === 'heal') {
+      if (this.health.hp >= this.health.max) { this.hud.toast('Already at full health'); return; }
+      this.health.heal(50);
+      this.hud.toast('Patched up (+50)', 0x7be08a);
+      this.sfx.play('freeze');
+      this.held = null;
+      this.viewmodel.setHeld(null);
+      this.hud.setHolding(null);
+    } else if (def.use === 'coffee') {
+      this.health.heal(10);
+      this.hud.toast('Navy coffee. Strong. (+10)', 0xc8a24a);
+      this.sfx.play('select');
+    } else {
+      this.hud.toast(`Can't use the ${def.name.toLowerCase()}`);
+    }
   }
 
   overboard() {
@@ -180,7 +276,20 @@ class Game {
     addEventListener('mousemove', (e) => {
       if (!this.locked) return;
       if (Math.abs(e.movementX) > 400 || Math.abs(e.movementY) > 400) return;
-      this.player.look(e.movementX, e.movementY);
+      this.mouseDX += e.movementX;
+      this.mouseDY += e.movementY;
+      if (this.gunnery.active) this.gunnery.aim(e.movementX, e.movementY);
+      else this.player.look(e.movementX, e.movementY);
+    });
+    addEventListener('mousedown', (e) => {
+      if (!this.locked || this.health.dead) return;
+      if (this.gunnery.active) { if (e.button === 0) this.gunnery.trigger = true; return; }
+      if (this.atHelm) return;
+      if (e.button === 0) { if (this.held) this.release(false); else this.pickUp(); }
+      if (e.button === 2 && this.held) this.release(true);
+    });
+    addEventListener('mouseup', (e) => {
+      if (e.button === 0 && this.gunnery.gun?.kind === 'bullet') this.gunnery.trigger = false;
     });
     addEventListener('contextmenu', (e) => e.preventDefault());
     addEventListener('keydown', (e) => {
@@ -190,19 +299,21 @@ class Game {
       if (this.health.dead) return;
       if (e.code === 'KeyE') {
         if (this.atHelm) this.leaveHelm();
+        else if (this.gunnery.active) this.gunnery.leave();
         else if (this.nearHelm()) this.takeHelm();
+        else {
+          const gun = this.gunnery.nearby();
+          if (gun) this.gunnery.man(gun);
+        }
         return;
       }
+      if (this.gunnery.active) return;
+      if (e.code === 'KeyF') { this.useHeld(); return; }
       if (this.atHelm) {
         if (e.code === 'KeyW' || e.code === 'ArrowUp') { this.ship.telegraphUp(); this.sfx.play('telegraph'); }
         if (e.code === 'KeyS' || e.code === 'ArrowDown') { this.ship.telegraphDown(); this.sfx.play('telegraph'); }
-        if (e.code === 'KeyH') { this.sfx.play('shipHorn'); this.npcs.alarm(this.player.body.translation(), 4); }
+        if (e.code === 'KeyH') this.sfx.play('shipHorn');
         return;
-      }
-      if (e.code === 'KeyV') {
-        this.player.noclip = !this.player.noclip;
-        this.hud.setNoclip(this.player.noclip);
-        this.hud.toast(this.player.noclip ? 'Noclip on' : 'Noclip off');
       }
     });
     addEventListener('keyup', (e) => this.keys.delete(e.code));
@@ -213,8 +324,20 @@ class Game {
     const w = innerWidth, h = innerHeight;
     this.renderer.setSize(w, h, false);
     this.effects.setPixelRatio(this.renderer.getPixelRatio());
+    this.viewmodel.resize(w / h, FOV);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+  }
+
+  promptText() {
+    if (this.health.dead || this.atHelm || this.gunnery.active) return null;
+    if (this.nearHelm()) return '<kbd>E</kbd> Take the helm';
+    const gun = this.gunnery.nearby();
+    if (gun) return `<kbd>E</kbd> Man the ${gun.name}`;
+    if (this.held) return null;
+    const hit = this.lookHit();
+    if (hit?.prop?.def.item) return `<kbd>LMB</kbd> Pick up ${hit.prop.def.name}`;
+    return null;
   }
 
   // ---------- loop ----------
@@ -225,7 +348,7 @@ class Game {
     const steer = this.atHelm ? (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0) : 0;
     this.ship.update(dt, this.ocean, steer);
 
-    const keys = this.locked && !this.health.dead && !this.atHelm ? k : new Set();
+    const keys = this.locked && !this.health.dead && !this.atHelm && !this.gunnery.active ? k : new Set();
     const steps = Math.min(Math.max(Math.ceil(dt / (1 / 60) - 0.01), 1), 4);
     const sub = dt / steps;
     for (let i = 0; i < steps; i++) {
@@ -241,12 +364,20 @@ class Game {
     this.sandbox.cleanup();
     this.npcs.frame(dt);
     this.effects.update(dt);
+    this.gunnery.update(dt);
 
     const pt = this.player.body.translation();
-    if (!this.player.noclip && !this.health.dead && pt.y < DECK - 3.5) this.overboard();
+    if (!this.health.dead && pt.y < DECK - 3.5) this.overboard();
 
-    // camera: player's eye in the ship frame, carried by the ship
-    this.player.applyCamera(this.eye);
+    // camera: player's eye (or the gun sight) in the ship frame, carried by the ship
+    if (this.gunnery.active && !this.health.dead) this.gunnery.cameraPose(this.eye);
+    else this.player.applyCamera(this.eye);
+    if (this.shake > 0) {
+      this.shake = Math.max(this.shake - dt * 3, 0);
+      const s = this.shake * 0.03;
+      this.eye.rotation.x += (Math.random() - 0.5) * s;
+      this.eye.rotation.y += (Math.random() - 0.5) * s;
+    }
     this.eye.updateMatrix();
     this.camera.position.copy(this.frame.localToWorld(this.eye.position.clone()));
     this.camera.quaternion.copy(this.frame.quaternion).multiply(this.eye.quaternion);
@@ -259,14 +390,25 @@ class Game {
     this.sun.target.position.copy(cp);
 
     // HUD
-    const viewYaw = this.ship.heading + this.player.yaw;
+    const viewYaw = this.ship.heading + (this.gunnery.active ? this.gunnery.gun.yaw.rotation.y : this.player.yaw);
     this.hud.setHeading(THREE.MathUtils.radToDeg(-viewYaw));
     if (this.atHelm) this.hud.setShip(this.ship, Ship.SPEEDS);
-    this.hud.setPrompt(!this.atHelm && !this.health.dead && this.nearHelm() ? '<kbd>E</kbd> Take the helm' : null);
+    if (this.gunnery.active) this.hud.setGun(this.gunnery.gun);
+    this.hud.setPrompt(this.promptText());
     this.sfx.setEngine(this.started, 0.15 + Math.abs(this.ship.speed) / 22);
     this.sfx.setOcean(this.started, 0.6 + Math.abs(this.ship.speed) / 20);
 
-    this.renderer.render(this.scene, this.camera);
+    const r = this.renderer;
+    r.autoClear = true;
+    r.render(this.scene, this.camera);
+    const showArm = !this.atHelm && !this.gunnery.active && !this.health.dead;
+    this.viewmodel.update(dt, this.player, this.mouseDX, this.mouseDY, false);
+    this.mouseDX = this.mouseDY = 0;
+    if (showArm) {
+      r.autoClear = false;
+      r.clearDepth();
+      r.render(this.viewmodel.scene, this.viewmodel.camera);
+    }
 
     this.fpsAcc += dt; this.fpsFrames++;
     if (this.fpsAcc > 0.5) {

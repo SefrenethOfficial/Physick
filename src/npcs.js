@@ -124,7 +124,6 @@ export class Npcs {
       v.y += 1.5;
       this.knockOver(npc, v);
     } else {
-      this.scare(npc, point.clone().sub(dir.clone().multiplyScalar(20)), 5);
       this.game.sfx.play('ouch');
     }
   }
@@ -180,7 +179,7 @@ export class Npcs {
     this.game.sfx.play('thud');
     this.game.effects.sparks(rd.torso.mesh.position, new THREE.Vector3(0, 1, 0), 0xffffff, 10, 2.5, 0.6);
     // Everyone nearby panics.
-    this.alarm(rd.torso.mesh.position, 14);
+    // (crew nearby keep calm; nobody runs)
     return rd;
   }
 
@@ -217,11 +216,9 @@ export class Npcs {
         this.knockOver(npc, v, 4 + worst.speed * 0.3);
         continue;
       }
-      if (worst && worst.speed > 2) this.scare(npc, worst.prop.body.translation(), 3);
-
-      // Step aside for someone sprinting at them.
+      // When you come up to a sailor they stop what they're doing and look at you.
       const pd = Math.hypot(t.x - pp.x, t.z - pp.z);
-      if (pd < 2.2 && g.player.speedNow > 7.5 && npc.fear <= 0) this.scare(npc, pp, 1);
+      const facePlayer = pd < 2.6 && Math.abs(t.y - pp.y) < 1.5 && npc.fear <= 0;
 
       // --- decide where to go ---
       let want = null;
@@ -234,6 +231,9 @@ export class Npcs {
         if (Math.abs(t.x) > deckHalfWidth(t.z) - 1.5) want.x -= Math.sign(t.x) * 2;
         want.normalize();
         speed = 4.8;
+      } else if (facePlayer) {
+        want = new THREE.Vector3(pp.x - t.x, 0, pp.z - t.z).normalize();
+        npc.idle = Math.max(npc.idle, 1.5);
       } else if (npc.idle > 0) {
         npc.idle -= dt;
       } else {
