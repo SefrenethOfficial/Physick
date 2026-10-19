@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Physick</title>
+    <link rel="icon" type="image/svg+xml" href="./assets/physick-logo.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <div id="hud"></div>
+
+    <div id="spawnmenu" class="hidden">
+      <div class="panel">
+        <div class="menu-head">
+          <h2>Spawn</h2>
+          <span>Click to spawn · Shift+click to spawn several · Q to close</span>
+        </div>
+        <div class="grid"></div>
+        <div class="menu-foot">
+          <button id="btn-clear">Clear all props</button>
+          <button id="btn-reset">Reset map</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="overlay">
+      <div class="card">
+        <img class="logo" src="./assets/physick-logo.svg" alt="Physick" />
+        <div class="loading" id="loading">Loading…</div>
+        <button class="play" disabled>Click to play</button>
+        <div class="controls">
+          <div><kbd>W A S D</kbd> move</div>
+          <div><kbd>Space</kbd> jump · <kbd>Shift</kbd> sprint</div>
+          <div><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> / wheel switch mode</div>
+          <div><kbd>Q</kbd> spawn menu · <kbd>Z</kbd> undo</div>
+          <div><kbd>V</kbd> noclip · <kbd>Esc</kbd> pause</div>
+        </div>
+        <div class="modes-intro">
+          <div style="--c:#ff5a36"><b>Gunner</b> Blast props around, launch cannonballs.</div>
+          <div style="--c:#ffc928"><b>Weld</b> Click two props to stick them together.</div>
+          <div style="--c:#39a7ff"><b>Move</b> Grab, carry, spin and freeze anything.</div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
