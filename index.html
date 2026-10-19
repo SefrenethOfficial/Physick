@@ -48,6 +48,13 @@
       </div>
     </div>
 
+    <script>
+      // If the game script can't load at all, say so instead of sitting on "Loading…" forever.
+      addEventListener('error', (e) => {
+        const el = document.getElementById('loading');
+        if (el && !window.physick) el.textContent = 'Failed to start: ' + (e.message || 'a file could not be loaded');
+      });
+    </script>
     <script type="module" src="./src/main.js"></script>
   </body>
 </html>
