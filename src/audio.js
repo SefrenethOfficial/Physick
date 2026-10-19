@@ -65,6 +65,39 @@ export class Sfx {
       case 'switch': this.tone('square', 520, 520, 0.04, 0.12); this.tone('square', 780, 780, 0.04, 0.1, 0.05); break;
       case 'spawn': this.tone('sine', 400, 900, 0.1, 0.3); this.noise(0.06, 0.15, 1200, 1); break;
       case 'error': this.tone('square', 180, 140, 0.15, 0.15); break;
+      case 'hurt': this.noise(0.12, 0.4, 300, 0.8); this.tone('square', 160, 90, 0.12, 0.2); break;
+      case 'hurtBig': this.noise(0.25, 0.6, 220, 0.7); this.tone('square', 140, 50, 0.25, 0.3); break;
+      case 'die': this.tone('sawtooth', 300, 40, 1.2, 0.3); this.noise(0.5, 0.4, 200, 0.5); break;
+      case 'thud': this.noise(0.18, 0.6, 180, 0.9); this.tone('sine', 140, 60, 0.2, 0.5); break;
+      case 'ouch': this.tone('triangle', 520 + Math.random() * 200, 300, 0.18, 0.18); break;
+      case 'honk':
+        this.tone('square', 392, 392, 0.35, 0.14); this.tone('square', 494, 494, 0.35, 0.12);
+        break;
+      case 'engineStart': this.tone('sawtooth', 50, 140, 0.4, 0.25); this.noise(0.3, 0.3, 400, 1); break;
+    }
+  }
+
+  setEngine(on, rev = 0) {
+    if (!this.ctx) return;
+    if (on && !this.engine) {
+      const o = this.ctx.createOscillator(), o2 = this.ctx.createOscillator(), g = this.ctx.createGain();
+      o.type = 'sawtooth'; o2.type = 'square';
+      const f = this.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 700;
+      g.gain.value = 0;
+      g.gain.linearRampToValueAtTime(0.07, this.ctx.currentTime + 0.2);
+      o.connect(f); o2.connect(f); f.connect(g).connect(this.master);
+      o.start(); o2.start();
+      this.engine = { o, o2, g, f };
+    } else if (!on && this.engine) {
+      const e = this.engine; this.engine = null;
+      e.g.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.2);
+      e.o.stop(this.ctx.currentTime + 0.25); e.o2.stop(this.ctx.currentTime + 0.25);
+    }
+    if (on && this.engine) {
+      const base = 38 + rev * 75;
+      this.engine.o.frequency.setTargetAtTime(base, this.ctx.currentTime, 0.08);
+      this.engine.o2.frequency.setTargetAtTime(base * 0.5, this.ctx.currentTime, 0.08);
+      this.engine.f.frequency.setTargetAtTime(500 + rev * 900, this.ctx.currentTime, 0.1);
     }
   }
 

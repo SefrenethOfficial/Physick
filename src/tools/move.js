@@ -29,7 +29,7 @@ export class Move {
 
   primaryDown() {
     const g = this.game;
-    const hit = g.aimHit();
+    const hit = g.resolveHit(g.aimHit());
     if (!hit?.prop) { g.sfx.play('error'); return; }
     const prop = hit.prop;
     if (prop.frozen) {

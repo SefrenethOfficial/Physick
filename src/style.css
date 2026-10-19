@@ -110,3 +110,36 @@ kbd {
 .menu-foot { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; }
 .menu-foot button { font: 700 13px var(--font); padding: 6px 12px; cursor: pointer; color: var(--paper); background: #3a3e44; border: 2px solid var(--ink); border-radius: 3px; }
 .menu-foot button:hover { background: #b2412a; }
+
+/* ---------------- health / damage / vehicle ---------------- */
+.health {
+  position: absolute; top: 98px; left: 14px; width: 190px; height: 22px;
+  background: rgba(10,10,12,.6); border: 3px solid var(--ink); border-radius: 3px; overflow: hidden;
+}
+.health .fill { position: absolute; inset: 0 auto 0 0; width: 100%; background: linear-gradient(#7be08a, #2e9e47); transition: width .2s; }
+.health.low .fill { background: linear-gradient(#ff7a6a, #c22a1b); animation: pulse .8s infinite alternate; }
+.health span { position: absolute; right: 8px; top: 0; font-weight: 700; font-size: 14px; line-height: 16px; color: var(--ink); text-shadow: 0 1px 0 rgba(255,255,255,.4); }
+.health.hit { animation: shake .25s; }
+@keyframes pulse { to { filter: brightness(1.4); } }
+@keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+.hurt { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(200,20,10,.65)); }
+
+.prompt {
+  position: absolute; left: 50%; top: calc(50% + 40px); transform: translateX(-50%); display: none;
+  padding: 4px 10px; font-weight: 700; font-size: 15px; background: rgba(12,13,15,.65); border-radius: 4px;
+}
+.prompt.on { display: block; }
+
+.speedo { position: absolute; right: 22px; bottom: 22px; display: none; align-items: baseline; gap: 6px; text-shadow: 0 2px 0 #000; }
+.speedo b { font-size: 46px; line-height: 1; }
+.speedo span { font-size: 16px; opacity: .8; }
+#hud.driving .speedo { display: flex; }
+#hud.driving .crosshair, #hud.driving .modebar { display: none; }
+
+.death {
+  position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(90,0,0,.35), rgba(40,0,0,.75));
+}
+.death.on { display: flex; }
+.death h2 { margin: 0; font-size: 48px; letter-spacing: .06em; text-transform: uppercase; text-shadow: 0 4px 0 #000; }
+.death p { opacity: .8; }

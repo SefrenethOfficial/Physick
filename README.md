@@ -12,10 +12,25 @@
 
 You can also switch modes with the mouse wheel (when you're not holding something) or by clicking the mode bar.
 
+## Quad bikes
+
+Walk up to a quad (or look at one) and press `E` to ride it. `W`/`S` throttle and brake/reverse, `A`/`D` steer, `Shift` boost, `Space` handbrake, mouse to look around, `H` or left-click to honk, `R` to flip it back upright, `E` to get off. There are quads in the middle of town and at the jump park on the east side. You can also spawn more from the `Q` menu.
+
+## Health and people
+
+You have 100 health. Long falls, props flying into you and crashing the quad all hurt. Health regenerates after a few seconds without damage. If you die you respawn after a moment.
+
+Townspeople wander around the map. They run from danger (gunfire, honking, a quad heading their way). Hit them with anything fast (a quad, a thrown crate, a cannonball) or shoot them enough and they go ragdoll. Ragdolls are ordinary props, so Move, Weld and freeze work on them. Grabbing or welding a person with Move/Weld ragdolls them too.
+
+## Map
+
+The original sandbox pad sits in the middle of a small town: a ring road with houses and trees around it, plus a dirt jump park east of the ring with kickers, a tabletop and a mound.
+
 ## Other controls
 
 - `W A S D` move, `Space` jump, `Shift` sprint
 - `Q` spawn menu (Shift+click to spawn several at once, plus *Clear all* and *Reset map*)
+- `E` ride a quad bike
 - `Z` undo last spawn
 - `V` noclip (fly with `Space` / `C`)
 - `Esc` pause
@@ -43,6 +58,12 @@ src/
   audio.js       synthesized sound effects
   hud.js         HUD, toasts, spawn menu, title screen
   tools/         gunner.js, weld.js, move.js
+  vehicle.js     quad bike prop + driving controls/camera
+  npcs.js        wandering townspeople and ragdolls
+  figure.js      blocky person model (NPCs, quad rider)
+  health.js      player health, damage, death/respawn
+  town.js        roads, houses, trees, jump park
+  groups.js      collision groups
 public/assets/   logo + robotic arm model
 ```
 

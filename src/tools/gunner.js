@@ -38,7 +38,9 @@ export class Gunner {
   key(code) {
     if (code === 'KeyR') {
       const hit = this.game.aimHit();
+      if (hit?.npc) { this.game.npcs.knockOver(hit.npc, new THREE.Vector3(0, 2, 0)); return true; }
       if (hit?.prop) {
+        if (hit.prop.ragdoll) { for (const p of hit.prop.ragdoll.parts) this.game.sandbox.remove(p); }
         this.game.effects.sparks(hit.point, hit.normal, 0xff5a36, 30, 5);
         this.game.sandbox.remove(hit.prop);
         this.game.hud.toast('Removed', this.color);
@@ -62,6 +64,12 @@ export class Gunner {
     g.viewmodel.kick(0.45);
     g.sfx.play('shoot');
     if (!hit) return;
+    g.npcs.alarm(hit.point, 7);
+    if (hit.npc) {
+      g.effects.sparks(hit.point, hit.normal, 0xffffff, 8, 2.5);
+      g.npcs.damage(hit.npc, 26, d, hit.point);
+      return;
+    }
     g.effects.sparks(hit.point, hit.normal, 0xffb347, 12, 4);
     if (hit.prop) {
       const p = hit.prop;

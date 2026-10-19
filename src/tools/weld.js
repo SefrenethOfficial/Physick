@@ -18,7 +18,7 @@ export class Weld {
 
   primaryDown() {
     const g = this.game;
-    const hit = g.aimHit();
+    const hit = g.resolveHit(g.aimHit());
     const muzzle = g.muzzle();
     if (!hit) { g.sfx.play('error'); return; }
     g.effects.tracer(muzzle, hit.point, this.color, 0.012);

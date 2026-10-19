@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
+import { GROUPS } from './groups.js';
 
 const _v = new THREE.Vector3();
 const _q = new THREE.Quaternion();
@@ -20,6 +21,7 @@ export class Sandbox {
     // One fixed body carries every static collider so "weld to world" has a body to attach to.
     this.staticBody = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
     this.staticColliders = new Set();
+    this.npcByCollider = new Map(); // collider handle -> living NPC
   }
 
   // ---------- static level ----------
@@ -30,7 +32,16 @@ export class Sandbox {
     colliderDesc
       .setTranslation(mesh.position.x, mesh.position.y, mesh.position.z)
       .setRotation(mesh.quaternion)
-      .setFriction(0.9);
+      .setFriction(0.9)
+      .setCollisionGroups(GROUPS.world);
+    const col = this.world.createCollider(colliderDesc, this.staticBody);
+    this.staticColliders.add(col.handle);
+    return col;
+  }
+
+  // Collider with no mesh of its own (its desc already carries its position).
+  addStaticCollider(colliderDesc) {
+    colliderDesc.setFriction(0.9).setCollisionGroups(GROUPS.world);
     const col = this.world.createCollider(colliderDesc, this.staticBody);
     this.staticColliders.add(col.handle);
     return col;
@@ -65,11 +76,15 @@ export class Sandbox {
       .setCcdEnabled(!!built.ccd);
     const body = this.world.createRigidBody(bodyDesc);
     const colliders = [];
-    for (const desc of built.colliders) {
-      desc.setFriction(built.friction ?? 0.7).setRestitution(built.restitution ?? 0.15).setDensity(built.density ?? 1);
+    built.colliders.forEach((desc, i) => {
+      desc
+        .setFriction(built.friction ?? 0.7)
+        .setRestitution(built.restitution ?? 0.15)
+        .setDensity(built.densities?.[i] ?? built.density ?? 1)
+        .setCollisionGroups(GROUPS.prop);
       const col = this.world.createCollider(desc, body);
       colliders.push(col);
-    }
+    });
 
     const prop = {
       id: this.nextId++,
@@ -79,19 +94,27 @@ export class Sandbox {
       colliders,
       frozen: false,
       welds: new Set(),
+      links: new Set(), // ball joints (ragdolls)
       highlight: null,
       temporary: !!opts.temporary,
       bornAt: performance.now(),
     };
     for (const c of colliders) this.byCollider.set(c.handle, prop);
     this.props.add(prop);
-    if (!prop.temporary) this.history.push(prop);
+    if (!prop.temporary && !opts.noHistory) this.history.push(prop);
+    built.setup?.(prop, this);
     return prop;
   }
 
   remove(prop) {
     if (!this.props.has(prop)) return;
     for (const w of [...prop.welds]) this.unweldOne(w);
+    for (const l of [...prop.links]) this.unlink(l);
+    if (prop.vehicle) {
+      this.game.events.emit('vehicleRemoved', prop);
+      this.world.removeVehicleController(prop.vehicle.ctrl);
+      prop.vehicle = null;
+    }
     for (const c of prop.colliders) this.byCollider.delete(c.handle);
     this.world.removeRigidBody(prop.body);
     this.scene.remove(prop.mesh);
@@ -191,13 +214,36 @@ export class Sandbox {
     return n;
   }
 
+  // Ball joint between two props at a world point (used for ragdoll limbs).
+  link(a, b, point) {
+    const ta = a.body.translation(), tb = b.body.translation();
+    const qa = new THREE.Quaternion().copy(a.body.rotation()).invert();
+    const qb = new THREE.Quaternion().copy(b.body.rotation()).invert();
+    const la = new THREE.Vector3().copy(point).sub(ta).applyQuaternion(qa);
+    const lb = new THREE.Vector3().copy(point).sub(tb).applyQuaternion(qb);
+    const joint = this.world.createImpulseJoint(
+      RAPIER.JointData.spherical({ x: la.x, y: la.y, z: la.z }, { x: lb.x, y: lb.y, z: lb.z }), a.body, b.body, true,
+    );
+    joint.setContactsEnabled(false);
+    const link = { joint, a, b };
+    a.links.add(link);
+    b.links.add(link);
+    return link;
+  }
+
+  unlink(link) {
+    if (this.world.getImpulseJoint(link.joint.handle)) this.world.removeImpulseJoint(link.joint, true);
+    link.a.links.delete(link);
+    link.b.links.delete(link);
+  }
+
   // Everything connected to `prop` through welds (not counting the world).
   group(prop) {
     const seen = new Set([prop]);
     const stack = [prop];
     while (stack.length) {
       const p = stack.pop();
-      for (const w of p.welds) {
+      for (const w of [...p.welds, ...p.links]) {
         for (const o of [w.a, w.b]) if (o && !seen.has(o)) { seen.add(o); stack.push(o); }
       }
     }
@@ -213,11 +259,34 @@ export class Sandbox {
     return {
       collider: hit.collider,
       prop: this.byCollider.get(hit.collider.handle) || null,
+      npc: this.npcByCollider.get(hit.collider.handle) || null,
       isWorld: this.staticColliders.has(hit.collider.handle),
       distance: d,
       point: new THREE.Vector3(origin.x + dir.x * d, origin.y + dir.y * d, origin.z + dir.z * d),
       normal: new THREE.Vector3(hit.normal.x, hit.normal.y, hit.normal.z),
     };
+  }
+
+  // Props near a capsule that are flying at it. Returns [{ prop, speed, mass, vel }] where
+  // speed is how fast the prop is closing in on the capsule (relative to selfVel).
+  incoming(center, halfHeight, radius, selfVel = { x: 0, y: 0, z: 0 }, ignore = null) {
+    const out = [];
+    const seen = new Set();
+    const shape = new RAPIER.Capsule(halfHeight, radius + 0.35);
+    this.world.intersectionsWithShape(center, { x: 0, y: 0, z: 0, w: 1 }, shape, (col) => {
+      const prop = this.byCollider.get(col.handle);
+      if (!prop || seen.has(prop) || prop.frozen || (ignore && ignore.has(prop))) return true;
+      seen.add(prop);
+      const v = prop.body.linvel();
+      const t = prop.body.translation();
+      const rel = { x: v.x - selfVel.x, y: v.y - selfVel.y, z: v.z - selfVel.z };
+      const to = new THREE.Vector3(center.x - t.x, center.y - t.y, center.z - t.z);
+      const len = to.length() || 1;
+      const speed = (rel.x * to.x + rel.y * to.y + rel.z * to.z) / len;
+      if (speed > 0) out.push({ prop, speed, mass: prop.body.mass(), vel: v });
+      return true;
+    }, undefined, GROUPS.onlyProps);
+    return out;
   }
 
   // ---------- per frame ----------

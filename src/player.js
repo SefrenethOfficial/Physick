@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
+import { GROUPS } from './groups.js';
 
 const EYE = 0.7; // eye height above capsule centre
 
@@ -11,7 +12,7 @@ export class Player {
     this.body = world.createRigidBody(
       RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(spawn.x, spawn.y, spawn.z),
     );
-    this.collider = world.createCollider(RAPIER.ColliderDesc.capsule(0.5, 0.35).setFriction(0), this.body);
+    this.collider = world.createCollider(RAPIER.ColliderDesc.capsule(0.5, 0.35).setFriction(0).setCollisionGroups(GROUPS.player), this.body);
     this.cc = world.createCharacterController(0.02);
     this.cc.enableAutostep(0.45, 0.25, false);
     this.cc.enableSnapToGround(0.35);
@@ -46,6 +47,12 @@ export class Player {
   applyCamera(camera) {
     camera.position.copy(this.eye);
     camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
+    if (this.game.health?.dead) {
+      // slump to the floor
+      const k = 1 - Math.max(this.game.health.deadT - 2.4, 0) / 0.6;
+      camera.position.y -= 1.1 * k;
+      camera.rotation.set(this.pitch * (1 - k) - 0.25 * k, this.yaw, 0.7 * k, 'YXZ');
+    }
   }
 
   update(dt, keys) {
@@ -77,6 +84,7 @@ export class Player {
       return;
     }
 
+    const vyBefore = this.vel.y;
     // What are we standing on? A moving prop carries you along with it, which is what
     // lets you ride a prop you're holding with the Move tool and fly it around.
     const plat = this.groundProp();
@@ -138,7 +146,13 @@ export class Player {
     if (this.grounded && this.vel.y < 0) this.vel.y = 0;
     // bonk head
     if (!this.grounded && this.vel.y > 0 && mv.y < desired.y * 0.5) this.vel.y = 0;
-    if (!wasGrounded && this.grounded) this.game.viewmodel?.land();
+    const nowOnGround = this.grounded || onPlat;
+    if (!this.wasOnGround && nowOnGround) {
+      this.game.viewmodel?.land();
+      const fall = -vyBefore;
+      if (fall > 13) this.game.health?.damage((fall - 13) * 7, 'fall');
+    }
+    this.wasOnGround = nowOnGround;
 
     const rel = { x: mv.x - carry.x * dt, z: mv.z - carry.z * dt };
     this.speedNow = Math.hypot(rel.x, rel.z) / Math.max(dt, 1e-4);

@@ -12,6 +12,12 @@ import { Gunner } from './tools/gunner.js';
 import { Weld } from './tools/weld.js';
 import { Move } from './tools/move.js';
 import * as T from './textures.js';
+import { Npcs } from './npcs.js';
+import { Driving, QUAD } from './vehicle.js';
+import { Health } from './health.js';
+import { buildTown } from './town.js';
+
+const MENU = [...PROPS, QUAD];
 
 const FOV = 75;
 
@@ -83,6 +89,9 @@ class Game {
     this.buildLevel();
     this.player = new Player(this, new THREE.Vector3(0, 1.5, 12));
     this.viewmodel = new Viewmodel(gltf.scene, FOV);
+    this.health = new Health(this);
+    this.driving = new Driving(this);
+    this.npcs = new Npcs(this);
 
     this.tools = [new Gunner(this), new Weld(this), new Move(this)];
     this.hud = new Hud(this, this.tools);
@@ -90,9 +99,11 @@ class Game {
     this.setTool(2, true);
 
     this.populate();
+    this.world.step(); // scene queries (raycasts) only see new colliders after a step
+    this.npcs.populate();
     loadingEl.textContent = 'Building spawn menu…';
     const thumbs = this.renderThumbnails();
-    this.hud.buildSpawnMenu(PROPS, thumbs, (def, keepOpen) => this.spawnFromMenu(def, keepOpen));
+    this.hud.buildSpawnMenu(MENU, thumbs, (def, keepOpen) => this.spawnFromMenu(def, keepOpen));
 
     this.bindInput();
     this.resize();
@@ -180,6 +191,8 @@ class Game {
     block(16, 1.2, 1, 10, 0.6, 18, mOrange);
     // little pillars
     for (let i = 0; i < 4; i++) block(1.2, 2 + i, 1.2, -6 + i * 3, 1 + i / 2, 26, mOrange);
+
+    this.town = buildTown(this, block, T.devGrid('#8b9097', '#787d84', '#61666d'));
   }
 
   populate() {
@@ -209,13 +222,26 @@ class Game {
     // boulder up on the platform
     sb.spawn(P.boulder, at(-18, 4, -14), q0);
     sb.spawn(P.bigcrate, at(-15, 4, -9), q0);
+    // quad bikes
+    const quadYaw = (a) => new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), a);
+    sb.spawn(QUAD, at(4, 0.9, 9), quadYaw(Math.PI / 2 + 0.3));
+    sb.spawn(QUAD, at(-6, 0.9, 10), quadYaw(Math.PI / 2 - 0.2));
+    const px = this.town.parkX;
+    sb.spawn(QUAD, at(px + 2, 0.9, -12), quadYaw(0));
+    sb.spawn(QUAD, at(px + 2, 0.9, 10), quadYaw(0));
+    // traffic cones along the road
+    for (let i = 0; i < 6; i++) sb.spawn(P.cone, at(-20 + i * 8, 0.45, this.town.ring), q0);
     sb.history.length = 0; // the starting layout isn't undoable
   }
 
   resetMap() {
     this.tools.forEach((t) => t.deactivate());
+    if (this.driving.active) this.driving.exit(true);
+    this.npcs.clear();
     this.sandbox.clear();
     this.populate();
+    this.world.step();
+    this.npcs.populate();
     this.player.respawn();
     this.hud.toast('Map reset');
   }
@@ -243,6 +269,13 @@ class Game {
     return this.sandbox.raycast(origin, dir, max, this.player.collider);
   }
 
+  // If a tool's ray hit a living person, knock them over and hand back the ragdoll torso.
+  resolveHit(hit) {
+    if (!hit || hit.prop || !hit.npc) return hit;
+    const rd = this.npcs.knockOver(hit.npc, new THREE.Vector3(), 0.5);
+    return { ...hit, npc: null, prop: rd.torso };
+  }
+
   muzzle() {
     this.camera.updateMatrixWorld();
     return this.viewmodel.tipWorld(this.camera);
@@ -254,7 +287,9 @@ class Game {
     const pos = hit
       ? hit.point.clone().addScaledVector(hit.normal, def.radius + 0.05)
       : origin.clone().addScaledVector(dir, 6);
-    const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.player.yaw);
+    // Vehicles are built along +X, so turn them a quarter more to face where you're looking.
+    const yaw = this.player.yaw + (def === QUAD ? Math.PI / 2 : 0);
+    const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
     const prop = this.sandbox.spawn(def, pos, q);
     this.effects.sparks(pos, new THREE.Vector3(0, 1, 0), 0xffffff, 16, 3, 0.4);
     this.sfx.play('spawn');
@@ -276,7 +311,7 @@ class Game {
     scene.add(d);
     const cam = new THREE.PerspectiveCamera(30, 1, 0.01, 100);
     const out = {};
-    for (const def of PROPS) {
+    for (const def of MENU) {
       const mesh = def.build(this.assets).mesh;
       mesh.rotation.set(0.0, -0.6, 0);
       scene.add(mesh);
@@ -351,11 +386,13 @@ class Game {
       if (Math.abs(e.movementX) > 400 || Math.abs(e.movementY) > 400) return;
       this.mouseDX += e.movementX;
       this.mouseDY += e.movementY;
-      if (this.tool.wantsMouse?.(this.keys)) this.tool.mouse(e.movementX, e.movementY);
+      if (this.driving.active) this.driving.mouse(e.movementX, e.movementY);
+      else if (this.tool.wantsMouse?.(this.keys)) this.tool.mouse(e.movementX, e.movementY);
       else this.player.look(e.movementX, e.movementY);
     });
     addEventListener('mousedown', (e) => {
-      if (!this.locked) return;
+      if (!this.locked || this.health.dead) return;
+      if (this.driving.active) { if (e.button === 0) { this.sfx.play('honk'); this.driving.honk(); } return; }
       if (e.button === 0) { this.firingPrimary = true; this.tool.primaryDown?.(); }
       if (e.button === 2) this.tool.secondaryDown?.();
     });
@@ -365,7 +402,7 @@ class Game {
     });
     addEventListener('contextmenu', (e) => e.preventDefault());
     addEventListener('wheel', (e) => {
-      if (!this.locked) return;
+      if (!this.locked || this.driving.active || this.health.dead) return;
       if (this.tool.wheel?.(e.deltaY)) return;
       const n = this.tools.length;
       this.setTool((this.toolIndex + (e.deltaY > 0 ? 1 : n - 1)) % n);
@@ -386,6 +423,9 @@ class Game {
       }
       if (!this.locked) return;
       this.keys.add(e.code);
+      if (this.health.dead) return;
+      if (this.driving.active) { this.driving.key(e.code); return; }
+      if (e.code === 'KeyE' && !this.heldProp && this.driving.tryEnter()) return;
       if (e.code.startsWith('Digit')) { this.setTool(+e.code.slice(5) - 1); return; }
       if (e.code === 'KeyZ') {
         const p = this.sandbox.undo();
@@ -420,17 +460,33 @@ class Game {
     const dt = Math.min(this.timer.getDelta(), 0.1);
     const steps = Math.min(Math.max(Math.ceil(dt / (1 / 60) - 0.01), 1), 4);
     const sub = dt / steps;
+    const keys = this.locked && !this.health.dead ? this.keys : new Set();
     for (let i = 0; i < steps; i++) {
-      this.tool.update(sub);
-      this.player.update(sub, this.locked ? this.keys : new Set());
+      if (!this.driving.active) {
+        this.tool.update(sub);
+        this.player.update(sub, keys);
+      }
+      this.driving.step(sub, keys);
+      this.npcs.update(sub);
+      this.health.checkImpacts();
       this.world.timestep = sub;
       this.world.step();
     }
+    this.health.update(dt);
+    this.hud.frame(dt);
     this.sandbox.sync();
     this.sandbox.cleanup();
 
-    this.player.applyCamera(this.camera);
+    this.npcs.frame(dt);
+    if (this.driving.active) this.driving.frame(dt, this.camera);
+    else {
+      this.driving.frame(dt, null);
+      this.player.applyCamera(this.camera);
+    }
     this.camera.updateMatrixWorld();
+    // "Press E" prompt when a quad is in reach
+    const near = !this.driving.active && !this.health.dead && !this.heldProp && this.driving.nearby();
+    this.hud.setPrompt(near ? '<kbd>E</kbd> Ride quad bike' : null);
     this.viewmodel.update(dt, this.player, this.mouseDX, this.mouseDY, this.firingPrimary && this.toolIndex === 0);
     this.mouseDX = this.mouseDY = 0;
     this.effects.update(dt);
@@ -442,15 +498,18 @@ class Game {
     const r = this.renderer;
     r.clear();
     r.render(this.scene, this.camera);
-    r.clearDepth();
-    r.render(this.viewmodel.scene, this.viewmodel.camera);
+    if (!this.driving.active && !this.health.dead) {
+      r.clearDepth();
+      r.render(this.viewmodel.scene, this.viewmodel.camera);
+    }
 
     this.fpsAcc += dt; this.fpsFrames++;
     if (this.fpsAcc > 0.5) {
       let welds = 0;
       for (const p of this.sandbox.props) welds += p.welds.size;
       const worldWelds = [...this.sandbox.props].reduce((n, p) => n + [...p.welds].filter((w) => !w.b && w.a === p).length, 0);
-      this.hud.setStats(Math.round(this.fpsFrames / this.fpsAcc), this.sandbox.props.size, (welds + worldWelds) / 2);
+      this.hud.setStats(Math.round(this.fpsFrames / this.fpsAcc), this.sandbox.props.size, (welds + worldWelds) / 2,
+        this.npcs.list.length, this.npcs.knockdowns);
       this.fpsAcc = 0; this.fpsFrames = 0;
     }
   }
