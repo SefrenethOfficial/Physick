@@ -28,6 +28,7 @@ export class Player {
     this.spawn = spawn.clone();
     this.walkPhase = 0;
     this.speedNow = 0;
+    this.platVel = null;
   }
 
   get eye() {
@@ -76,27 +77,59 @@ export class Player {
       return;
     }
 
-    const speed = sprint ? 10 : 6;
-    const accel = this.grounded ? 14 : 3;
-    const target = wish.multiplyScalar(speed);
-    this.vel.x += (target.x - this.vel.x) * Math.min(accel * dt, 1);
-    this.vel.z += (target.z - this.vel.z) * Math.min(accel * dt, 1);
+    // What are we standing on? A moving prop carries you along with it, which is what
+    // lets you ride a prop you're holding with the Move tool and fly it around.
+    const plat = this.groundProp();
+    const pv = plat ? this.pointVelocity(plat.prop, plat.point) : null;
+    const onPlat = !!pv && this.vel.y <= 0.5;
 
-    if (this.grounded && keys.has('Space')) {
+    const speed = sprint ? 10 : 6;
+    const target = wish.multiplyScalar(speed);
+    const onGround = this.grounded || onPlat;
+    if (onGround) {
+      this.vel.x += (target.x - this.vel.x) * Math.min(14 * dt, 1);
+      this.vel.z += (target.z - this.vel.z) * Math.min(14 * dt, 1);
+    } else {
+      // Air: keep your momentum (so flings and launches carry), with a bit of steering.
+      const before = Math.hypot(this.vel.x, this.vel.z);
+      this.vel.x += target.x * 2.2 * dt;
+      this.vel.z += target.z * 2.2 * dt;
+      const after = Math.hypot(this.vel.x, this.vel.z);
+      const cap = Math.max(before, speed);
+      if (after > cap) { this.vel.x *= cap / after; this.vel.z *= cap / after; }
+      const drag = 1 - 0.12 * dt;
+      this.vel.x *= drag; this.vel.z *= drag;
+    }
+
+    let jumped = false;
+    if (onGround && keys.has('Space')) {
       this.vel.y = 6.5;
       this.grounded = false;
+      jumped = true;
     }
-    this.vel.y -= 20 * dt;
-    this.vel.y = Math.max(this.vel.y, -50);
 
-    const desired = { x: this.vel.x * dt, y: this.vel.y * dt, z: this.vel.z * dt };
-    const held = this.game.heldProp;
-    this.cc.computeColliderMovement(this.collider, desired, undefined, undefined, (col) => {
-      // Never collide with the prop you're carrying (no prop-surfing).
-      if (!held) return true;
-      const owner = this.game.sandbox.byCollider.get(col.handle);
-      return owner !== held;
-    });
+    if (onPlat && !jumped) {
+      this.vel.y = 0; // ride: vertical motion comes from the prop
+    } else {
+      this.vel.y -= 20 * dt;
+      this.vel.y = Math.max(this.vel.y, -50);
+    }
+
+    // Leaving a moving prop (jumping off or it flying out from under you) keeps its velocity.
+    if (jumped && pv) {
+      this.vel.x += pv.x; this.vel.z += pv.z; this.vel.y += Math.max(pv.y, 0);
+    } else if (!onPlat && this.platVel) {
+      this.vel.x += this.platVel.x; this.vel.z += this.platVel.z; this.vel.y += Math.max(this.platVel.y, 0);
+    }
+    this.platVel = onPlat && !jumped ? pv : null;
+
+    const carry = this.platVel || { x: 0, y: 0, z: 0 };
+    const desired = {
+      x: (this.vel.x + carry.x) * dt,
+      y: (this.vel.y + carry.y) * dt,
+      z: (this.vel.z + carry.z) * dt,
+    };
+    this.cc.computeColliderMovement(this.collider, desired);
     const mv = this.cc.computedMovement();
     const t = this.body.translation();
     this.body.setNextKinematicTranslation({ x: t.x + mv.x, y: t.y + mv.y, z: t.z + mv.z });
@@ -107,14 +140,42 @@ export class Player {
     if (!this.grounded && this.vel.y > 0 && mv.y < desired.y * 0.5) this.vel.y = 0;
     if (!wasGrounded && this.grounded) this.game.viewmodel?.land();
 
-    this.speedNow = Math.hypot(mv.x, mv.z) / Math.max(dt, 1e-4);
-    if (this.grounded) this.walkPhase += this.speedNow * dt * 1.6;
+    const rel = { x: mv.x - carry.x * dt, z: mv.z - carry.z * dt };
+    this.speedNow = Math.hypot(rel.x, rel.z) / Math.max(dt, 1e-4);
+    if (onGround) this.walkPhase += this.speedNow * dt * 1.6;
 
     if (t.y < -40) this.respawn();
+  }
+
+  // Prop directly under the player's feet, if any (a few rays so edges count too).
+  groundProp() {
+    const t = this.body.translation();
+    const sb = this.game.sandbox;
+    const down = { x: 0, y: -1, z: 0 };
+    const feet = t.y - 0.85 + 0.1;
+    for (const [ox, oz] of [[0, 0], [0.22, 0], [-0.22, 0], [0, 0.22], [0, -0.22]]) {
+      const hit = sb.raycast({ x: t.x + ox, y: feet, z: t.z + oz }, down, 0.3, this.collider);
+      if (hit?.prop && !hit.prop.frozen) return { prop: hit.prop, point: hit.point };
+      if (hit && ox === 0 && oz === 0) return null; // standing on the world
+    }
+    return null;
+  }
+
+  // Velocity of a point on a prop (linear + spin).
+  pointVelocity(prop, point) {
+    const b = prop.body;
+    const lv = b.linvel(), av = b.angvel(), c = b.translation();
+    const r = { x: point.x - c.x, y: point.y - c.y, z: point.z - c.z };
+    return {
+      x: lv.x + av.y * r.z - av.z * r.y,
+      y: lv.y + av.z * r.x - av.x * r.z,
+      z: lv.z + av.x * r.y - av.y * r.x,
+    };
   }
 
   respawn() {
     this.body.setTranslation({ x: this.spawn.x, y: this.spawn.y, z: this.spawn.z }, true);
     this.vel.set(0, 0, 0);
+    this.platVel = null;
   }
 }

@@ -15,6 +15,7 @@ export class Move {
     this.hints = [
       ['LMB', 'Grab (hold)'],
       ['Wheel', 'Push / pull'],
+      ['Stand on it', 'Grab + look down to fly'],
       ['E + Mouse', 'Rotate held prop'],
       ['RMB', 'Freeze while holding'],
       ['R', 'Unfreeze aimed prop'],
@@ -39,7 +40,7 @@ export class Move {
     const r = new THREE.Quaternion().copy(prop.body.rotation());
     const local = hit.point.clone().sub(t).applyQuaternion(r.clone().invert());
     const rel = this.yawQuat().invert().multiply(r); // body rotation relative to player yaw
-    this.held = { prop, local, dist: Math.max(hit.distance, 1.5), rel };
+    this.held = { prop, local, dist: Math.max(hit.distance, 0.8), rel };
     prop.body.setGravityScale(0, true);
     prop.body.wakeUp();
     g.heldProp = prop;
@@ -83,7 +84,7 @@ export class Move {
 
   wheel(dy) {
     if (!this.held) return false;
-    this.held.dist = THREE.MathUtils.clamp(this.held.dist * (dy > 0 ? 0.9 : 1.11), 1.5, 80);
+    this.held.dist = THREE.MathUtils.clamp(this.held.dist * (dy > 0 ? 0.9 : 1.11), 0.8, 80);
     return true;
   }
 

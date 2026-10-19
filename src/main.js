@@ -421,8 +421,8 @@ class Game {
     const steps = Math.min(Math.max(Math.ceil(dt / (1 / 60) - 0.01), 1), 4);
     const sub = dt / steps;
     for (let i = 0; i < steps; i++) {
-      this.player.update(sub, this.locked ? this.keys : new Set());
       this.tool.update(sub);
+      this.player.update(sub, this.locked ? this.keys : new Set());
       this.world.timestep = sub;
       this.world.step();
     }

@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | `1` | **Gunner** | LMB (hold) fires a hitscan blaster that knocks props around. RMB launches a heavy cannonball. `R` deletes the prop you're aiming at. |
 | `2` | **Weld** | Click a prop, then click a second prop to weld them together. Click the ground instead to weld to the world. RMB strips every weld off a prop. `R` cancels the selection. |
-| `3` | **Move** | Hold LMB to grab a prop with the beam. Mouse wheel pushes/pulls it, hold `E` and move the mouse to rotate it, RMB freezes it in mid-air (the whole welded group freezes together). `R` unfreezes what you're aiming at. |
+| `3` | **Move** | Hold LMB to grab a prop with the beam. Mouse wheel pushes/pulls it. Stand on a prop, look down and grab it to ride it and fly (scroll in to climb, out to sink, tilt your view to steer), hold `E` and move the mouse to rotate it, RMB freezes it in mid-air (the whole welded group freezes together). `R` unfreezes what you're aiming at. |
 
 You can also switch modes with the mouse wheel (when you're not holding something) or by clicking the mode bar.
 

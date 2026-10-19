@@ -35,26 +35,18 @@ export class Viewmodel {
     };
     for (const b of Object.values(this.bones)) if (b) b.userData.rest = b.quaternion.clone();
 
-    // Mount plate centre and gripper tip in model space (measured from the asset).
-    const pivot = new THREE.Vector3(8.43, 2.8, 0);
-    const tip = new THREE.Vector3(7.88, 1.57, -1.08);
-    const dir = tip.clone().sub(pivot).normalize();
-    const length = tip.distanceTo(pivot);
+    // Key points in model space (measured from the asset): mount plate, wrist joint, gripper tip.
+    this.pivotPt = new THREE.Vector3(8.43, 2.8, 0);
+    this.wristPt = new THREE.Vector3(8.28, 1.53, -0.25);
+    const tip = (this.tipPt = new THREE.Vector3(7.76, 1.57, -1.06));
 
     const align = new THREE.Group();
-    model.position.copy(pivot).negate();
+    model.position.copy(tip).negate(); // gripper tip sits at the align origin
     align.add(model);
-    // Point the arm's reach direction straight forward and slightly in toward the crosshair.
-    const forward = new THREE.Vector3(-0.22, 0.12, -1).normalize();
-    align.quaternion.setFromUnitVectors(dir, forward);
-    // Roll around the reach axis so the gripper reads well from the player's view.
-    align.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(forward, this.roll = 2.2));
-    const scale = 0.62 / length;
-    align.scale.setScalar(scale);
     this.base.add(align);
-    this.base.position.set(0.3, -0.36, -0.12);
     this.align = align;
     this.model = model;
+    this.setPose();
 
     // Tip anchor follows the last bone so the beam starts at the gripper even while animating.
     this.tip = new THREE.Object3D();
@@ -78,6 +70,32 @@ export class Viewmodel {
     this.color = new THREE.Color(0x39a7ff);
     this.time = 0;
     this.switchAnim = 0;
+  }
+
+  // Holds the arm like a tool: the gripper points at the crosshair and the rest of the
+  // arm trails back toward the bottom-right corner of the screen, out of view.
+  setPose({
+    aim = [-0.1, 0.07, -1], // where the gripper points (camera space)
+    trail = [0.85, -1, 0], // screen direction the arm body runs off toward
+    roll = 0, // extra twist around the gripper axis
+    tipPos = [0.21, -0.17, -0.45], // gripper tip position (camera space)
+    size = 0.85, // camera-space distance from tip to mount plate
+  } = {}) {
+    const g = this.tipPt.clone().sub(this.wristPt).normalize(); // gripper axis
+    const back = this.pivotPt.clone().sub(this.tipPt);
+    const e2 = back.clone().addScaledVector(g, -back.dot(g)).normalize();
+    const e3 = new THREE.Vector3().crossVectors(g, e2);
+    const f1 = new THREE.Vector3(...aim).normalize();
+    const d = new THREE.Vector3(...trail);
+    const f2 = d.addScaledVector(f1, -d.dot(f1)).normalize();
+    const f3 = new THREE.Vector3().crossVectors(f1, f2);
+    const src = new THREE.Matrix4().makeBasis(g, e2, e3);
+    const dst = new THREE.Matrix4().makeBasis(f1, f2, f3);
+    const m = dst.multiply(src.transpose());
+    this.align.quaternion.setFromRotationMatrix(m);
+    this.align.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(f1, roll));
+    this.align.scale.setScalar(size / this.pivotPt.distanceTo(this.tipPt));
+    this.base.position.set(...tipPos);
   }
 
   setColor(hex) {
@@ -138,7 +156,7 @@ export class Viewmodel {
     const tp = this.tipPosition();
     this.glow.position.copy(tp);
     this.glowLight.position.copy(tp);
-    const pulse = 0.08 + Math.sin(this.time * 8) * 0.01 + this.recoil * 0.06 + this.grip * 0.04;
+    const pulse = 0.05 + Math.sin(this.time * 8) * 0.006 + this.recoil * 0.04 + this.grip * 0.025;
     this.glow.scale.setScalar(pulse);
   }
 
