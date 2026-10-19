@@ -73,7 +73,38 @@ export class Sfx {
       case 'honk':
         this.tone('square', 392, 392, 0.35, 0.14); this.tone('square', 494, 494, 0.35, 0.12);
         break;
+      case 'splash': this.noise(0.9, 0.7, 700, 0.4); this.noise(0.4, 0.4, 2500, 0.8, 0.05); break;
+      case 'telegraph': this.tone('triangle', 1760, 1760, 0.12, 0.25); this.tone('triangle', 1320, 1320, 0.2, 0.2, 0.13); break;
+      case 'shipHorn':
+        this.tone('sawtooth', 98, 96, 2.2, 0.32); this.tone('sawtooth', 147, 145, 2.2, 0.22); this.tone('sine', 49, 49, 2.2, 0.4);
+        break;
       case 'engineStart': this.tone('sawtooth', 50, 140, 0.4, 0.25); this.noise(0.3, 0.3, 400, 1); break;
+    }
+  }
+
+  // Wind and waves: a looping filtered noise bed.
+  setOcean(on, level = 1) {
+    if (!this.ctx) return;
+    if (on && !this.ocean) {
+      const len = this.ctx.sampleRate * 4;
+      const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      let last = 0;
+      for (let i = 0; i < len; i++) { last = last * 0.985 + (Math.random() * 2 - 1) * 0.15; d[i] = last; }
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf; src.loop = true;
+      const f = this.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 900;
+      const g = this.ctx.createGain(); g.gain.value = 0;
+      const lfo = this.ctx.createOscillator(), lg = this.ctx.createGain();
+      lfo.frequency.value = 0.12; lg.gain.value = 0.08;
+      lfo.connect(lg).connect(g.gain);
+      src.connect(f).connect(g).connect(this.master);
+      src.start(); lfo.start();
+      this.ocean = { src, g, f, lfo };
+    }
+    if (this.ocean) {
+      this.ocean.g.gain.setTargetAtTime(on ? 0.16 * level : 0, this.ctx.currentTime, 0.5);
+      this.ocean.f.frequency.setTargetAtTime(600 + level * 500, this.ctx.currentTime, 0.5);
     }
   }
 
@@ -84,7 +115,7 @@ export class Sfx {
       o.type = 'sawtooth'; o2.type = 'square';
       const f = this.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 700;
       g.gain.value = 0;
-      g.gain.linearRampToValueAtTime(0.07, this.ctx.currentTime + 0.2);
+      g.gain.linearRampToValueAtTime(0.035, this.ctx.currentTime + 0.2);
       o.connect(f); o2.connect(f); f.connect(g).connect(this.master);
       o.start(); o2.start();
       this.engine = { o, o2, g, f };

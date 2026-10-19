@@ -85,8 +85,7 @@ export class Player {
     }
 
     const vyBefore = this.vel.y;
-    // What are we standing on? A moving prop carries you along with it, which is what
-    // lets you ride a prop you're holding with the Move tool and fly it around.
+    // What are we standing on? A moving prop carries you along with it.
     const plat = this.groundProp();
     const pv = plat ? this.pointVelocity(plat.prop, plat.point) : null;
     const onPlat = !!pv && this.vel.y <= 0.5;

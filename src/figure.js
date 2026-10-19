@@ -22,6 +22,20 @@ export function randomLook() {
   return { shirt: pick(SHIRTS), pants: pick(PANTS), skin: pick(SKIN) };
 }
 
+// Navy working uniforms: blue coveralls or khaki/whites, with a ball cap or white dixie cup.
+const CREW = [
+  { shirt: 0x2c3e5e, pants: 0x2c3e5e, hat: 'cap', hatColor: 0x1b2638 },
+  { shirt: 0x2c3e5e, pants: 0x2c3e5e, hat: 'cap', hatColor: 0x1b2638 },
+  { shirt: 0x34507a, pants: 0x23324a, hat: 'cap', hatColor: 0x1b2638 },
+  { shirt: 0xc8b48a, pants: 0xc8b48a, hat: 'cap', hatColor: 0x2b2f36 },
+  { shirt: 0xf2f2ee, pants: 0xf2f2ee, hat: 'dixie', hatColor: 0xffffff },
+  { shirt: 0xe0d23a, pants: 0x2c3e5e, hat: 'cranial', hatColor: 0xe0d23a }, // flight deck jersey
+  { shirt: 0xc23b2a, pants: 0x2c3e5e, hat: 'cranial', hatColor: 0xc23b2a },
+];
+export function crewLook() {
+  return { ...pick(CREW), skin: pick(SKIN) };
+}
+
 export function buildFigure(look = randomLook()) {
   const root = new THREE.Group();
   const shirt = mat(look.shirt), pants = mat(look.pants), skin = mat(look.skin);
@@ -39,6 +53,24 @@ export function buildFigure(look = randomLook()) {
     const eye = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), eyeM);
     eye.position.set(x, 0.03, 0.135);
     head.add(eye);
+  }
+  if (look.hat) {
+    const hm = mat(look.hatColor ?? 0x1b2638);
+    if (look.hat === 'cap') {
+      const crown = new THREE.Mesh(new THREE.SphereGeometry(0.155, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), hm);
+      crown.position.y = 0.04;
+      const bill = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.025, 0.14), hm);
+      bill.position.set(0, 0.045, 0.17);
+      head.add(crown, bill);
+    } else if (look.hat === 'dixie') {
+      const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.15, 0.1, 16), hm);
+      cup.position.y = 0.12;
+      head.add(cup);
+    } else {
+      const helm = new THREE.Mesh(new THREE.SphereGeometry(0.165, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.6), hm);
+      helm.position.y = 0.01;
+      head.add(helm);
+    }
   }
   root.add(head);
   parts.head = head;

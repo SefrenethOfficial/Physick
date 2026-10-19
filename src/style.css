@@ -20,7 +20,7 @@ kbd {
 
 /* ---------------- HUD ---------------- */
 #hud { position: fixed; inset: 0; pointer-events: none; user-select: none; }
-.hud-logo { position: absolute; top: 14px; left: 14px; width: 190px; filter: drop-shadow(0 3px 0 rgba(0,0,0,.35)); }
+.hud-logo { position: absolute; top: 14px; left: 14px; width: 190px; pointer-events: none; filter: drop-shadow(0 3px 0 rgba(0,0,0,.35)); }
 
 .stats { position: absolute; top: 16px; right: 16px; font-size: 13px; opacity: .8; text-shadow: 0 1px 2px #000; }
 
@@ -143,3 +143,33 @@ kbd {
 .death.on { display: flex; }
 .death h2 { margin: 0; font-size: 48px; letter-spacing: .06em; text-transform: uppercase; text-shadow: 0 4px 0 #000; }
 .death p { opacity: .8; }
+
+/* ---------------- naval HUD ---------------- */
+.crosshair b { width: 4px; height: 4px; left: -2px; top: -2px; background: #fff; }
+.compass {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%); width: 400px; max-width: calc(100vw - 32px); height: 44px;
+  overflow: hidden; background: rgba(12,13,15,.55); border: 3px solid var(--ink); border-radius: 4px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent);
+          mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent);
+}
+.compass .strip { position: absolute; top: 2px; left: 0; height: 20px; white-space: nowrap; }
+.compass .strip span { position: absolute; transform: translateX(-50%); font-size: 11px; opacity: .7; }
+.compass .strip span.card { font-weight: 700; font-size: 15px; opacity: 1; color: #ffd166; }
+.compass .needle { position: absolute; left: 50%; top: 20px; width: 2px; height: 6px; background: #ffd166; }
+.compass b { position: absolute; left: 50%; bottom: 2px; transform: translateX(-50%); font-size: 12px; }
+.helm {
+  position: absolute; right: 16px; bottom: 18px; width: 250px; display: none; gap: 6px; padding: 12px;
+  background: rgba(12,13,15,.7); border: 3px solid var(--ink); border-radius: 5px; font-size: 13px;
+}
+.helm.on { display: grid; }
+.helm .row { display: flex; justify-content: space-between; align-items: baseline; }
+.helm .row span { opacity: .7; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; }
+.helm .row b { font-size: 16px; }
+.telegraph { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+.telegraph i { font-style: normal; font-size: 10px; text-align: center; padding: 3px 0; background: #22262b; border-radius: 2px; opacity: .6; }
+.telegraph i.on { background: #ffd166; color: var(--ink); opacity: 1; font-weight: 700; }
+.rudderbar { position: relative; height: 8px; background: #22262b; border-radius: 2px; }
+.rudderbar::after { content: ''; position: absolute; left: 50%; top: -2px; width: 2px; height: 12px; background: #fff; }
+.rudderbar i { position: absolute; top: 0; height: 100%; background: #3aa760; border-radius: 2px; }
+.rudderbar i.port { background: #d9483b; }
+#hud .stats { top: 58px; }

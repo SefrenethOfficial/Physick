@@ -23,7 +23,6 @@ export class Health {
     this.sinceHurt = 0;
     this.game.hud.hurt(Math.min(amount / 40, 1));
     this.game.sfx.play(amount > 25 ? 'hurtBig' : 'hurt');
-    this.game.viewmodel.kick(Math.min(amount / 30, 1.2));
     if (this.hp <= 0) this.die(kind);
   }
 
@@ -31,12 +30,11 @@ export class Health {
     this.dead = true;
     this.deadT = 3;
     const g = this.game;
-    if (g.driving.active) g.driving.exit(true);
-    g.tool.deactivate();
+    g.leaveHelm?.();
     const msg = {
       fall: 'You fell too far',
-      crash: 'You crashed',
-      prop: 'Flattened by a prop',
+      prop: 'Flattened',
+      overboard: 'Lost at sea',
     }[kind] || 'You died';
     g.hud.showDeath(true, msg);
     g.sfx.play('die');
@@ -52,7 +50,7 @@ export class Health {
   // Every physics sub-step while on foot: anything flying into you hurts.
   checkImpacts() {
     const g = this.game;
-    if (this.dead || g.driving.active || g.player.noclip) return;
+    if (this.dead || g.atHelm || g.player.noclip) return;
     const p = g.player;
     const t = p.body.translation();
     const ignore = new Set();

@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { GROUPS } from './groups.js';
-import { buildFigure, animateWalk, animatePanic } from './figure.js';
+import { buildFigure, animateWalk, animatePanic, crewLook } from './figure.js';
+import { DECK, deckHalfWidth } from './ship.js';
 
 const HALF = 0.55; // capsule half height
 const RAD = 0.28;
@@ -12,16 +13,15 @@ const MAX_RAGDOLLS = 8;
 
 const yawDir = (h) => new THREE.Vector3(Math.sin(h), 0, Math.cos(h)); // figure faces +Z
 
-// Wandering citizens. They walk around, run away from danger, and turn into ragdolls
-// (ordinary props you can grab, weld and freeze) when something hits them hard enough.
+// Crew wandering the main deck (all in the ship frame). They run from danger and turn into
+// ragdolls when something hits them hard enough.
 export class Npcs {
   constructor(game) {
     this.game = game;
     this.list = [];
     this.ragdolls = [];
-    this.max = 10;
+    this.max = 8;
     this.respawnTimer = 2;
-    this.radius = 75; // wander area around the origin
     this.knockdowns = 0;
   }
 
@@ -39,23 +39,21 @@ export class Npcs {
     this.ragdolls = [];
   }
 
-  // Random walkable spot on the ground (not on top of buildings), optionally away from the player.
+  // Random open spot on the main deck, optionally away from the player or near a point.
   randomPoint(minDistFromPlayer = 0, near = null, range = 25) {
     const sb = this.game.sandbox;
     const pp = this.game.player?.body.translation();
-    for (let i = 0; i < 25; i++) {
-      let x, z;
-      if (near) {
-        const a = Math.random() * Math.PI * 2, r = 4 + Math.random() * range;
-        x = near.x + Math.cos(a) * r; z = near.z + Math.sin(a) * r;
-      } else {
-        const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * this.radius;
-        x = Math.cos(a) * r; z = Math.sin(a) * r;
-      }
-      if (Math.hypot(x, z) > this.radius) continue;
+    for (let i = 0; i < 30; i++) {
+      let z = near ? near.z + (Math.random() - 0.5) * 2 * range : -48 + Math.random() * 100;
+      z = Math.max(-48, Math.min(52, z));
+      const hw = deckHalfWidth(z) - 0.9;
+      if (hw < 0.5) continue;
+      const x = (Math.random() * 2 - 1) * hw;
       if (pp && minDistFromPlayer && Math.hypot(x - pp.x, z - pp.z) < minDistFromPlayer) continue;
       const hit = sb.raycast({ x, y: 30, z }, { x: 0, y: -1, z: 0 }, 40);
-      if (!hit || !hit.isWorld || hit.normal.y < 0.85 || hit.point.y > 0.6) continue;
+      // only the open main deck (not on top of the gun, VLS, boats...)
+      if (!hit || !hit.isWorld || hit.normal.y < 0.9 || hit.point.y > DECK + 2.3 || hit.point.y < DECK - 0.5) continue;
+      if (Math.abs(hit.point.y - (DECK + Math.max(0, 0))) > 2.2) continue;
       return hit.point;
     }
     return null;
@@ -74,8 +72,8 @@ export class Npcs {
     cc.enableSnapToGround(0.4);
     cc.setMaxSlopeClimbAngle((45 * Math.PI) / 180);
     cc.setApplyImpulsesToDynamicBodies(false);
-    const fig = buildFigure();
-    this.game.scene.add(fig.root);
+    const fig = buildFigure(crewLook());
+    this.game.frame.add(fig.root);
     const npc = {
       body, collider, cc, fig,
       hp: 100,
@@ -99,7 +97,7 @@ export class Npcs {
     this.game.sandbox.npcByCollider.delete(npc.collider.handle);
     this.world.removeCharacterController(npc.cc);
     this.world.removeRigidBody(npc.body);
-    this.game.scene.remove(npc.fig.root);
+    npc.fig.root.removeFromParent();
     const i = this.list.indexOf(npc);
     if (i >= 0) this.list.splice(i, 1);
   }
@@ -205,9 +203,6 @@ export class Npcs {
   update(dt) {
     const g = this.game;
     const pp = g.player.body.translation();
-    const drive = g.driving.vehicle;
-    const dv = drive ? drive.body.linvel() : null;
-    const dpos = drive ? drive.body.translation() : null;
 
     for (const npc of [...this.list]) {
       const t = npc.body.translation();
@@ -224,15 +219,9 @@ export class Npcs {
       }
       if (worst && worst.speed > 2) this.scare(npc, worst.prop.body.translation(), 3);
 
-      // Run from a quad bike coming their way.
-      if (drive) {
-        const sp = Math.hypot(dv.x, dv.z);
-        const d = Math.hypot(t.x - dpos.x, t.z - dpos.z);
-        if (sp > 4 && d < 14) {
-          const toward = ((t.x - dpos.x) * dv.x + (t.z - dpos.z) * dv.z) / (d * sp);
-          if (toward > 0.5) this.scare(npc, dpos, 2.5);
-        }
-      }
+      // Step aside for someone sprinting at them.
+      const pd = Math.hypot(t.x - pp.x, t.z - pp.z);
+      if (pd < 2.2 && g.player.speedNow > 7.5 && npc.fear <= 0) this.scare(npc, pp, 1);
 
       // --- decide where to go ---
       let want = null;
@@ -241,8 +230,8 @@ export class Npcs {
         npc.fear -= dt;
         want = new THREE.Vector3(t.x - npc.threat.x, 0, t.z - npc.threat.z);
         if (want.lengthSq() < 0.01) want.set(Math.random() - 0.5, 0, Math.random() - 0.5);
-        // Don't flee off the edge of the town.
-        if (Math.hypot(t.x, t.z) > this.radius) want.add(new THREE.Vector3(-t.x, 0, -t.z).normalize().multiplyScalar(2));
+        // Keep away from the rails.
+        if (Math.abs(t.x) > deckHalfWidth(t.z) - 1.5) want.x -= Math.sign(t.x) * 2;
         want.normalize();
         speed = 4.8;
       } else if (npc.idle > 0) {
@@ -286,7 +275,7 @@ export class Npcs {
       const mv = npc.cc.computedMovement();
       npc.body.setNextKinematicTranslation({ x: t.x + mv.x, y: t.y + mv.y, z: t.z + mv.z });
       if (npc.cc.computedGrounded()) npc.vy = 0;
-      if (t.y < -20) this.despawn(npc);
+      if (t.y < DECK - 6) this.despawn(npc); // fell overboard
     }
   }
 

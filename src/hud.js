@@ -1,48 +1,87 @@
 const hex = (n) => '#' + n.toString(16).padStart(6, '0');
+const kbd = (rows) => rows.map(([k, d]) => `<div><kbd>${k}</kbd><span>${d}</span></div>`).join('');
 
-// All DOM UI: logo, crosshair, mode bar, hints, toasts, spawn menu, title/pause screen.
+const ON_FOOT = [['W A S D', 'Walk'], ['Space', 'Jump'], ['Shift', 'Run'], ['E', 'Use / take the helm'], ['V', 'Noclip']];
+const AT_HELM = [['W / S', 'Engine order up / down'], ['A / D', 'Rudder port / starboard'], ['H', 'Ship\'s horn'], ['Mouse', 'Look around'], ['E', 'Leave the helm']];
+
+// All DOM UI: logo, health, compass, helm readout, prompts, toasts, title and death screens.
 export class Hud {
-  constructor(game, tools) {
+  constructor(game) {
     this.game = game;
     this.el = document.getElementById('hud');
     this.el.innerHTML = `
       <img class="hud-logo" src="${import.meta.env.BASE_URL}assets/physick-logo.svg" alt="Physick">
       <div class="health" id="health"><div class="fill"></div><span>100</span></div>
-      <div class="hurt" id="hurt"></div>
-      <div class="prompt" id="prompt"></div>
-      <div class="speedo" id="speedo"><b>0</b><span>km/h</span></div>
-      <div class="death" id="death"><h2>You died</h2><p>Respawning…</p></div>
-      <div class="crosshair" id="crosshair"><i></i><i></i><i></i><i></i><b></b></div>
+      <div class="compass" id="compass"><div class="strip"></div><div class="needle"></div><b id="hdg">000°</b></div>
+      <div class="crosshair"><b></b></div>
       <div class="stats" id="stats"></div>
       <div class="hints" id="hints"></div>
       <div class="toasts" id="toasts"></div>
-      <div class="modebar" id="modebar">
-        ${tools.map((t, i) => `
-          <div class="mode" data-i="${i}" style="--c:${hex(t.color)}">
-            <span class="key">${i + 1}</span><span class="name">${t.name}</span>
-          </div>`).join('')}
+      <div class="prompt" id="prompt"></div>
+      <div class="helm" id="helm">
+        <div class="row"><span>Engines</span><b id="order">AHEAD 2/3</b></div>
+        <div class="telegraph" id="telegraph"></div>
+        <div class="row"><span>Rudder</span><b id="rudder">MIDSHIPS</b></div>
+        <div class="rudderbar"><i id="rudderfill"></i></div>
+        <div class="row"><span>Speed</span><b id="knots">0 kn</b></div>
       </div>
+      <div class="hurt" id="hurt"></div>
       <div class="badge" id="noclip">NOCLIP</div>
+      <div class="death" id="death"><h2>You died</h2><p>Respawning…</p></div>
     `;
-    this.modes = [...this.el.querySelectorAll('.mode')];
-    this.hintsEl = this.el.querySelector('#hints');
-    this.toastsEl = this.el.querySelector('#toasts');
-    this.statsEl = this.el.querySelector('#stats');
-    this.crosshair = this.el.querySelector('#crosshair');
-    this.noclipEl = this.el.querySelector('#noclip');
-    this.healthEl = this.el.querySelector('#health');
-    this.hurtEl = this.el.querySelector('#hurt');
-    this.promptEl = this.el.querySelector('#prompt');
-    this.speedEl = this.el.querySelector('#speedo');
-    this.deathEl = this.el.querySelector('#death');
-    this.modebar = this.el.querySelector('#modebar');
-    this.tool = null;
+    const $ = (id) => this.el.querySelector('#' + id);
+    this.healthEl = $('health');
+    this.hurtEl = $('hurt');
+    this.promptEl = $('prompt');
+    this.deathEl = $('death');
+    this.toastsEl = $('toasts');
+    this.statsEl = $('stats');
+    this.hintsEl = $('hints');
+    this.helmEl = $('helm');
+    this.noclipEl = $('noclip');
+    this.compassStrip = this.el.querySelector('.compass .strip');
+    this.hdgEl = $('hdg');
+    this.buildCompass();
     this.hurtLevel = 0;
     this.lastHp = -1;
-    this.modes.forEach((m) => m.addEventListener('click', () => game.setTool(+m.dataset.i)));
-
     this.overlay = document.getElementById('overlay');
-    this.menu = document.getElementById('spawnmenu');
+    this.setHelm(false);
+  }
+
+  buildCompass() {
+    const marks = [];
+    for (let d = -360; d <= 720; d += 15) {
+      const n = ((d % 360) + 360) % 360;
+      const card = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' }[n];
+      const label = card ?? (n % 45 === 0 ? String(n) : '|');
+      marks.push(`<span style="left:${(d + 360) * 4}px" class="${card ? 'card' : ''}">${label}</span>`);
+    }
+    this.compassStrip.innerHTML = marks.join('');
+  }
+
+  // deg: compass heading (0 = north, 90 = east)
+  setHeading(deg) {
+    const d = ((deg % 360) + 360) % 360;
+    this.compassStrip.style.transform = `translateX(${-(d + 360) * 4 + 200}px)`;
+    this.hdgEl.textContent = String(Math.round(d) % 360).padStart(3, '0') + '°';
+  }
+
+  setHelm(on) {
+    this.helmEl.classList.toggle('on', on);
+    this.hintsEl.innerHTML = `<div class="hint-title">${on ? 'At the helm' : 'On deck'}</div>` + kbd(on ? AT_HELM : ON_FOOT);
+  }
+
+  setShip(ship, speeds) {
+    const tele = speeds.map((s, i) => `<i class="${i === ship.telegraph ? 'on' : ''}">${s.name}</i>`).join('');
+    if (this._tele !== tele) { this.helmEl.querySelector('#telegraph').innerHTML = tele; this._tele = tele; }
+    this.helmEl.querySelector('#order').textContent = ship.order.name;
+    const deg = Math.round(ship.rudder * 35);
+    this.helmEl.querySelector('#rudder').textContent = deg === 0 ? 'MIDSHIPS' : `${Math.abs(deg)}° ${deg > 0 ? 'STBD' : 'PORT'}`;
+    const f = this.helmEl.querySelector('#rudderfill');
+    f.style.left = deg >= 0 ? '50%' : `${50 + ship.rudder * 50}%`;
+    f.style.width = `${Math.abs(ship.rudder) * 50}%`;
+    f.classList.toggle('port', deg < 0);
+    this.helmEl.querySelector('#knots').textContent = `${(ship.speed * 1.944).toFixed(1)} kn`;
   }
 
   setHealth(frac, hp) {
@@ -73,37 +112,11 @@ export class Hud {
     this.deathEl.querySelector('h2').textContent = msg;
   }
 
-  setPrompt(text) {
-    if (this.promptEl.textContent !== (text || '')) this.promptEl.innerHTML = text || '';
-    this.promptEl.classList.toggle('on', !!text);
-  }
-
-  setSpeed(kmh) {
-    this.speedEl.querySelector('b').textContent = Math.round(kmh);
-  }
-
-  setDriving(on) {
-    this.el.classList.toggle('driving', on);
-    if (on) {
-      this.hintsEl.innerHTML = `<div class="hint-title" style="color:#e0532a">Quad Bike</div>` +
-        [['W / S', 'Throttle / brake, reverse'], ['A / D', 'Steer'], ['Shift', 'Boost'], ['Space', 'Handbrake'],
-          ['Mouse', 'Look around'], ['H', 'Horn'], ['R', 'Flip upright'], ['E', 'Get off']]
-          .map(([k, d]) => `<div><kbd>${k}</kbd><span>${d}</span></div>`).join('');
-    } else if (this.tool) {
-      this.setMode(this.modeIndex, this.tool);
-    }
-  }
-
-  setMode(i, tool) {
-    this.tool = tool;
-    this.modeIndex = i;
-    this.modes.forEach((m, j) => m.classList.toggle('active', i === j));
-    this.crosshair.style.setProperty('--c', hex(tool.color));
-    this.crosshair.dataset.mode = tool.name.toLowerCase();
-    const common = [['E', 'Ride quad'], ['Q', 'Spawn menu'], ['Z', 'Undo spawn'], ['V', 'Noclip']];
-    this.hintsEl.innerHTML =
-      `<div class="hint-title" style="color:${hex(tool.color)}">${tool.name}</div>` +
-      [...tool.hints, ...common].map(([k, d]) => `<div><kbd>${k}</kbd><span>${d}</span></div>`).join('');
+  setPrompt(html) {
+    if (this._prompt === html) return;
+    this._prompt = html;
+    this.promptEl.innerHTML = html || '';
+    this.promptEl.classList.toggle('on', !!html);
   }
 
   toast(text, color = 0xffffff) {
@@ -113,12 +126,12 @@ export class Hud {
     t.style.setProperty('--c', hex(color));
     this.toastsEl.prepend(t);
     while (this.toastsEl.children.length > 4) this.toastsEl.lastChild.remove();
-    setTimeout(() => t.classList.add('out'), 1400);
-    setTimeout(() => t.remove(), 1900);
+    setTimeout(() => t.classList.add('out'), 1800);
+    setTimeout(() => t.remove(), 2300);
   }
 
-  setStats(fps, props, welds, people, down) {
-    this.statsEl.textContent = `${fps} FPS · ${props} props · ${welds} welds · ${people} people · ${down} knocked over`;
+  setStats(fps, crew) {
+    this.statsEl.textContent = `${fps} FPS · ${crew} crew on deck`;
   }
 
   setNoclip(on) { this.noclipEl.classList.toggle('on', on); }
@@ -126,21 +139,6 @@ export class Hud {
   showOverlay(show, first = false) {
     this.overlay.classList.toggle('hidden', !show);
     this.el.classList.toggle('hidden', show);
-    this.overlay.querySelector('.play').textContent = first ? 'Click to play' : 'Click to resume';
+    this.overlay.querySelector('.play').textContent = first ? 'Click to board' : 'Click to resume';
   }
-
-  buildSpawnMenu(defs, thumbs, onPick) {
-    const grid = this.menu.querySelector('.grid');
-    grid.innerHTML = '';
-    defs.forEach((d) => {
-      const b = document.createElement('button');
-      b.className = 'item';
-      b.innerHTML = `<img src="${thumbs[d.id] || ''}" alt=""><span>${d.name}</span>`;
-      b.addEventListener('click', (e) => onPick(d, e.shiftKey));
-      grid.appendChild(b);
-    });
-  }
-
-  showMenu(show) { this.menu.classList.toggle('hidden', !show); }
-  get menuOpen() { return !this.menu.classList.contains('hidden'); }
 }
