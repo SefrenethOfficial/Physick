@@ -21,17 +21,24 @@
         <button class="play" disabled>Click to play</button>
         <button class="settings-btn" id="btn-settings">Settings</button>
         <div class="controls">
-          <div><kbd>W A S D</kbd> walk the deck</div>
-          <div><kbd>Space</kbd> jump · <kbd>Shift</kbd> run</div>
-          <div><kbd>E</kbd> helm / guns / jets</div>
-          <div><kbd>LMB</kbd> grab · <kbd>RMB</kbd> throw · <kbd>F</kbd> use</div>
+          <div><kbd>W A S D</kbd> walk / drive · <kbd>Space</kbd> jump · <kbd>Shift</kbd> run</div>
+          <div><kbd>LMB</kbd> grab / punch · <kbd>RMB</kbd> throw · <kbd>F</kbd> use</div>
+          <div><kbd>E</kbd> interact · <kbd>B</kbd> bag it · <kbd>Tab</kbd> open bag</div>
           <div><kbd>Esc</kbd> pause</div>
         </div>
         <div class="modes-intro">
-          <div style="--c:#ffd166"><b>Your ship</b> A destroyer moored at a naval air station. Take her out, or walk down the gangway (or just jump) ashore.</div>
-          <div style="--c:#7fd3ff"><b>Below decks</b> Doors amidships lead to the mess and the stores. Grab what you need.</div>
-          <div style="--c:#ff8a6a"><b>Guns &amp; jets</b> Man the guns, or climb into a fighter on the airfield and take off.</div>
+          <div style="--c:#ffd166"><b>Port Calder</b> You start in the city with a dinghy at the marina and $150. Sell loot at the pawn shop, buy faster boats at the dealer.</div>
+          <div style="--c:#7be08a"><b>Saltmarsh Key</b> A sleepy island town to the south-east, full of things to take and people with wallets. Search people, pick pockets, or worse.</div>
+          <div style="--c:#ff8a6a"><b>Heat</b> Get seen and you get stars: cops on foot, squad cars, then police boats that ram. Blood and bodies make people suspicious.</div>
+          <div style="--c:#7fd3ff"><b>Further out</b> A navy destroyer and a fighter base sit off the east of the map.</div>
         </div>
+      </div>
+    </div>
+
+    <div id="panel" class="hidden">
+      <div class="panel">
+        <div class="menu-head"><h2>Bag</h2><button class="close">Close</button></div>
+        <div class="body"></div>
       </div>
     </div>
 

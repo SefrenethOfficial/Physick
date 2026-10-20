@@ -39,10 +39,13 @@ function smearTex() {
 }
 
 export class Blood {
-  constructor(game) {
+  // opts.parent: where decals live (ship frame or world); opts.sandbox: physics to stick to;
+  // opts.npcs: the NPC set whose ragdolls bleed.
+  constructor(game, opts = {}) {
     this.game = game;
+    this.opts = opts;
     this.group = new THREE.Group();
-    game.frame.add(this.group);
+    (opts.parent || game.frame).add(this.group);
     this.decals = [];
     this.drops = [];
     this.splats = [0, 1, 2, 3].map(splatTex);
@@ -88,7 +91,7 @@ export class Blood {
 
   // Ray against the ship itself only (ignores bodies, props, crew and you).
   cast(origin, dir, max) {
-    const sb = this.game.sandbox;
+    const sb = this.opts.sandbox || this.game.sandbox;
     const hit = sb.world.castRayAndGetNormal(new RAPIER.Ray(origin, dir), max, true, undefined, undefined, undefined, undefined,
       (c) => sb.staticColliders.has(c.handle));
     if (!hit) return null;
@@ -157,8 +160,10 @@ export class Blood {
       }
     }
     // bodies bleed: a pool under a resting body, smears behind a dragged one
-    for (const rd of this.game.npcs.ragdolls) {
-      if (!rd.bleed || rd.bleed <= 0 || !this.game.sandbox.props.has(rd.torso)) continue;
+    const npcs = this.opts.npcs ? this.opts.npcs() : this.game.npcs;
+    const sbx = this.opts.sandbox || this.game.sandbox;
+    for (const rd of npcs.ragdolls) {
+      if (!rd.bleed || rd.bleed <= 0 || !sbx.props.has(rd.torso)) continue;
       rd.bleed = Math.max(0, rd.bleed - dt / 90);
       const t = rd.torso.body.translation();
       const v = rd.torso.body.linvel();

@@ -1,11 +1,4 @@
 const hex = (n) => '#' + n.toString(16).padStart(6, '0');
-const kbd = (rows) => rows.map(([k, d]) => `<div><kbd>${k}</kbd><span>${d}</span></div>`).join('');
-
-const ON_FOOT = [['W A S D', 'Walk'], ['Space', 'Jump'], ['Shift', 'Run'], ['LMB', 'Pick up / put down / drag'], ['RMB', 'Throw / heave'], ['F', 'Use held item'], ['E', 'Helm / gun / jet']];
-const ON_GUN = [['Mouse', 'Aim'], ['LMB', 'Fire'], ['E', 'Leave the gun']];
-const IN_JET = [['W / S', 'Throttle'], ['Shift', 'Afterburner (full throttle)'], ['Mouse', 'Pitch / roll'], ['A / D', 'Rudder / steer'],
-  ['B', 'Brakes'], ['G', 'Gear'], ['LMB', 'Cannon'], ['C', 'Cockpit / chase view'], ['E', 'Get out (stopped)']];
-const AT_HELM = [['W / S', 'Engine order up / down'], ['A / D', 'Rudder port / starboard'], ['H', 'Ship\'s horn'], ['Mouse', 'Look around'], ['E', 'Leave the helm']];
 
 // All DOM UI: logo, health, compass, helm readout, prompts, toasts, title and death screens.
 export class Hud {
@@ -18,7 +11,17 @@ export class Hud {
       <div class="compass" id="compass"><div class="strip"></div><div class="needle"></div><b id="hdg">000°</b></div>
       <div class="crosshair"><b></b></div>
       <div class="stats" id="stats"></div>
-      <div class="hints" id="hints"></div>
+      <div class="money" id="money"><b>$0</b><i></i></div>
+      <div class="bagmeter" id="bagmeter"><span>Bag</span><div><i></i></div><b>0/40</b></div>
+      <div class="wanted" id="wanted"></div>
+      <canvas class="minimap" id="minimap" width="200" height="200"></canvas>
+      <div class="banner" id="banner"></div>
+      <div class="boatpanel" id="boatpanel">
+        <div class="row"><span>Boat</span><b id="bname">Dinghy</b></div>
+        <div class="row"><span>Speed</span><b id="bspd">0 kn</b></div>
+        <div class="row"><span>Hull</span><b id="bhp">100%</b></div>
+        <div class="thrbar hull"><i id="bhpbar"></i></div>
+      </div>
       <div class="toasts" id="toasts"></div>
       <div class="prompt" id="prompt"></div>
       <div class="helm" id="helm">
@@ -55,7 +58,13 @@ export class Hud {
     this.deathEl = $('death');
     this.toastsEl = $('toasts');
     this.statsEl = $('stats');
-    this.hintsEl = $('hints');
+    this.moneyEl = $('money');
+    this.bagEl = $('bagmeter');
+    this.wantedEl = $('wanted');
+    this.mapEl = $('minimap');
+    this.map = this.mapEl.getContext('2d');
+    this.bannerEl = $('banner');
+    this.boatEl = $('boatpanel');
     this.helmEl = $('helm');
     this.compassStrip = this.el.querySelector('.compass .strip');
     this.hdgEl = $('hdg');
@@ -78,9 +87,8 @@ export class Hud {
     this.el.classList.toggle('gunning', mode === 'gun');
     this.el.classList.toggle('flying', mode === 'jet');
     this.flightEl.classList.toggle('on', mode === 'jet');
-    const title = { deck: 'On deck', shore: 'Ashore', helm: 'At the helm', gun: gun ? `Manning the ${gun.name}` : 'Gun', jet: 'Flying' }[mode];
-    const rows = { deck: ON_FOOT, shore: ON_FOOT, helm: AT_HELM, jet: IN_JET, gun: gun?.kind === 'bullet' ? [['Mouse', 'Aim'], ['LMB (hold)', 'Fire'], ['E', 'Leave the gun']] : ON_GUN }[mode];
-    this.hintsEl.innerHTML = `<div class="hint-title">${title}</div>` + kbd(rows);
+    this.boatEl.classList.toggle('on', mode === 'boat');
+    this.el.classList.toggle('boating', mode === 'boat');
     if (gun) this.gunEl.querySelector('#gunname').textContent = gun.name;
   }
 
@@ -196,13 +204,101 @@ export class Hud {
     setTimeout(() => t.remove(), 2300);
   }
 
-  setStats(fps, crew) {
-    this.statsEl.textContent = `${fps} FPS · ${crew} crew on deck`;
+  setStats(fps) {
+    this.statsEl.textContent = `${fps} FPS`;
+  }
+
+  setMoney(n, delta = 0) {
+    this.moneyEl.querySelector('b').textContent = `$${n.toLocaleString()}`;
+    if (delta) {
+      const i = this.moneyEl.querySelector('i');
+      i.textContent = `${delta > 0 ? '+' : '-'}$${Math.abs(Math.round(delta)).toLocaleString()}`;
+      i.className = delta > 0 ? 'up' : 'down';
+      void i.offsetWidth;
+      i.classList.add('show');
+    }
+  }
+
+  setBag(w, cap) {
+    this.bagEl.querySelector('i').style.width = `${Math.min(w / cap, 1) * 100}%`;
+    this.bagEl.querySelector('b').textContent = `${Math.round(w)}/${cap}`;
+    this.bagEl.classList.toggle('full', w >= cap - 0.5);
+  }
+
+  // Wanted stars; flashing while the police are searching rather than watching you.
+  // bust: 0..1 progress of an officer cuffing you.
+  setWanted(n, searching, bust = 0) {
+    const key = `${n}|${searching}|${Math.round(bust * 20)}`;
+    if (key === this._wanted) return;
+    this._wanted = key;
+    let html = '';
+    for (let k = 1; k <= 5; k++) html += `<span class="${k <= n ? 'on' : ''}">★</span>`;
+    if (bust > 0.05) html += `<div class="cuff"><i style="width:${Math.min(bust, 1) * 100}%"></i><em>Being arrested — get away!</em></div>`;
+    this.wantedEl.innerHTML = html;
+    this.wantedEl.classList.toggle('active', n > 0);
+    this.wantedEl.classList.toggle('searching', n > 0 && searching);
+  }
+
+  setBoat(b) {
+    const $ = (id) => this.boatEl.querySelector('#' + id);
+    $('bname').textContent = b.type.name;
+    $('bspd').textContent = `${Math.round(Math.abs(b.speed) * 1.944)} kn`;
+    const f = Math.max(b.hp, 0) / b.type.hp;
+    $('bhp').textContent = `${Math.round(f * 100)}%`;
+    $('bhpbar').style.width = `${f * 100}%`;
+    $('bhpbar').classList.toggle('low', f < 0.3);
+  }
+
+  boatHit() {
+    this.boatEl.classList.remove('hit');
+    void this.boatEl.offsetWidth;
+    this.boatEl.classList.add('hit');
+  }
+
+  flashBanner(text, color = '#ffd166') {
+    this.bannerEl.textContent = text;
+    this.bannerEl.style.color = color;
+    this.bannerEl.classList.remove('show');
+    void this.bannerEl.offsetWidth;
+    this.bannerEl.classList.add('show');
+  }
+
+  // Minimap: north up, centred on you. islands, piers, boats, police, and your heading.
+  drawMap(info) {
+    const g = this.map, W = 200, S = info.scale; // metres per pixel
+    const cx = info.x, cz = info.z;
+    const X = (x) => W / 2 + (x - cx) / S, Z = (z) => W / 2 + (z - cz) / S;
+    g.clearRect(0, 0, W, W);
+    g.save();
+    g.beginPath(); g.arc(W / 2, W / 2, W / 2 - 2, 0, Math.PI * 2); g.clip();
+    g.fillStyle = '#1d4a6b'; g.fillRect(0, 0, W, W);
+    for (const isl of info.islands) {
+      g.fillStyle = isl.id === 'town' ? '#5f8a45' : isl.id === 'city' ? '#8f8b84' : '#7d7a70';
+      g.fillRect(X(isl.x0), Z(isl.z0), (isl.x1 - isl.x0) / S, (isl.z1 - isl.z0) / S);
+    }
+    g.fillStyle = '#a07d55';
+    for (const p of info.piers) g.fillRect(X(p.x0), Z(p.z0), Math.max((p.x1 - p.x0) / S, 1), Math.max((p.z1 - p.z0) / S, 1));
+    for (const m of info.marks) {
+      g.fillStyle = m.color;
+      g.beginPath(); g.arc(X(m.x), Z(m.z), m.r || 3, 0, Math.PI * 2); g.fill();
+      if (m.label) { g.font = 'bold 10px sans-serif'; g.fillStyle = '#fff'; g.fillText(m.label, X(m.x) + 5, Z(m.z) + 3); }
+    }
+    g.restore();
+    // you
+    g.save();
+    g.translate(W / 2, W / 2);
+    g.rotate(-info.yaw);
+    g.fillStyle = '#ffd166'; g.strokeStyle = '#000'; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(0, -8); g.lineTo(5, 6); g.lineTo(0, 3); g.lineTo(-5, 6); g.closePath(); g.fill(); g.stroke();
+    g.restore();
+    g.strokeStyle = 'rgba(0,0,0,.6)'; g.lineWidth = 3;
+    g.beginPath(); g.arc(W / 2, W / 2, W / 2 - 2, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = '#fff'; g.font = 'bold 12px sans-serif'; g.textAlign = 'center'; g.fillText('N', W / 2, 14); g.textAlign = 'start';
   }
 
   showOverlay(show, first = false) {
     this.overlay.classList.toggle('hidden', !show);
     this.el.classList.toggle('hidden', show);
-    this.overlay.querySelector('.play').textContent = first ? 'Click to board' : 'Click to resume';
+    this.overlay.querySelector('.play').textContent = first ? 'Click to play' : 'Click to resume';
   }
 }

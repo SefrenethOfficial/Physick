@@ -221,3 +221,63 @@ kbd {
 .srow .tog { min-width: 64px; }
 .choice { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
 @media (max-width: 560px) { .srow { flex-direction: column; align-items: flex-start; } .choice { justify-content: flex-start; } }
+
+/* ---------------- shop / bag panels ---------------- */
+#panel { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(0,0,0,.5); z-index: 4; }
+#panel .panel { width: min(560px, 100%); max-height: 88vh; overflow: auto; padding: 16px;
+  background: linear-gradient(#2a2d31, #1d1f22); border: 4px solid var(--ink); border-radius: 6px; box-shadow: 0 0 0 2px var(--steel-lo), 0 20px 50px rgba(0,0,0,.6); }
+#panel .menu-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+#panel h2 { margin: 0; font-size: 24px; letter-spacing: .08em; text-transform: uppercase; }
+#panel button { font: 700 13px var(--font); cursor: pointer; color: var(--paper); background: #3a3e44; border: 2px solid var(--ink); border-radius: 3px; padding: 5px 10px; }
+#panel button:hover:not(:disabled) { background: #ffd166; color: var(--ink); }
+#panel button:disabled { opacity: .4; cursor: default; }
+#panel button.big { width: 100%; margin-top: 10px; padding: 9px; background: #2e7d4f; }
+.econ-head { display: flex; gap: 18px; padding: 8px 10px; margin-bottom: 8px; background: rgba(255,255,255,.05); border-radius: 4px; font-size: 14px; }
+.econ-head b { color: #7be08a; }
+.erow { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 2px; border-top: 1px solid rgba(255,255,255,.07); }
+.erow.hl { background: rgba(255,209,102,.08); }
+.erow b { display: block; font-size: 15px; }
+.erow small { display: block; opacity: .6; font-size: 12px; }
+.erow .btns { display: flex; gap: 6px; flex-shrink: 0; }
+.erow .owned { font-weight: 700; color: #7be08a; font-size: 13px; }
+.lede { opacity: .75; font-style: italic; margin: 4px 0 10px; }
+.empty { opacity: .7; }
+
+/* ---- city game HUD ---- */
+.hints { display: none !important; }
+.money { position: absolute; top: 128px; left: 14px; font-size: 26px; text-shadow: 0 2px 0 #000, 0 0 6px rgba(0,0,0,.6); }
+.money b { color: #7be08a; }
+.money i { font-style: normal; font-size: 16px; margin-left: 8px; opacity: 0; }
+.money i.up { color: #7be08a; } .money i.down { color: #ff8a6a; }
+.money i.show { animation: moneyPop 1.6s ease-out; }
+@keyframes moneyPop { 0% { opacity: 1; transform: translateY(0); } 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+.bagmeter { position: absolute; top: 164px; left: 14px; width: 190px; display: flex; align-items: center; gap: 8px; font-size: 12px; text-shadow: 0 1px 2px #000; }
+.bagmeter span { text-transform: uppercase; letter-spacing: .08em; opacity: .8; }
+.bagmeter div { flex: 1; height: 7px; background: rgba(0,0,0,.45); border-radius: 2px; overflow: hidden; }
+.bagmeter div i { display: block; height: 100%; width: 0; background: #ffd166; transition: width .2s; }
+.bagmeter.full div i { background: #ff8a6a; }
+.wanted { position: absolute; top: 12px; right: 16px; display: flex; gap: 2px; font-size: 30px; flex-wrap: wrap; justify-content: flex-end; width: 220px; }
+.wanted span { color: rgba(255,255,255,.18); text-shadow: 0 2px 0 rgba(0,0,0,.5); }
+.wanted.active span.on { color: #ffd166; text-shadow: 0 2px 0 #000, 0 0 10px rgba(255,90,60,.8); }
+.wanted.searching span.on { animation: starBlink .6s steps(2) infinite; }
+@keyframes starBlink { 50% { color: rgba(255,255,255,.35); } }
+.wanted .cuff { width: 100%; margin-top: 4px; font-size: 12px; text-align: right; }
+.wanted .cuff i { display: block; height: 6px; background: #7fb2ff; border-radius: 2px; margin-left: auto; }
+.wanted .cuff em { font-style: normal; color: #9ec5ff; text-shadow: 0 1px 2px #000; }
+.minimap { position: absolute; left: 14px; bottom: 16px; width: 180px; height: 180px; opacity: .92; }
+#hud.flying .minimap { display: none; }
+.banner { position: absolute; left: 50%; top: 32%; transform: translate(-50%, -50%); font-size: 72px; font-weight: 700; letter-spacing: .1em; opacity: 0;
+  text-shadow: 0 4px 0 #000, 0 0 30px rgba(0,0,0,.6); }
+.banner.show { animation: banner 3s ease-out; }
+@keyframes banner { 0% { opacity: 0; transform: translate(-50%, -50%) scale(1.4); } 12% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; } }
+.boatpanel { position: absolute; right: 16px; bottom: 18px; width: 220px; display: none; gap: 6px; padding: 12px;
+  background: rgba(12,13,15,.6); border: 2px solid rgba(255,255,255,.12); border-radius: 4px; }
+.boatpanel.on { display: grid; }
+.boatpanel .row { display: flex; justify-content: space-between; align-items: baseline; }
+.boatpanel .row span { opacity: .7; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; }
+.boatpanel .row b { font-size: 17px; font-variant-numeric: tabular-nums; }
+.boatpanel .hull i { background: #7be08a; }
+.boatpanel .hull i.low { background: #ff6a5a; }
+.boatpanel.hit { animation: shake .3s; border-color: #ff6a5a; }
+#hud.boating .crosshair { display: none; }
+@media (max-width: 700px) { .minimap { width: 120px; height: 120px; } .banner { font-size: 44px; } }

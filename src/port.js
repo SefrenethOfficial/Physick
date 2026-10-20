@@ -4,18 +4,17 @@ import RAPIER from '@dimforge/rapier3d-compat';
 // Naval air station on the coast, in world coordinates (it does not move).
 // The quay runs along x = QUAY_X; land extends east from there.
 
-export const LAND_Y = 2.5;
+import { ISLANDS, LAND_Y as LY, onLand as onAnyLand, landHeight as anyLandHeight } from './world.js';
+
+export const LAND_Y = LY;
 export const QUAY_X = 10;
-export const LAND = { x0: QUAY_X, x1: 1500, z0: -1000, z1: 1000 };
+export const LAND = ISLANDS.find((i) => i.id === 'naval');
 export const RUNWAY = { x: 420, z0: -650, z1: 650, w: 45 };
 export const GANGWAY_FOOT = new THREE.Vector3(QUAY_X + 4.6, LAND_Y, 0);
 
-export function onLand(x, z, margin = 0) {
-  return x > LAND.x0 - margin && x < LAND.x1 + margin && z > LAND.z0 - margin && z < LAND.z1 + margin;
-}
-export function landHeight(x, z) {
-  return onLand(x, z) ? LAND_Y : null;
-}
+// Any island counts (ships run aground on all of them; jets can land on any flat ground).
+export const onLand = onAnyLand;
+export const landHeight = anyLandHeight;
 
 function canvasTex(w, h, draw, repeat) {
   const c = document.createElement('canvas');

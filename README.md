@@ -1,17 +1,41 @@
 <p align="center"><img src="public/assets/physick-logo.svg" alt="Physick" width="520"></p>
 
-**Physick** is a naval game built with [three.js](https://threejs.org) and [Rapier](https://rapier.rs). You start aboard a destroyer moored at a naval air station: walk her decks, take the helm and sail her out, man her guns, or walk down the gangway and fly a fighter jet off the airfield.
+**Physick** is an open-world island game built with [three.js](https://threejs.org) and [Rapier](https://rapier.rs). You start in the city of Port Calder with $150 and a dinghy at the marina. Take what isn't nailed down, sell it at the pawn shop, buy faster boats, and try not to get seen doing it. Further out there's a navy destroyer and a fighter base.
+
+## The world
+
+- **Port Calder** (where you start): a street grid of towers around a plaza with a fountain, the **pawn shop** (sells anything: `E` at the counter), the **boat dealer** at the marina, a police station and a hospital.
+- **Saltmarsh Key** (north of the city): a small town of painted houses, a market square full of stalls, a church, a lighthouse, a general store and a fishing dock. Lots of stuff lying around on porches and stalls, and townspeople with cash in their pockets.
+- **NAS Halyard** (east): the naval air station with the destroyer moored alongside and fighter jets on the apron.
+
+## Money, the bag and boats
+
+- Look at an item and press `B` to drop it straight in your **bag** (or press `B` while holding something). `Tab` opens the bag: take things out to hold, or drop them. The bag holds 40 kg.
+- Sell at the **pawn shop**; cash bundles go straight into your pocket.
+- Buy boats at **Boat sales** on the marina: Fishing Skiff, Speedboat, Patrol RIB, Cabin Cruiser and the Super Yacht. Bought boats wait at the marina berths; a sunk boat is back at the marina after a while.
+- Boats: walk up to yours and press `E`; `W` / `S` throttle, `A` / `D` steer, `E` to get off at a pier or the coast. Ramming does damage both ways (tougher boats come off better).
+- Your money, bag and boats are saved in your browser.
+
+## Crime and the police
+
+- **Punch** (`LMB` with an empty hand) or swing a bat; **grab** someone (`RMB`) to knock them out. Kill someone and you can **search the body** (`E`) for cash and valuables.
+- **Pick pockets:** get behind someone and hold `E`. If they notice, they run and call the police.
+- **Witnesses:** anyone who sees a crime runs and phones it in. Townspeople who find **blood or a body** go to look, then call the police, and if you're standing around nearby they'll describe you. People also notice you dragging a body around. Mops (in the plaza, the market and on the fishing dock) clean blood off the street.
+- **Wanted level** (1–5 stars): officers on foot, then squad cars that chase you down the streets and run you over, and at sea police boats that ram your boat. From 2 stars they hit back, from 3 they shoot. Stay out of sight and the stars drain away; flying a jet loses them.
+- **Busted:** let an officer stay on you for a couple of seconds and you're arrested: fined a quarter of your cash and your bag confiscated. Die and you wake up at the hospital, minus the bill.
 
 ## Controls
 
-**On deck**
+**On foot**
 - `W A S D` walk, `Shift` run, `Space` jump
-- `LMB` pick up the item you're looking at (it's held in your robot-arm hand); `LMB` again to put it down where you're looking
-- `RMB` throw the held item, `F` use it (medkits heal, coffee perks you up)
-- Look at a body (or a sailor) and `LMB` to grab and drag it; `LMB` lets go, `RMB` heaves it (over the side, if you like)
-- Holding a mop: hold `LMB` to scrub blood off the deck, `RMB` to put it down
-- `E` take the helm (on the bridge, behind the wheel) or man a gun (stand behind it)
-- `Esc` pause
+- `LMB` pick up the item you're looking at (it's held in your robot-arm hand), `LMB` again to put it down; empty-handed, `LMB` punches
+- `RMB` throw the held item; empty-handed, `RMB` grabs a person (knocking them out) and drags them
+- `F` use the held item (medkits heal, coffee perks you up)
+- `B` bag it, `Tab` open the bag
+- `E` interact: shops, boats, searching bodies, picking pockets, jets, the ship's helm and guns
+- Look at a body and `LMB` to drag it; `LMB` lets go, `RMB` heaves it
+- Holding a mop: hold `LMB` to scrub blood, `RMB` to put it down
+- `Esc` pause (Settings are on the pause screen)
 
 **In a jet** (walk up to one on the airfield and press `E`)
 - `W` / `S` throttle, `Shift` afterburner (at full throttle)
@@ -47,9 +71,9 @@
 - **Naval air station:** a quay with bollards and lamp posts, an apron with three hangars, a control tower, container stacks and fuel tanks, a 1.3 km runway with a parallel taxiway, and a windsock. It has its own physics world, so you can walk around it while the ship sails off.
 - **Fighter jets:** procedural twin-tail navy fighters with a physical-ish flight model (thrust, drag, lift from angle of attack, stalls), taxiing, take-off, landing (or crashing), afterburners, a nose cannon that can hit the target rafts, flight HUD with flight-path marker and STALL / PULL UP warnings. Wrecked jets are replaced after a while.
 - **Casualties:** sailors hit hard (a thrown item, cannon fire from a jet) are killed and go ragdoll. Blood sprays, pools under the body and smears when you drag it. Mops are in the stores, by the mess and on the flight deck. Loose bodies and items feel the ship's roll at sea.
-- **Settings** (pause screen): crew respawn on/off, crew size, blood on/off, bodies stay or get cleared, mouse sensitivity, invert jet pitch. Saved in your browser.
+- **Settings** (pause screen): townspeople respawn, police on/off, crew respawn and crew size on the destroyer, blood on/off, bodies stay or get cleared, mouse sensitivity, invert jet pitch. Saved in your browser.
 - **Crew:** sailors in working uniforms, cranials and dixie cups wander the main deck and stop to look at you when you walk up to them.
-- **Health:** fall damage and going overboard hurt; health regenerates; dying respawns you on the flight deck.
+- **Health:** fall damage and going overboard hurt; health regenerates; dying sends you to the hospital in Port Calder.
 
 Physics runs in the ship's own frame (the ship is static there) and the whole frame is moved on the ocean for rendering, so walking on a rolling deck is solid.
 
@@ -71,6 +95,15 @@ src/
   ocean.js     Gerstner wave shader + CPU wave sampler + wake foam
   ship.js      procedural warship, interior, colliders, helm and ship motion
   guns.js      manning guns, shells/tracers, splashes, explosions, target rafts
+  world.js     island and pier layout shared by everything on land and water
+  city.js      Port Calder: streets, towers, plaza, pawn shop, police, hospital, marina
+  saltmarsh.js Saltmarsh Key: houses, market, church, lighthouse, fishing dock
+  buildkit.js  shared builders (buildings, houses, signs, lamps, trees, cars)
+  merge.js     merges static scenery into a few big meshes
+  economy.js   money, the storage bag, pawn shop and boat dealer panels
+  boats.js     boats you buy and drive, police boats, ramming
+  citizens.js  townspeople and officers: wandering, witnesses, suspicion, chasing
+  police.js    wanted level, dispatch, squad cars, police boats, arrests
   port.js      the naval air station (world frame, own physics world)
   jets.js      fighter jets: model, flight model, cameras, cannon
   blood.js     blood spray, pools, drag smears, mopping
@@ -81,7 +114,7 @@ src/
   npcs.js      crew (wander, react, ragdoll)
   figure.js    blocky person model with navy uniforms
   health.js    health, damage, death/respawn
-  hud.js       compass, helm readout, health, prompts
+  hud.js       compass, health, money, bag, wanted stars, minimap, panels, prompts
   sandbox.js   static colliders and physics props
   effects.js   particles
   audio.js     synthesized sounds (sea, engines, horn, telegraph)

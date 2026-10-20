@@ -11,7 +11,7 @@ import { Ocean } from './ocean.js';
 import { Ship, HELM, DECK } from './ship.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Viewmodel } from './viewmodel.js';
-import { ITEMS } from './items.js';
+import { ITEMS, ITEM_BY_ID, LOOT_COMMON, LOOT_RARE } from './items.js';
 import { Gunnery } from './guns.js';
 import { Port, GANGWAY_FOOT, LAND_Y } from './port.js';
 import { Jets } from './jets.js';
@@ -19,12 +19,20 @@ import { Blood } from './blood.js';
 import { loadSettings, bindSettingsPanel } from './settings.js';
 import { deckHalfWidth } from './ship.js';
 import { onLand } from './port.js';
+import { City } from './city.js';
+import { Saltmarsh } from './saltmarsh.js';
+import { Economy, BAG_CAPACITY } from './economy.js';
+import { Boats, BOAT_TYPES } from './boats.js';
+import { Citizens } from './citizens.js';
+import { Police } from './police.js';
+import { ISLANDS, PIERS, nearestLandPoint, islandAt } from './world.js';
+import { mergeStatic } from './merge.js';
 
 const FOV = 75;
 const SKY_TOP = 0x4a83c4;
 const HORIZON = 0xcbdbe7;
 const FOG_NEAR = 180;
-const FOG_FAR = 1800;
+const FOG_FAR = 2400;
 const SUN = new THREE.Vector3(-0.42, 0.5, -0.75).normalize(); // afternoon sun, off the port bow
 
 class Game {
@@ -34,7 +42,10 @@ class Game {
     this.locked = false;
     this.started = false;
     this.atHelm = false;
-    this.onShore = false;
+    this.onShore = true;
+    this.panelOpen = false;
+    this.pick = null; // pickpocket in progress
+    this.punchT = 0;
     this.jetTrigger = false;
     this.settings = loadSettings();
     this.dragging = null; // { prop, local } a body being dragged
@@ -44,6 +55,7 @@ class Game {
     this.mouseDX = 0;
     this.mouseDY = 0;
     this.shake = 0;
+    this.time = 0; // game seconds (pauses with the game)
     this.events = { on() {}, emit() {} }; // sandbox hooks (no listeners needed here)
   }
 
@@ -88,6 +100,11 @@ class Game {
     this.portWorld = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
     this.portSandbox = new Sandbox(this, { world: this.portWorld, scene: this.scene });
     this.port = new Port(this, this.portSandbox);
+    loadingEl.textContent = 'Building Port Calder…';
+    this.city = new City(this, this.portSandbox);
+    this.saltmarsh = new Saltmarsh(this, this.portSandbox);
+    mergeStatic(this.city.group);
+    mergeStatic(this.saltmarsh.group);
     this.portWorld.step();
 
     loadingEl.textContent = 'Loading robot arm…';
@@ -98,15 +115,27 @@ class Game {
     this.viewmodel.setColor(0x7fd3ff);
 
     this.shipPlayer = new Player(this, new THREE.Vector3(0, DECK + 1.3, 44));
-    this.shorePlayer = new Player(this, GANGWAY_FOOT.clone().add(new THREE.Vector3(2, 1, 0)), { world: this.portWorld, sandbox: this.portSandbox });
+    this.shorePlayer = new Player(this, this.city.spawn.clone(), { world: this.portWorld, sandbox: this.portSandbox });
+    this.shorePlayer.yaw = -Math.PI / 2; // looking east, toward the pawn shop
     this.health = new Health(this);
     this.hud = new Hud(this);
     this.npcs = new Npcs(this);
     this.npcs.populate();
     this.blood = new Blood(this);
+    this.worldBlood = new Blood(this, { parent: this.scene, sandbox: this.portSandbox, npcs: () => this.citizens });
     this.gunnery = new Gunnery(this);
     this.jets = new Jets(this);
     this.stockStores();
+    this.economy = new Economy(this);
+    this.hud.setMoney(this.economy.money);
+    this.hud.setBag(this.economy.weight, BAG_CAPACITY);
+    this.boats = new Boats(this);
+    for (const id of this.economy.ownedBoats) this.boats.spawnOwned(id);
+    this.police = new Police(this);
+    this.citizens = new Citizens(this);
+    this.citizens.populate();
+    this.spawnLoot();
+    this.hud.setMode('shore');
     this.eye = new THREE.Object3D(); // camera pose in the ship frame
 
     this.bindInput();
@@ -137,7 +166,177 @@ class Game {
   }
 
   applySettings() {
-    if (!this.settings.blood) this.blood.clear();
+    if (!this.settings.blood) { this.blood.clear(); this.worldBlood.clear(); }
+  }
+
+  // ---------- city life: moving about, money, the bag ----------
+  placeOnShore(pos, yaw = this.shorePlayer.yaw) {
+    this.endDrag(false);
+    if (this.boats.active) { this.boats.active.driver.root.visible = false; this.boats.active = null; }
+    this.atHelm = false;
+    this.onShore = true;
+    this.shorePlayer.body.setTranslation({ x: pos.x, y: pos.y, z: pos.z }, true);
+    this.shorePlayer.vel.set(0, 0, 0);
+    this.shorePlayer.yaw = yaw;
+    this.shorePlayer.pitch = 0;
+    this.hud.setMode('shore');
+  }
+
+  leaveBoatAt(pos, heading) {
+    this.placeOnShore(pos, heading);
+    this.sfx.setEngine(false);
+  }
+
+  boatSunk() {
+    this.sinkingBoat = this.boats.list.find((b) => b.sinking && b.owned) || null;
+    this.health.damage(1000, 'boat');
+  }
+
+  holdItem(def) {
+    this.held = def;
+    this.viewmodel.setHeld(def.build().mesh, def.heldSize);
+    this.hud.setHolding(def.name);
+    this.sfx.play('grab');
+  }
+
+  clearHand() {
+    this.held = null;
+    this.mopping = false;
+    this.viewmodel.setHeld(null);
+    this.hud.setHolding(null);
+  }
+
+  // Something taken out of the bag and dropped at your feet.
+  dropFromBag(def) {
+    const eye = this.player.eye, dir = this.lookDir().setY(0).normalize();
+    const pos = eye.clone().addScaledVector(dir, 0.9);
+    pos.y -= 0.4;
+    this.sb.spawn(def, pos, new THREE.Quaternion(), { noHistory: true });
+    this.sfx.play('drop');
+  }
+
+  // B: put the held item (or the thing you're looking at) in the bag.
+  stash() {
+    if (this.held) {
+      const def = this.held;
+      if (this.economy.stash(def)) { this.clearHand(); this.sfx.play(def.cash ? 'cash' : 'grab'); }
+      return;
+    }
+    const hit = this.lookHit();
+    if (hit?.prop?.def.item) {
+      const def = hit.prop.def;
+      if (this.economy.stash(def)) { this.sb.remove(hit.prop); this.sfx.play(def.cash ? 'cash' : 'grab'); }
+    } else this.hud.toast('Nothing to bag — look at an item, or hold one');
+  }
+
+  spawnLoot() {
+    const sb = this.portSandbox;
+    const pick = (a) => ITEM_BY_ID[a[Math.floor(Math.random() * a.length)]];
+    const place = (def, p) => {
+      const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * Math.PI * 2);
+      sb.spawn(def, new THREE.Vector3(p.x, p.y + 0.25, p.z), q, { noHistory: true });
+    };
+    for (const p of this.city.lootSpots) if (Math.random() < 0.6) place(pick(Math.random() < 0.1 ? LOOT_RARE : LOOT_COMMON), p);
+    for (const s of this.saltmarsh.lootSpots) {
+      const rare = s.kind === 'porch' ? 0.3 : s.kind === 'stall' ? 0.2 : 0.08;
+      place(pick(Math.random() < rare ? LOOT_RARE : LOOT_COMMON), s.pos);
+    }
+    // mops to clean up after yourself, and a couple of bats
+    const mop = ITEM_BY_ID.mop, bat = ITEM_BY_ID.bat;
+    const plaza = this.city.spawn;
+    place(mop, plaza.clone().add(new THREE.Vector3(3, 0, -3)));
+    place(bat, plaza.clone().add(new THREE.Vector3(-3, 0, -2)));
+    place(mop, this.saltmarsh.market.clone().add(new THREE.Vector3(0, 1, 30)));
+    place(mop, this.saltmarsh.dock.clone().add(new THREE.Vector3(3, 1, 3)));
+  }
+
+  // Bare-handed punch, or a swing of whatever melee weapon you're holding.
+  punch() {
+    if (this.punchT > 0) return;
+    const melee = this.held?.melee;
+    this.punchT = melee ? 0.6 : 0.42;
+    this.viewmodel.kick(melee ? 1.2 : 0.7);
+    const hit = this.lookHit(melee ? 2.6 : 2.1);
+    if (!hit) { this.sfx.play('drop'); return; }
+    const dir = this.lookDir();
+    if (hit.npc) {
+      const set = this.onShore ? this.citizens : this.npcs;
+      if (!set.list.includes(hit.npc)) return;
+      this.sfx.play('punch');
+      set.damage(hit.npc, melee || 34, dir.clone().setY(0).normalize(), hit.point);
+      this.fx.emit(hit.point, dir.clone().multiplyScalar(-2), 0xff4040, 0.3, 1, 0);
+    } else if (hit.prop) {
+      this.sfx.play('punch');
+      hit.prop.body.applyImpulseAtPoint(dir.multiplyScalar(melee ? 6 : 3), hit.point, true);
+    } else this.sfx.play('impact');
+  }
+
+  // Search a body you're looking at (once each).
+  searchBody(rd) {
+    if (rd.searched) { this.hud.toast('Already searched'); return; }
+    rd.searched = true;
+    const loot = rd.loot || { cash: 0, items: [] };
+    if (loot.cash) { this.economy.addMoney(loot.cash, 'from the body'); this.sfx.play('cash'); }
+    let dropped = 0;
+    for (const id of loot.items) {
+      const def = ITEM_BY_ID[id];
+      if (!this.economy.stash(def, true)) { this.dropFromBag(def); dropped++; }
+      else this.hud.toast(`${def.name} → bag`);
+    }
+    if (!loot.cash && !loot.items.length) this.hud.toast('Nothing on them');
+    if (dropped) this.hud.toast('Bag full — dropped the rest', 0xff8a6a);
+    const t = rd.torso.body.translation();
+    this.police.crime('theft', 1, new THREE.Vector3(t.x, t.y, t.z));
+  }
+
+  // Living townsperson you're looking at, and whether you're behind them.
+  pickTarget() {
+    if (!this.onShore || this.held?.melee) return null;
+    const hit = this.lookHit(2.2);
+    const npc = hit?.npc;
+    if (!npc || !this.citizens.list.includes(npc)) return null;
+    const t = npc.body.translation(), p = this.player.body.translation();
+    const toMe = new THREE.Vector3(p.x - t.x, 0, p.z - t.z).normalize();
+    const facing = new THREE.Vector3(Math.sin(npc.heading), 0, Math.cos(npc.heading));
+    return { npc, behind: facing.dot(toMe) < -0.2 };
+  }
+
+  updatePickpocket(dt) {
+    const pk = this.pick;
+    if (!pk) return;
+    const cur = this.pickTarget();
+    if (!this.keys.has('KeyE') || !cur || cur.npc !== pk.npc || !cur.behind) { this.pick = null; return; }
+    pk.t += dt;
+    pk.check -= dt;
+    if (pk.check <= 0) {
+      pk.check = 0.3;
+      const odds = pk.npc.role === 'cop' ? 0.12 : pk.npc.speed > 1 ? 0.045 : 0.07;
+      if (Math.random() < odds) {
+        const t = pk.npc.body.translation();
+        this.hud.toast('They noticed!', 0xff6a5a);
+        this.sfx.play('scream');
+        const at = new THREE.Vector3(t.x, t.y, t.z);
+        this.police.crime('theft', 1, at);
+        if (pk.npc.role === 'cop') this.police.report(1, at, true, 'theft');
+        else {
+          this.citizens.flee(pk.npc, this.player.body.translation(), 10);
+          Object.assign(pk.npc, { reportT: 1.5, reportSev: 1, reportPos: at, reportSeen: true, reportWhy: 'theft' });
+        }
+        pk.npc.pickpocketed = true;
+        this.pick = null;
+        return;
+      }
+    }
+    if (pk.t >= 1.2) {
+      const n = pk.npc;
+      n.pickpocketed = true;
+      if (n.cash) { this.economy.addMoney(n.cash, 'pickpocketed'); this.sfx.play('cash'); n.cash = 0; }
+      if (n.items.length && Math.random() < 0.5) {
+        const def = ITEM_BY_ID[n.items.pop()];
+        if (this.economy.stash(def, true)) this.hud.toast(`Lifted a ${def.name.toLowerCase()}`, 0x7be08a);
+      }
+      this.pick = null;
+    }
   }
 
   leaveJetAt(pos, yaw) {
@@ -155,9 +354,13 @@ class Game {
   }
 
   respawnPlayer() {
-    this.onShore = false;
-    this.shipPlayer.respawn();
-    this.hud.setMode('deck');
+    // patched up at the hospital in Port Calder; the bill comes out of your pocket
+    this.sinkingBoat = null;
+    this.clearHand();
+    this.police.clearWanted();
+    this.placeOnShore(this.city.hospital.clone(), 0);
+    const bill = Math.round(this.economy.money * 0.1);
+    if (bill) this.economy.addMoney(-bill, 'hospital bill');
   }
 
   buildSky() {
@@ -229,7 +432,8 @@ class Game {
   stockStores() {
     const sb = this.sandbox;
     const pick = (a) => a[Math.floor(Math.random() * a.length)];
-    const shelfItems = ITEMS.filter((i) => i.id !== 'mug' && i.id !== 'mop');
+    const NAVAL = ['ammo', 'toolbox', 'rations', 'medkit', 'extinguisher', 'jerrycan', 'lifejacket', 'wrench', 'rope', 'shell', 'flashlight'];
+    const shelfItems = NAVAL.map((id) => ITEM_BY_ID[id]);
     const spots = [...this.ship.storeSpots].sort(() => Math.random() - 0.5);
     spots.slice(0, Math.min(spots.length, 30)).forEach((p) => {
       const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * 0.6 - 0.3 + (Math.abs(p.x) > 1 ? Math.PI / 2 : 0));
@@ -311,11 +515,14 @@ class Game {
 
   // ---------- dragging bodies ----------
   tryDrag() {
-    if (this.onShore) return false;
     let hit = this.lookHit(3.2);
     if (hit?.npc) {
-      // grabbing a living sailor knocks them out cold (no blood)
-      const rd = this.npcs.knockOver(hit.npc, new THREE.Vector3(), 0.5, { killed: false });
+      // grabbing a living person knocks them out cold (no blood)
+      const set = this.onShore ? this.citizens : this.npcs;
+      if (!set.list.includes(hit.npc)) return false;
+      const t = hit.npc.body.translation();
+      const rd = set.knockOver(hit.npc, new THREE.Vector3(), 0.5, { killed: false });
+      if (this.onShore) this.police.crime('assault', 1, new THREE.Vector3(t.x, t.y, t.z));
       hit = { ...hit, prop: rd.torso, point: rd.torso.mesh.position.clone() };
     }
     const prop = hit?.prop;
@@ -332,7 +539,7 @@ class Game {
     const d = this.dragging;
     this.dragging = null;
     this.viewmodel.gripTarget = 0;
-    if (!d || !this.sandbox.props.has(d.prop)) return;
+    if (!d || !this.sb.props.has(d.prop)) return;
     if (heave) {
       const v = this.lookDir().multiplyScalar(7);
       v.y += 2.5;
@@ -345,7 +552,7 @@ class Game {
   updateDrag() {
     const d = this.dragging;
     if (!d) return;
-    if (!this.sandbox.props.has(d.prop) || this.onShore) { this.endDrag(false); return; }
+    if (!this.sb.props.has(d.prop)) { this.endDrag(false); return; }
     const b = d.prop.body;
     const t = b.translation();
     const grab = d.local.clone().applyQuaternion(new THREE.Quaternion().copy(b.rotation())).add(new THREE.Vector3(t.x, t.y, t.z));
@@ -361,11 +568,12 @@ class Game {
   // ---------- mop ----------
   updateMop(dt) {
     if (!this.mopping || this.held?.use !== 'mop') { this.mopScrub = 0; return; }
-    const hit = this.onShore ? null : this.blood.cast(this.player.eye, this.lookDir(), 3);
+    const blood = this.onShore ? this.worldBlood : this.blood;
+    const hit = blood.cast(this.player.eye, this.lookDir(), 3);
     this.mopScrub = (this.mopScrub || 0) + dt;
     this.viewmodel.kick(0.08);
     if (hit) {
-      if (this.blood.mop(hit.point, 0.75, dt) && this.mopScrub > 0.35) { this.sfx.play('scrub'); this.mopScrub = 0; }
+      if (blood.mop(hit.point, 0.75, dt) && this.mopScrub > 0.35) { this.sfx.play('scrub'); this.mopScrub = 0; }
     }
   }
 
@@ -383,6 +591,7 @@ class Game {
   }
 
   stepAboard(local, localVel) {
+    this.endDrag(false);
     this.onShore = false;
     const p = this.shipPlayer;
     p.body.setTranslation({ x: local.x, y: Math.max(local.y, DECK + 0.87), z: local.z }, true);
@@ -418,6 +627,53 @@ class Game {
     if (!this.health.dead) this.player.respawn();
   }
 
+  near(p, r) {
+    const t = this.shorePlayer.body.translation();
+    return this.onShore && Math.hypot(t.x - p.x, t.z - p.z) < r && Math.abs(t.y - p.y - 1) < 2;
+  }
+
+  // What E does when you're on land, most specific first.
+  shoreAction() {
+    const pos = this.shorePlayer.body.translation();
+    const jet = this.jets.nearby(pos);
+    if (jet) return { label: 'Fly the jet', run: () => this.jets.enter(jet) };
+    if (this.near(this.city.pawnCounter, 3.5)) return { label: 'Pawn shop — sell loot', run: () => this.economy.openPawn() };
+    if (this.near(this.city.dealerCounter, 4)) return { label: 'Boat sales', run: () => this.economy.openDealer(BOAT_TYPES) };
+    const hit = this.lookHit(3);
+    const rd = hit?.prop?.ragdoll;
+    if (rd && this.citizens.ragdolls.includes(rd)) {
+      return rd.searched ? null : { label: `Search the ${rd.dead ? 'body' : 'unconscious ' + (rd.role === 'cop' ? 'officer' : 'person')}`, run: () => this.searchBody(rd) };
+    }
+    const pk = this.pickTarget();
+    if (pk && !pk.npc.pickpocketed) {
+      return pk.behind ? { label: '(hold) Pick their pocket', run: () => { this.pick = { npc: pk.npc, t: 0, check: 0.3 }; } }
+        : { label: 'Get behind them to pick their pocket', run: () => {} };
+    }
+    const boat = this.boats.nearbyOwned(pos);
+    if (boat) return { label: `Drive the ${boat.type.name}`, run: () => { this.endDrag(false); this.clearDropHeld(); this.boats.enter(boat); } };
+    return null;
+  }
+
+  interactAshore() {
+    const a = this.shoreAction();
+    if (a) a.run();
+  }
+
+  // Can't steer a boat with your hands full: what you're holding goes in the bag (or at your feet).
+  clearDropHeld() {
+    if (!this.held) return;
+    const def = this.held;
+    if (!this.economy.stash(def, true)) this.release(false);
+    else { this.clearHand(); this.hud.toast(`${def.name} → bag`); }
+  }
+
+  // LMB on a body drags it (living people need RMB, which knocks them out first).
+  tryDragBody() {
+    const hit = this.lookHit(3.2);
+    if (!hit?.prop?.ragdoll) return false;
+    return this.tryDrag();
+  }
+
   // ---------- input ----------
   lock() {
     this.sfx.unlock();
@@ -436,7 +692,7 @@ class Game {
     document.addEventListener('pointerlockchange', () => {
       this.locked = document.pointerLockElement === this.canvas;
       if (this.locked) this.hud.showOverlay(false);
-      else { this.keys.clear(); this.hud.showOverlay(true); }
+      else { this.keys.clear(); this.mopping = false; if (!this.panelOpen) this.hud.showOverlay(true); }
     });
     addEventListener('mousemove', (e) => {
       if (!this.locked) return;
@@ -453,7 +709,7 @@ class Game {
       if (!this.locked || this.health.dead) return;
       if (this.flying) { if (e.button === 0) this.jetTrigger = true; return; }
       if (this.gunnery.active) { if (e.button === 0) this.gunnery.trigger = true; return; }
-      if (this.atHelm) return;
+      if (this.atHelm || this.boats.active) return;
       if (this.dragging) {
         if (e.button === 0) this.endDrag(false);
         if (e.button === 2) this.endDrag(true);
@@ -464,8 +720,15 @@ class Game {
         if (e.button === 2) this.release(false);
         return;
       }
-      if (e.button === 0) { if (this.held) this.release(false); else if (!this.tryDrag()) this.pickUp(); }
-      if (e.button === 2 && this.held) this.release(true);
+      if (e.button === 0) {
+        if (this.held?.melee) this.punch();
+        else if (this.held) this.release(false);
+        else if (!this.pickUp() && !this.tryDragBody()) this.punch();
+      }
+      if (e.button === 2) {
+        if (this.held) this.release(true);
+        else this.tryDrag(); // grab a person (knocks them out) or a body
+      }
     });
     addEventListener('mouseup', (e) => {
       if (e.button === 0 && this.gunnery.gun?.kind === 'bullet') this.gunnery.trigger = false;
@@ -474,26 +737,28 @@ class Game {
     addEventListener('contextmenu', (e) => e.preventDefault());
     addEventListener('keydown', (e) => {
       if (e.code === 'Space' || e.code === 'Tab') e.preventDefault();
+      if (this.panelOpen && (e.code === 'Tab' || e.code === 'Escape' || e.code === 'KeyE')) { this.economy.close(); return; }
       if (e.repeat || !this.locked) return;
       this.keys.add(e.code);
       if (this.health.dead) return;
       if (this.flying && e.code !== 'KeyE') { this.jets.key(e.code); return; }
       if (e.code === 'KeyE') {
         if (this.flying) { this.jets.exit(); return; }
+        if (this.boats.active) { this.boats.exit(); return; }
         if (this.atHelm) this.leaveHelm();
         else if (this.gunnery.active) this.gunnery.leave();
-        else if (this.onShore) {
-          const jet = this.jets.nearby(this.shorePlayer.body.translation());
-          if (jet) this.jets.enter(jet);
-        } else if (this.nearHelm()) this.takeHelm();
+        else if (this.onShore) this.interactAshore();
+        else if (this.nearHelm()) this.takeHelm();
         else {
           const gun = this.gunnery.nearby();
           if (gun) this.gunnery.man(gun);
         }
         return;
       }
-      if (this.gunnery.active) return;
+      if (this.gunnery.active || this.boats.active) return;
       if (e.code === 'KeyF') { this.useHeld(); return; }
+      if (e.code === 'KeyB') { this.stash(); return; }
+      if (e.code === 'Tab') { this.endDrag(false); this.economy.openBag(); return; }
       if (this.atHelm) {
         if (e.code === 'KeyW' || e.code === 'ArrowUp') { this.ship.telegraphUp(); this.sfx.play('telegraph'); }
         if (e.code === 'KeyS' || e.code === 'ArrowDown') { this.ship.telegraphDown(); this.sfx.play('telegraph'); }
@@ -516,35 +781,69 @@ class Game {
 
   promptText() {
     if (this.health.dead || this.atHelm || this.gunnery.active || this.flying) return null;
-    if (this.dragging) return '<kbd>LMB</kbd> Let go · <kbd>RMB</kbd> Heave';
-    if (this.held?.use === 'mop') return '<kbd>LMB</kbd> (hold) Mop · <kbd>RMB</kbd> Put down';
-    if (this.onShore) {
-      const jet = this.jets.nearby(this.shorePlayer.body.translation());
-      if (jet) return '<kbd>E</kbd> Fly the jet';
+    if (this.boats.active) {
+      const b = this.boats.active;
+      const p = nearestLandPoint(b.pos.x, b.pos.z);
+      return p && p.dist < b.type.beam / 2 + 7 ? '<kbd>E</kbd> Get off' : null;
     }
-    if (this.nearHelm()) return '<kbd>E</kbd> Take the helm';
-    const gun = this.gunnery.nearby();
-    if (gun) return `<kbd>E</kbd> Man the ${gun.name}`;
-    if (this.held) return null;
+    if (this.pick) return `Picking pocket… ${Math.round((this.pick.t / 1.2) * 100)}%`;
+    if (this.dragging) return '<kbd>LMB</kbd> Let go · <kbd>RMB</kbd> Heave';
+    if (this.held?.use === 'mop') return '<kbd>LMB</kbd> (hold) Mop · <kbd>RMB</kbd> Put down · <kbd>B</kbd> Bag it';
+    if (this.held?.melee) return `<kbd>LMB</kbd> Swing · <kbd>RMB</kbd> Throw · <kbd>B</kbd> Bag it`;
+    if (this.onShore) {
+      const a = this.shoreAction();
+      if (a) return `<kbd>E</kbd> ${a.label}`;
+    } else {
+      if (this.nearHelm()) return '<kbd>E</kbd> Take the helm';
+      const gun = this.gunnery.nearby();
+      if (gun) return `<kbd>E</kbd> Man the ${gun.name}`;
+    }
+    if (this.held) return '<kbd>B</kbd> Put in bag';
     const hit = this.lookHit();
-    if (hit?.prop?.def.item) return `<kbd>LMB</kbd> Pick up ${hit.prop.def.name}`;
-    const far = !this.onShore && !hit ? this.lookHit(3.2) : null;
-    if (!this.onShore && far?.prop?.ragdoll) return `<kbd>LMB</kbd> Drag ${far.prop.ragdoll.dead ? 'body' : 'sailor'}`;
-    if (!this.onShore && hit?.prop?.ragdoll) return `<kbd>LMB</kbd> Drag ${hit.prop.ragdoll.dead ? 'body' : 'sailor'}`;
-    if (!this.onShore && hit?.npc) return '<kbd>LMB</kbd> Grab sailor';
+    if (hit?.prop?.def.item) return `<kbd>LMB</kbd> Pick up ${hit.prop.def.name} · <kbd>B</kbd> Bag it ($${hit.prop.def.value})`;
+    const far = hit || this.lookHit(3.2);
+    if (far?.prop?.ragdoll) return `<kbd>LMB</kbd> Drag ${far.prop.ragdoll.dead ? 'body' : (this.onShore ? 'them' : 'sailor')}`;
+    if (hit?.npc) return `<kbd>LMB</kbd> Punch · <kbd>RMB</kbd> Grab ${this.onShore ? '' : 'sailor'}`;
     return null;
+  }
+
+  drawMinimap(yaw) {
+    const c = this.camera.position;
+    const marks = [];
+    const b = this.boats;
+    for (const x of b.list) {
+      if (!x.alive || x === b.active) continue;
+      if (x.police) marks.push({ x: x.pos.x, z: x.pos.z, color: '#4a7dff', r: 4 });
+      else if (x.owned) marks.push({ x: x.pos.x, z: x.pos.z, color: '#7be08a', r: 3.5 });
+    }
+    for (const car of this.police.cars) marks.push({ x: car.pos.x, z: car.pos.z, color: (performance.now() / 200) % 2 < 1 ? '#ff3030' : '#4a7dff', r: 4 });
+    for (const n of this.citizens.list) {
+      if (n.role !== 'cop' || !(this.police.wanted > 0)) continue;
+      const t = n.body.translation();
+      marks.push({ x: t.x, z: t.z, color: '#9ec5ff', r: 2.5 });
+    }
+    marks.push({ x: this.city.pawnCounter.x, z: this.city.pawnCounter.z, color: '#ffd166', r: 4, label: '$' });
+    marks.push({ x: this.city.dealerCounter.x, z: this.city.dealerCounter.z, color: '#7fd3ff', r: 4, label: 'Boats' });
+    marks.push({ x: this.city.hospital.x, z: this.city.hospital.z, color: '#ff6a6a', r: 3, label: '+' });
+    marks.push({ x: this.saltmarsh.market.x, z: this.saltmarsh.market.z, color: '#ffb36b', r: 3, label: 'Market' });
+    const sp = this.ship.root.position;
+    marks.push({ x: sp.x, z: sp.z, color: '#c9ced4', r: 4 });
+    const far = this.boats.active || this.flying;
+    this.hud.drawMap({ x: c.x, z: c.z, yaw, scale: this.flying ? 12 : far ? 5 : 2.2, islands: ISLANDS, piers: PIERS, marks });
   }
 
   // ---------- loop ----------
   tick() {
     this.timer.update();
     const dt = Math.min(this.timer.getDelta(), 0.1);
+    this.time += dt;
     const k = this.keys;
     const steer = this.atHelm ? (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0) : 0;
     this.ship.update(dt, this.ocean, steer);
 
-    const alive = this.locked && !this.health.dead;
-    const walking = alive && !this.atHelm && !this.gunnery.active && !this.flying;
+    const alive = this.locked && !this.health.dead && !this.panelOpen;
+    const walking = alive && !this.atHelm && !this.gunnery.active && !this.flying && !this.boats.active;
+    this.punchT = Math.max(0, this.punchT - dt);
     const keys = walking ? k : new Set();
     const steps = Math.min(Math.max(Math.ceil(dt / (1 / 60) - 0.01), 1), 4);
     const sub = dt / steps;
@@ -557,15 +856,20 @@ class Game {
       this.jets.update(sub, alive ? k : new Set(), this.jetTrigger && alive);
       if (!this.onShore) this.shipPlayer.update(sub, keys);
       this.npcs.update(sub);
+      this.citizens.update(sub);
       if (!this.onShore) this.health.checkImpacts();
       this.world.timestep = sub;
       this.world.step();
-      if (this.onShore && !this.flying) this.shorePlayer.update(sub, keys);
+      if (this.onShore && !this.flying && !this.boats.active) this.shorePlayer.update(sub, keys);
       this.portWorld.timestep = sub;
       this.portWorld.step();
     }
     this.checkTransfer();
+    this.boats.update(dt, alive ? k : new Set());
+    this.police.update(dt);
+    this.updatePickpocket(dt);
     this.blood.update(dt);
+    this.worldBlood.update(dt);
     this.updateMop(dt);
     this.portSandbox.sync();
     this.port.update(dt, this.ship.time);
@@ -575,22 +879,28 @@ class Game {
     this.sandbox.sync();
     this.sandbox.cleanup();
     this.npcs.frame(dt);
+    this.citizens.frame(dt);
+    this.portSandbox.cleanup();
     this.effects.update(dt);
     this.gunnery.update(dt);
 
     const pt = this.player.body.translation();
     if (!this.health.dead && !this.flying) {
       if (!this.onShore && pt.y < DECK - 3.5) this.overboard();
-      if (this.onShore && pt.y < LAND_Y - 3) {
+      if (this.onShore && !this.boats.active && pt.y < LAND_Y - 3) {
         this.sfx.play('splash');
-        this.hud.toast('Fell in the harbour!', 0xff8a6a);
-        this.health.damage(20, 'overboard');
-        if (!this.health.dead) this.shorePlayer.body.setTranslation({ x: GANGWAY_FOOT.x + 3, y: LAND_Y + 1, z: GANGWAY_FOOT.z }, true);
+        this.endDrag(false);
+        this.hud.toast('You fell in the water!', 0xff8a6a);
+        this.health.damage(15, 'drown');
+        const lp = nearestLandPoint(pt.x, pt.z);
+        if (!this.health.dead) this.placeOnShore(new THREE.Vector3(lp.x, LAND_Y + 1, lp.z));
       }
     }
 
     if (this.flying) {
       this.jets.cameraPose(this.camera, dt);
+    } else if (this.boats.active || (this.health.dead && this.sinkingBoat)) {
+      this.boats.cameraPose(this.camera, dt, this.boats.active || this.sinkingBoat);
     } else {
       // camera: player's eye (or the gun sight); aboard it's in the ship frame and carried by the ship
       if (this.gunnery.active && !this.health.dead) this.gunnery.cameraPose(this.eye);
@@ -620,20 +930,25 @@ class Game {
 
     // HUD
     const viewYaw = this.flying ? this.jets.active.heading
+      : this.boats.active ? this.boats.active.heading
       : this.onShore ? this.player.yaw
         : this.ship.heading + (this.gunnery.active ? this.gunnery.gun.yaw.rotation.y : this.player.yaw);
     this.hud.setHeading(THREE.MathUtils.radToDeg(-viewYaw));
     if (this.atHelm) this.hud.setShip(this.ship, Ship.SPEEDS);
     if (this.gunnery.active) this.hud.setGun(this.gunnery.gun);
     if (this.flying) this.hud.setFlight(this.jets.active, this.camera);
+    if (this.boats.active) this.hud.setBoat(this.boats.active);
     this.hud.setPrompt(this.promptText());
-    this.sfx.setEngine(this.started, 0.15 + Math.abs(this.ship.speed) / 22);
-    this.sfx.setOcean(this.started, 0.6 + Math.abs(this.ship.speed) / 20);
+    if (!this.boats.active) this.sfx.setEngine(this.started && !this.onShore, 0.15 + Math.abs(this.ship.speed) / 22);
+    const inTown = this.onShore && !this.flying && !this.boats.active && islandAt(pt.x, pt.z, -60)?.id !== 'naval';
+    this.sfx.setOcean(this.started, inTown ? 0.25 : 0.6 + Math.abs(this.ship.speed) / 20);
+    this.mapT = (this.mapT || 0) - dt;
+    if (this.mapT <= 0) { this.mapT = 0.1; this.drawMinimap(viewYaw); }
 
     const r = this.renderer;
     r.autoClear = true;
     r.render(this.scene, this.camera);
-    const showArm = !this.atHelm && !this.gunnery.active && !this.health.dead && !this.flying;
+    const showArm = !this.atHelm && !this.gunnery.active && !this.health.dead && !this.flying && !this.boats.active;
     this.viewmodel.update(dt, this.player, this.mouseDX, this.mouseDY, false);
     this.mouseDX = this.mouseDY = 0;
     if (showArm) {
@@ -644,7 +959,7 @@ class Game {
 
     this.fpsAcc += dt; this.fpsFrames++;
     if (this.fpsAcc > 0.5) {
-      this.hud.setStats(Math.round(this.fpsFrames / this.fpsAcc), this.npcs.list.length);
+      this.hud.setStats(Math.round(this.fpsFrames / this.fpsAcc));
       this.fpsAcc = 0; this.fpsFrames = 0;
     }
   }

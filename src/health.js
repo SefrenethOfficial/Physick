@@ -41,6 +41,10 @@ export class Health {
       prop: 'Flattened',
       overboard: 'Lost at sea',
       jet: 'Your jet went down',
+      boat: 'Your boat went down',
+      police: 'Shot by the police',
+      car: 'Run down by a squad car',
+      drown: 'Drowned',
     }[kind] || 'You died';
     g.hud.showDeath(true, msg);
     g.sfx.play('die');

@@ -25,7 +25,12 @@ export class Npcs {
     this.knockdowns = 0;
   }
 
+  // Overridable hooks so the same code drives the ship's crew (ship frame) and townspeople (world frame).
   get world() { return this.game.world; }
+  get sb() { return this.game.sandbox; }
+  get parent() { return this.game.frame; }
+  get blood() { return this.game.blood; }
+  look() { return crewLook(); }
 
   populate(n = this.max) {
     for (let i = 0; i < n; i++) {
@@ -41,7 +46,7 @@ export class Npcs {
 
   // Random open spot on the main deck, optionally away from the player or near a point.
   randomPoint(minDistFromPlayer = 0, near = null, range = 25) {
-    const sb = this.game.sandbox;
+    const sb = this.sb;
     const pp = this.game.shipPlayer?.body.translation();
     for (let i = 0; i < 30; i++) {
       let z = near ? near.z + (Math.random() - 0.5) * 2 * range : -48 + Math.random() * 100;
@@ -72,8 +77,8 @@ export class Npcs {
     cc.enableSnapToGround(0.4);
     cc.setMaxSlopeClimbAngle((45 * Math.PI) / 180);
     cc.setApplyImpulsesToDynamicBodies(false);
-    const fig = buildFigure(crewLook());
-    this.game.frame.add(fig.root);
+    const fig = buildFigure(this.look());
+    this.parent.add(fig.root);
     const npc = {
       body, collider, cc, fig,
       hp: 100,
@@ -88,13 +93,13 @@ export class Npcs {
       stuckT: 0,
       lastPos: new THREE.Vector3(groundPoint.x, 0, groundPoint.z),
     };
-    this.game.sandbox.npcByCollider.set(collider.handle, npc);
+    this.sb.npcByCollider.set(collider.handle, npc);
     this.list.push(npc);
     return npc;
   }
 
   despawn(npc) {
-    this.game.sandbox.npcByCollider.delete(npc.collider.handle);
+    this.sb.npcByCollider.delete(npc.collider.handle);
     this.world.removeCharacterController(npc.cc);
     this.world.removeRigidBody(npc.body);
     npc.fig.root.removeFromParent();
@@ -132,7 +137,7 @@ export class Npcs {
   // opts.killed: a lethal hit (bleeds, if blood is on). Grabbing someone just knocks them out.
   knockOver(npc, velocity = new THREE.Vector3(), spin = 3, opts = {}) {
     const killed = opts.killed ?? true;
-    const sb = this.game.sandbox;
+    const sb = this.sb;
     const { parts } = npc.fig;
     npc.fig.root.updateMatrixWorld(true);
     const v = new THREE.Vector3().copy(velocity);
@@ -180,9 +185,9 @@ export class Npcs {
     rd.dead = killed;
     this.trimRagdolls(this.game.settings.keepBodies ? 40 : MAX_RAGDOLLS);
     this.game.sfx.play('thud');
-    if (killed && this.game.blood) {
+    if (killed && this.blood) {
       const p = opts.point ? new THREE.Vector3().copy(opts.point) : rd.torso.mesh.position.clone();
-      this.game.blood.onKill(rd, p, opts.dir || velocity);
+      this.blood.onKill(rd, p, opts.dir || velocity);
     }
     // Everyone nearby panics.
     // (crew nearby keep calm; nobody runs)
@@ -190,7 +195,7 @@ export class Npcs {
   }
 
   trimRagdolls(max) {
-    const sb = this.game.sandbox;
+    const sb = this.sb;
     this.ragdolls = this.ragdolls.filter((rd) => rd.parts.some((p) => sb.props.has(p)));
     while (this.ragdolls.length > max) {
       const i = this.ragdolls.findIndex((rd) => !this.inUse(rd));
@@ -214,7 +219,7 @@ export class Npcs {
       const t = npc.body.translation();
 
       // Anything flying at this person fast enough knocks them flat.
-      const hits = g.sandbox.incoming(t, HALF, RAD);
+      const hits = this.sb.incoming(t, HALF, RAD);
       let worst = null;
       for (const h of hits) if (!worst || h.speed > worst.speed) worst = h;
       if (worst && worst.speed > KNOCKDOWN_SPEED) {
@@ -313,7 +318,7 @@ export class Npcs {
 
     // Tidy up old ragdolls nobody is playing with.
     const now = performance.now();
-    const sb = this.game.sandbox;
+    const sb = this.sb;
     for (const rd of [...this.ragdolls]) {
       if (!this.game.settings.keepBodies && now - rd.bornAt > RAGDOLL_LIFETIME * 1000 && !this.inUse(rd)) {
         for (const p of rd.parts) sb.remove(p);

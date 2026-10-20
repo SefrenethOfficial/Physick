@@ -83,6 +83,11 @@ export class Sfx {
       case 'splashFar': this.noise(0.6, 0.18, 500, 0.5, 0.25); break;
       case 'explosion': this.noise(1.2, 0.9, 180, 0.4); this.tone('sine', 70, 25, 1.0, 0.7); break;
       case 'scrub': this.noise(0.3, 0.18, 1800, 1.5); this.noise(0.25, 0.12, 900, 1.2, 0.12); break;
+      case 'punch': this.noise(0.08, 0.5, 600, 1); this.tone('sine', 180, 70, 0.1, 0.4); break;
+      case 'pistol': this.noise(0.12, 0.6, 1800, 0.6); this.tone('square', 300, 80, 0.06, 0.2); break;
+      case 'cash': this.tone('triangle', 1320, 1320, 0.06, 0.2); this.tone('triangle', 1760, 1760, 0.12, 0.2, 0.07); break;
+      case 'star': this.tone('square', 880, 660, 0.12, 0.15); this.tone('square', 880, 660, 0.12, 0.15, 0.16); break;
+      case 'scream': this.tone('sawtooth', 900 + Math.random() * 300, 1300, 0.5, 0.08); this.tone('sine', 1100, 1500, 0.5, 0.06); break;
       case 'engineStart': this.tone('sawtooth', 50, 140, 0.4, 0.25); this.noise(0.3, 0.3, 400, 1); break;
     }
   }
@@ -192,5 +197,23 @@ export class Sfx {
       this.hum.o.frequency.value = 70 * pitch;
       this.hum.o2.frequency.value = 141 * pitch;
     }
+  }
+
+  // Two-tone police siren wailing somewhere nearby (level 0 = silent).
+  setSiren(level) {
+    if (!this.ctx) return;
+    if (level > 0 && !this.siren) {
+      const o = this.ctx.createOscillator(); o.type = 'square';
+      const lfo = this.ctx.createOscillator(); lfo.type = 'square'; lfo.frequency.value = 1.4;
+      const lg = this.ctx.createGain(); lg.gain.value = 170;
+      o.frequency.value = 760;
+      lfo.connect(lg).connect(o.frequency);
+      const f = this.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1600;
+      const g = this.ctx.createGain(); g.gain.value = 0;
+      o.connect(f).connect(g).connect(this.master);
+      o.start(); lfo.start();
+      this.siren = { o, lfo, g };
+    }
+    if (this.siren) this.siren.g.gain.setTargetAtTime(Math.min(level, 1) * 0.035, this.ctx.currentTime, 0.3);
   }
 }
