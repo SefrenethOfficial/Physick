@@ -4,7 +4,7 @@
 
 ## The world
 
-- **Port Calder** (where you start): a street grid of towers around a plaza with a fountain, the **pawn shop** (sells anything: `E` at the counter), the **boat dealer** at the marina, a police station and a hospital.
+- **Port Calder** (where you start): a compact 5 × 5 block downtown with kerbed pavements, brick walk-ups with shopfronts and fire escapes, apartment blocks with balconies and glass towers on stone podiums. Plenty of ground floors are walk-in: shops with shelves of stuff, diners, office and police/hospital lobbies, and the **pawn shop** (sell anything at its counter with `E`). Cars drive the streets (they queue, turn, stop for people and honk at you) and pedestrians walk the pavements and cross at the corners. There's a plaza with a fountain, a pocket park, the **boat dealer** at the marina, a police station and a hospital.
 - **Saltmarsh Key** (north of the city): a small town of painted houses, a market square full of stalls, a church, a lighthouse, a general store and a fishing dock. Lots of stuff lying around on porches and stalls, and townspeople with cash in their pockets.
 - **NAS Halyard** (east): the naval air station with the destroyer moored alongside and fighter jets on the apron.
 
@@ -96,7 +96,9 @@ src/
   ship.js      procedural warship, interior, colliders, helm and ship motion
   guns.js      manning guns, shells/tracers, splashes, explosions, target rafts
   world.js     island and pier layout shared by everything on land and water
-  city.js      Port Calder: streets, towers, plaza, pawn shop, police, hospital, marina
+  city.js      Port Calder: streets, blocks, plaza, park, pawn shop, police, hospital, marina
+  architecture.js city buildings (brick, apartment, office, civic) and walk-in interiors
+  traffic.js   cars driving the street grids
   saltmarsh.js Saltmarsh Key: houses, market, church, lighthouse, fishing dock
   buildkit.js  shared builders (buildings, houses, signs, lamps, trees, cars)
   merge.js     merges static scenery into a few big meshes

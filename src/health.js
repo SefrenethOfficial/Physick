@@ -44,6 +44,7 @@ export class Health {
       boat: 'Your boat went down',
       police: 'Shot by the police',
       car: 'Run down by a squad car',
+      traffic: 'Hit by a car',
       drown: 'Drowned',
     }[kind] || 'You died';
     g.hud.showDeath(true, msg);

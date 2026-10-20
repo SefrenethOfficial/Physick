@@ -27,6 +27,7 @@ import { Citizens } from './citizens.js';
 import { Police } from './police.js';
 import { ISLANDS, PIERS, nearestLandPoint, islandAt } from './world.js';
 import { mergeStatic } from './merge.js';
+import { Traffic } from './traffic.js';
 
 const FOV = 75;
 const SKY_TOP = 0x4a83c4;
@@ -103,6 +104,7 @@ class Game {
     loadingEl.textContent = 'Building Port Calder…';
     this.city = new City(this, this.portSandbox);
     this.saltmarsh = new Saltmarsh(this, this.portSandbox);
+    mergeStatic(this.port.group);
     mergeStatic(this.city.group);
     mergeStatic(this.saltmarsh.group);
     this.portWorld.step();
@@ -134,6 +136,9 @@ class Game {
     this.police = new Police(this);
     this.citizens = new Citizens(this);
     this.citizens.populate();
+    this.traffic = new Traffic(this);
+    this.traffic.addNetwork('city', this.city.xs, this.city.zs, this.city.lane, 18, 11);
+    this.traffic.addNetwork('town', this.saltmarsh.xs, this.saltmarsh.zs, 2.4, 5, 8);
     this.spawnLoot();
     this.hud.setMode('shore');
     this.eye = new THREE.Object3D(); // camera pose in the ship frame
@@ -807,6 +812,19 @@ class Game {
     return null;
   }
 
+  // People, cars and loose items far from the camera aren't drawn (the city stays cheap).
+  cullFar() {
+    const c = this.camera.position;
+    const near = (x, z, r) => (x - c.x) ** 2 + (z - c.z) ** 2 < r * r;
+    const R = this.flying ? 0 : 170;
+    for (const n of this.citizens.list) { const t = n.fig.root.position; n.fig.root.visible = near(t.x, t.z, R); }
+    for (const car of this.traffic.cars) car.mesh.visible = near(car.pos.x, car.pos.z, R * 1.6);
+    for (const p of this.portSandbox.props) { const t = p.mesh.position; p.mesh.visible = near(t.x, t.z, R * 0.8); }
+    // the destroyer is a lot of little meshes: skip it when it's a speck on the horizon
+    const sp = this.frame.position;
+    this.frame.visible = !this.onShore || this.flying || near(sp.x, sp.z, 900);
+  }
+
   drawMinimap(yaw) {
     const c = this.camera.position;
     const marks = [];
@@ -828,8 +846,17 @@ class Game {
     marks.push({ x: this.saltmarsh.market.x, z: this.saltmarsh.market.z, color: '#ffb36b', r: 3, label: 'Market' });
     const sp = this.ship.root.position;
     marks.push({ x: sp.x, z: sp.z, color: '#c9ced4', r: 4 });
+    for (const car of this.traffic.cars) marks.push({ x: car.pos.x, z: car.pos.z, color: '#d8d8d8', r: 1.8 });
+    if (!this.roadsCache) {
+      this.roadsCache = [];
+      for (const R of [this.city, this.saltmarsh]) {
+        const w = R === this.city ? 16 : 10;
+        for (const x of R.xs) this.roadsCache.push({ x0: x - w / 2, x1: x + w / 2, z0: R.zs[0] - w / 2, z1: R.zs.at(-1) + w / 2 });
+        for (const z of R.zs) this.roadsCache.push({ x0: R.xs[0] - w / 2, x1: R.xs.at(-1) + w / 2, z0: z - w / 2, z1: z + w / 2 });
+      }
+    }
     const far = this.boats.active || this.flying;
-    this.hud.drawMap({ x: c.x, z: c.z, yaw, scale: this.flying ? 12 : far ? 5 : 2.2, islands: ISLANDS, piers: PIERS, marks });
+    this.hud.drawMap({ roads: this.roadsCache, x: c.x, z: c.z, yaw, scale: this.flying ? 12 : far ? 5 : 2.2, islands: ISLANDS, piers: PIERS, marks });
   }
 
   // ---------- loop ----------
@@ -857,6 +884,7 @@ class Game {
       if (!this.onShore) this.shipPlayer.update(sub, keys);
       this.npcs.update(sub);
       this.citizens.update(sub);
+      if (i === 0) this.traffic.update(dt);
       if (!this.onShore) this.health.checkImpacts();
       this.world.timestep = sub;
       this.world.step();
@@ -942,6 +970,8 @@ class Game {
     if (!this.boats.active) this.sfx.setEngine(this.started && !this.onShore, 0.15 + Math.abs(this.ship.speed) / 22);
     const inTown = this.onShore && !this.flying && !this.boats.active && islandAt(pt.x, pt.z, -60)?.id !== 'naval';
     this.sfx.setOcean(this.started, inTown ? 0.25 : 0.6 + Math.abs(this.ship.speed) / 20);
+    this.cullT = (this.cullT || 0) - dt;
+    if (this.cullT <= 0) { this.cullT = 0.4; this.cullFar(); }
     this.mapT = (this.mapT || 0) - dt;
     if (this.mapT <= 0) { this.mapT = 0.1; this.drawMinimap(viewYaw); }
 

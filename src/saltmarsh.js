@@ -106,10 +106,10 @@ export class Saltmarsh {
       const car = carMesh([0xc23b2a, 0x2f7fd8, 0xe0e0e0, 0x3aa760][n % 4]);
       const z = this.zs[Math.floor(Math.random() * this.zs.length)];
       const x = -1000 + 60 + Math.random() * 440;
-      car.position.set(x, Y, z + 4);
+      car.position.set(x, Y, z + 6.5);
       car.rotation.y = Math.PI / 2;
       g.add(car);
-      sb.addStaticCollider(RAPIER.ColliderDesc.cuboid(2.3, 0.9, 1).setTranslation(x, Y + 0.9, z + 4));
+      sb.addStaticCollider(RAPIER.ColliderDesc.cuboid(2.3, 0.9, 1).setTranslation(x, Y + 0.9, z + 6.5));
     }
 
     // fishing dock on the north shore

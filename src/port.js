@@ -219,6 +219,7 @@ export class Port {
     sock.position.set(471.6, Y + 5.8, 560);
     this.group.add(sock);
     this.sock = sock;
+    sock.userData.noMerge = true;
 
     // ---- trees dotted around the grass ----
     const trunkM = std({ color: 0x6b4a2f });
@@ -247,6 +248,7 @@ export class Port {
       gw.add(r);
     }
     this.gangway = gw;
+    gw.userData.noMerge = true;
     this.group.add(gw);
     // walkable: a kinematic ramp in the shore physics world that follows the gangway
     const w = this.sb.world;

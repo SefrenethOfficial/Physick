@@ -5,7 +5,7 @@ export const LAND_Y = 2.5;
 
 export const ISLANDS = [
   { id: 'naval', name: 'NAS Halyard', x0: 10, x1: 1500, z0: -1000, z1: 1000, color: '#6a8f45' },
-  { id: 'city', name: 'Port Calder', x0: -1450, x1: -650, z0: -400, z1: 400, color: '#8d8f93' },
+  { id: 'city', name: 'Port Calder', x0: -1115, x1: -700, z0: -212, z1: 212, color: '#8d8f93' },
   { id: 'town', name: 'Saltmarsh Key', x0: -1050, x1: -450, z0: -1750, z1: -1200, color: '#7a9a55' },
 ];
 

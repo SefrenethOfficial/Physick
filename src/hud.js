@@ -276,6 +276,8 @@ export class Hud {
       g.fillStyle = isl.id === 'town' ? '#5f8a45' : isl.id === 'city' ? '#8f8b84' : '#7d7a70';
       g.fillRect(X(isl.x0), Z(isl.z0), (isl.x1 - isl.x0) / S, (isl.z1 - isl.z0) / S);
     }
+    g.fillStyle = '#55585e';
+    for (const r of info.roads || []) g.fillRect(X(r.x0), Z(r.z0), Math.max((r.x1 - r.x0) / S, 1), Math.max((r.z1 - r.z0) / S, 1));
     g.fillStyle = '#a07d55';
     for (const p of info.piers) g.fillRect(X(p.x0), Z(p.z0), Math.max((p.x1 - p.x0) / S, 1), Math.max((p.z1 - p.z0) / S, 1));
     for (const m of info.marks) {

@@ -26,7 +26,7 @@ function markerTex(ch, color) {
 export class Citizens extends Npcs {
   constructor(game) {
     super(game);
-    this.quota = { city: 14, town: 24 };
+    this.quota = { city: 36, town: 24 };
     this.copQuota = { city: 2, town: 1 };
     this.marks = { '?': markerTex('?', '#ffd166'), '!': markerTex('!', '#ff4a3a'), cop: markerTex('★', '#7fb2ff') };
     this.respawnT = 3;
@@ -42,6 +42,7 @@ export class Citizens extends Npcs {
 
   // Random walkable ground point on an island (not on a roof or inside a building).
   randomPointOn(id, near = null, range = 30, minDistFromPlayer = 0) {
+    if (id === 'city' && !near && this.game.city) return this.pavementPoint(minDistFromPlayer);
     const r = this.islandRect(id);
     const pp = this.game.shorePlayer?.body.translation();
     for (let i = 0; i < 25; i++) {
@@ -268,7 +269,7 @@ export class Citizens extends Npcs {
         if (want.lengthSq() < 0.01) want.set(Math.random() - 0.5, 0, Math.random() - 0.5);
         want.normalize();
         speed = 4.6;
-        if (npc.fear <= 0) { npc.state = 'wander'; this.setMarker(npc, null); }
+        if (npc.fear <= 0) { npc.state = 'wander'; npc.ringStale = true; this.setMarker(npc, null); }
       } else if (npc.state === 'investigate' && npc.inv) {
         want = new THREE.Vector3(npc.inv.pos.x - t.x, 0, npc.inv.pos.z - t.z);
         if (want.length() < 2.5) {
@@ -291,7 +292,54 @@ export class Citizens extends Npcs {
     }
   }
 
+  // ---- city pedestrians keep to the pavements: round the block, crossing at the corners ----
+  pavementPoint(minDist = 0) {
+    const c = this.game.city, pp = this.game.shorePlayer?.body.translation();
+    for (let k = 0; k < 30; k++) {
+      const i = Math.floor(Math.random() * c.blocks), j = Math.floor(Math.random() * c.blocks), e = Math.floor(Math.random() * 4);
+      const p = c.corner(i, j, e).lerp(c.corner(i, j, (e + 1) % 4), Math.random());
+      if (pp && minDist && Math.hypot(p.x - pp.x, p.z - pp.z) < minDist) continue;
+      return p;
+    }
+    return null;
+  }
+
+  nearestCorner(t) {
+    const c = this.game.city;
+    const cl = (v) => Math.max(0, Math.min(c.blocks - 1, v));
+    const i = cl(Math.floor((t.x - c.xs[0]) / (c.xs[1] - c.xs[0]))), j = cl(Math.floor((t.z - c.zs[0]) / (c.zs[1] - c.zs[0])));
+    let best = 0, bd = Infinity;
+    for (let k = 0; k < 4; k++) { const p = c.corner(i, j, k); const d = Math.hypot(p.x - t.x, p.z - t.z); if (d < bd) { bd = d; best = k; } }
+    return { i, j, c: best, dir: Math.random() < 0.5 ? 1 : -1 };
+  }
+
+  pavementWander(npc, t, dt, pace) {
+    const c = this.game.city;
+    if (npc.idle > 0) { npc.idle -= dt; return { want: null, speed: 0 }; }
+    if (!npc.ring || npc.ringStale) { npc.ring = this.nearestCorner(t); npc.ringStale = false; }
+    let R = npc.ring;
+    let tgt = c.corner(R.i, R.j, R.c);
+    if (Math.hypot(tgt.x - t.x, tgt.z - t.z) > 75) { R = npc.ring = this.nearestCorner(t); tgt = c.corner(R.i, R.j, R.c); }
+    if (Math.hypot(tgt.x - t.x, tgt.z - t.z) < 1.2) {
+      const sx = R.c === 0 || R.c === 3 ? -1 : 1, sz = R.c < 2 ? -1 : 1;
+      const cross = [];
+      if (R.i + sx >= 0 && R.i + sx < c.blocks) cross.push({ i: R.i + sx, j: R.j, c: [1, 0, 3, 2][R.c] });
+      if (R.j + sz >= 0 && R.j + sz < c.blocks) cross.push({ i: R.i, j: R.j + sz, c: [3, 2, 1, 0][R.c] });
+      const cr = cross.length && Math.random() < 0.25 ? cross[Math.floor(Math.random() * cross.length)] : null;
+      // look both ways: don't step out with a car coming
+      const mid = cr && c.corner(cr.i, cr.j, cr.c).add(tgt).multiplyScalar(0.5);
+      const clear = cr && !this.game.traffic?.cars.some((k) => Math.hypot(k.pos.x - mid.x, k.pos.z - mid.z) < 16 && k.speed > 1);
+      if (cr && clear) Object.assign(R, cr);
+      else R.c = (R.c + R.dir + 4) % 4;
+      if (Math.random() < 0.12) npc.idle = 1 + Math.random() * 3;
+      tgt = c.corner(R.i, R.j, R.c);
+    }
+    npc.pace ||= 0.85 + Math.random() * 0.35;
+    return { want: new THREE.Vector3(tgt.x - t.x, 0, tgt.z - t.z).normalize(), speed: pace * npc.pace };
+  }
+
   wander(npc, t, dt, pace) {
+    if (npc.island === 'city' && this.game.city) return this.pavementWander(npc, t, dt, pace);
     let want = null, speed = 0;
     if (npc.idle > 0) { npc.idle -= dt; return { want, speed }; }
     if (!npc.target || Math.hypot(npc.target.x - t.x, npc.target.z - t.z) < 1.5) {

@@ -20,6 +20,7 @@ export function mergeStatic(group, tile = 200) {
     for (let p = o; p && p !== group; p = p.parent) if (p.userData.lights || p.userData.noMerge) return;
     const mats = Array.isArray(o.material) ? o.material : [o.material];
     if (mats.some((m) => !m.isMeshStandardMaterial || m.transparent)) return;
+    if (o.parent?.userData.lights || o.userData.light) return;
     let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
     for (const name of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(name)) g.deleteAttribute(name);
     if (!g.attributes.uv || !g.attributes.normal) return;

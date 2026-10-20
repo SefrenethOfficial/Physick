@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { GLOW } from './effects.js';
+import { mergeStatic } from './merge.js';
 
 // Shared bits for building islands: textures, buildings, houses, signs, lamps, cars.
 
@@ -226,5 +227,7 @@ export function carMesh(color = 0x2f7fd8, police = false) {
     g.add(l);
   }
   g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  mergeStatic(g, 1e6); // a handful of draw calls per car instead of a dozen
+  for (const c of g.children) if (c.isMesh) c.matrixAutoUpdate = true;
   return g;
 }
