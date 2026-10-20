@@ -301,7 +301,10 @@ export class Ship {
       }
       const tEnd = 1, yEnd = deckY(1);
       pts.push(new THREE.Vector3(side * (hullWidth(0.999, yEnd) - 0.08), yEnd, zAt(tEnd) - 0.1));
-      this.railing(pts);
+      // leave an opening amidships where the gangway lands (z -1.2..1.2)
+      const edgeAt = (z) => { const t = tAt(z), y = deckY(t); return new THREE.Vector3(side * (hullWidth(t, y) - 0.08), y, z); };
+      this.railing([...pts.filter((p) => p.z < -1.2), edgeAt(-1.2)]);
+      this.railing([edgeAt(1.2), ...pts.filter((p) => p.z > 1.2)]);
     }
     const wS = hullWidth(0.999, deckY(1)) - 0.08;
     this.railing([new THREE.Vector3(-wS, deckY(1), zAt(1) - 0.1), new THREE.Vector3(wS, deckY(1), zAt(1) - 0.1)]);

@@ -19,18 +19,26 @@
         <img class="logo" src="./assets/physick-logo.svg" alt="Physick" />
         <div class="loading" id="loading">Loading…</div>
         <button class="play" disabled>Click to play</button>
+        <button class="settings-btn" id="btn-settings">Settings</button>
         <div class="controls">
           <div><kbd>W A S D</kbd> walk the deck</div>
           <div><kbd>Space</kbd> jump · <kbd>Shift</kbd> run</div>
-          <div><kbd>E</kbd> take the helm / man a gun</div>
+          <div><kbd>E</kbd> helm / guns / jets</div>
           <div><kbd>LMB</kbd> grab · <kbd>RMB</kbd> throw · <kbd>F</kbd> use</div>
           <div><kbd>Esc</kbd> pause</div>
         </div>
         <div class="modes-intro">
-          <div style="--c:#ffd166"><b>Your ship</b> A destroyer moored at a naval air station. Take her out, or walk the gangway ashore.</div>
+          <div style="--c:#ffd166"><b>Your ship</b> A destroyer moored at a naval air station. Take her out, or walk down the gangway (or just jump) ashore.</div>
           <div style="--c:#7fd3ff"><b>Below decks</b> Doors amidships lead to the mess and the stores. Grab what you need.</div>
           <div style="--c:#ff8a6a"><b>Guns &amp; jets</b> Man the guns, or climb into a fighter on the airfield and take off.</div>
         </div>
+      </div>
+    </div>
+
+    <div id="settings" class="hidden">
+      <div class="panel">
+        <div class="menu-head"><h2>Settings</h2><button class="close">Close</button></div>
+        <div class="rows"></div>
       </div>
     </div>
 

@@ -8,7 +8,7 @@ export const LAND_Y = 2.5;
 export const QUAY_X = 10;
 export const LAND = { x0: QUAY_X, x1: 1500, z0: -1000, z1: 1000 };
 export const RUNWAY = { x: 420, z0: -650, z1: 650, w: 45 };
-export const GANGWAY_FOOT = new THREE.Vector3(QUAY_X + 2.6, LAND_Y, 0);
+export const GANGWAY_FOOT = new THREE.Vector3(QUAY_X + 4.6, LAND_Y, 0);
 
 export function onLand(x, z, margin = 0) {
   return x > LAND.x0 - margin && x < LAND.x1 + margin && z > LAND.z0 - margin && z < LAND.z1 + margin;
@@ -249,12 +249,17 @@ export class Port {
     }
     this.gangway = gw;
     this.group.add(gw);
+    // walkable: a kinematic ramp in the shore physics world that follows the gangway
+    const w = this.sb.world;
+    this.gwBody = w.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased());
+    this.gwCol = w.createCollider(RAPIER.ColliderDesc.cuboid(0.65, 0.08, 0.5).setFriction(1), this.gwBody);
   }
 
   // Lay the gangway from the ship's deck edge (world point) down to the quay.
   updateGangway(top, visible) {
     const gw = this.gangway;
     gw.visible = visible;
+    this.gwCol.setEnabled(visible);
     if (!visible) return;
     const bottom = GANGWAY_FOOT.clone();
     bottom.z = top.z;
@@ -263,6 +268,12 @@ export class Port {
     gw.position.copy(mid);
     gw.lookAt(bottom);
     gw.scale.set(1, 1, len);
+    this.gwBody.setNextKinematicTranslation(mid);
+    this.gwBody.setNextKinematicRotation(gw.quaternion);
+    if (Math.abs(this.gwLen - len) > 0.05 || !this.gwLen) {
+      this.gwLen = len;
+      this.gwCol.setHalfExtents({ x: 0.65, y: 0.08, z: len / 2 });
+    }
   }
 
   update(dt, t) {

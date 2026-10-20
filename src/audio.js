@@ -82,6 +82,7 @@ export class Sfx {
       case 'ciws': this.noise(0.04, 0.35, 1800, 0.9); this.tone('square', 160, 120, 0.03, 0.12); break;
       case 'splashFar': this.noise(0.6, 0.18, 500, 0.5, 0.25); break;
       case 'explosion': this.noise(1.2, 0.9, 180, 0.4); this.tone('sine', 70, 25, 1.0, 0.7); break;
+      case 'scrub': this.noise(0.3, 0.18, 1800, 1.5); this.noise(0.25, 0.12, 900, 1.2, 0.12); break;
       case 'engineStart': this.tone('sawtooth', 50, 140, 0.4, 0.25); this.noise(0.3, 0.3, 400, 1); break;
     }
   }

@@ -225,6 +225,24 @@ class Rounds {
     this.list.push({ kind, pos: pos.clone(), vel: vel.clone(), sprite: s, life: kind === 'shell' ? 40 : 4 });
   }
 
+  // Bullets that pass through the ship's crew (e.g. strafing your own deck from a jet).
+  hitCrew(r) {
+    const g = this.game;
+    const sp = g.ship.pos;
+    if (Math.hypot(r.pos.x - sp.x, r.pos.z - sp.z) > 70 || r.pos.y > 30) return false;
+    const local = g.frame.worldToLocal(r.pos.clone());
+    for (const npc of g.npcs.list) {
+      const t = npc.body.translation();
+      if (Math.hypot(local.x - t.x, local.z - t.z) < 0.45 && Math.abs(local.y - t.y) < 0.95) {
+        const dirW = r.vel.clone().normalize();
+        const dir = dirW.transformDirection(g.frame.matrixWorld.clone().invert());
+        g.npcs.damage(npc, 60, dir, local);
+        return true;
+      }
+    }
+    return false;
+  }
+
   update(dt) {
     const { ocean, targets, fx, sfx } = this.game;
     const cam = this.game.camera.position;
@@ -236,6 +254,7 @@ class Rounds {
         r.vel.y -= G * h;
         r.pos.addScaledVector(r.vel, h);
         r.life -= h;
+        if (r.kind === 'bullet' && this.hitCrew(r)) { done = true; break; }
         const t = targets.hitTest(r.pos, r.kind === 'shell' ? 5 : 0.6);
         if (t) {
           targets.damage(t, r.kind === 'shell' ? 100 : 7, r.pos);

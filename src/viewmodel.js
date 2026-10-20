@@ -108,15 +108,16 @@ export class Viewmodel {
   land() { this.landKick = 1; }
 
   // Show an item (a fresh mesh) clamped in the gripper, or nothing.
-  setHeld(mesh) {
+  setHeld(mesh, size = 0.17) {
     if (this.held) { this.held.removeFromParent(); this.held = null; }
     if (!mesh) { this.gripTarget = 0; return; }
+    const sizeTarget = size;
     const box = new THREE.Box3().setFromObject(mesh);
-    const size = box.getSize(new THREE.Vector3());
+    size = box.getSize(new THREE.Vector3());
     const holder = new THREE.Group();
     mesh.position.sub(box.getCenter(new THREE.Vector3()));
     holder.add(mesh);
-    holder.scale.setScalar(0.17 / Math.max(size.x, size.y, size.z, 0.05));
+    holder.scale.setScalar(sizeTarget / Math.max(size.x, size.y, size.z, 0.05));
     holder.rotation.set(0.25, -0.5, 0.1);
     mesh.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
     this.scene.add(holder);

@@ -15,6 +15,10 @@ import { ITEMS } from './items.js';
 import { Gunnery } from './guns.js';
 import { Port, GANGWAY_FOOT, LAND_Y } from './port.js';
 import { Jets } from './jets.js';
+import { Blood } from './blood.js';
+import { loadSettings, bindSettingsPanel } from './settings.js';
+import { deckHalfWidth } from './ship.js';
+import { onLand } from './port.js';
 
 const FOV = 75;
 const SKY_TOP = 0x4a83c4;
@@ -32,6 +36,9 @@ class Game {
     this.atHelm = false;
     this.onShore = false;
     this.jetTrigger = false;
+    this.settings = loadSettings();
+    this.dragging = null; // { prop, local } a body being dragged
+    this.mopping = false;
     this.heldProp = null;
     this.held = null; // item def carried in the robot arm
     this.mouseDX = 0;
@@ -96,12 +103,14 @@ class Game {
     this.hud = new Hud(this);
     this.npcs = new Npcs(this);
     this.npcs.populate();
+    this.blood = new Blood(this);
     this.gunnery = new Gunnery(this);
     this.jets = new Jets(this);
     this.stockStores();
     this.eye = new THREE.Object3D(); // camera pose in the ship frame
 
     this.bindInput();
+    bindSettingsPanel(this);
     this.resize();
     addEventListener('resize', () => this.resize());
 
@@ -124,42 +133,11 @@ class Game {
 
   // ---------- ship <-> shore ----------
   gangwayTop() {
-    return new THREE.Vector3(this.ship.side * 7.3, DECK, 0);
+    return new THREE.Vector3(this.ship.side * 6.7, DECK, 0);
   }
 
-  nearGangwayTop() {
-    if (this.onShore || !this.ship.moored) return false;
-    const t = this.shipPlayer.body.translation();
-    return t.x * this.ship.side > 5.6 && Math.abs(t.z) < 2.6 && t.y < DECK + 2;
-  }
-
-  nearGangwayFoot() {
-    if (!this.onShore || !this.ship.moored) return false;
-    const t = this.shorePlayer.body.translation();
-    return Math.hypot(t.x - GANGWAY_FOOT.x, t.z - GANGWAY_FOOT.z) < 3.2;
-  }
-
-  goAshore() {
-    const yaw = this.ship.heading + this.shipPlayer.yaw;
-    this.onShore = true;
-    this.shorePlayer.body.setTranslation({ x: GANGWAY_FOOT.x + 1.5, y: LAND_Y + 0.95, z: GANGWAY_FOOT.z }, true);
-    this.shorePlayer.vel.set(0, 0, 0);
-    this.shorePlayer.yaw = yaw;
-    this.shorePlayer.pitch = this.shipPlayer.pitch;
-    this.hud.setMode('shore');
-    this.hud.toast('Ashore at the naval air station');
-    this.sfx.play('drop');
-  }
-
-  boardShip() {
-    this.onShore = false;
-    this.shipPlayer.body.setTranslation({ x: this.ship.side * 5.7, y: DECK + 0.95, z: 0 }, true);
-    this.shipPlayer.vel.set(0, 0, 0);
-    this.shipPlayer.yaw = this.shorePlayer.yaw - this.ship.heading;
-    this.shipPlayer.pitch = this.shorePlayer.pitch;
-    this.hud.setMode('deck');
-    this.hud.toast('Welcome aboard');
-    this.sfx.play('drop');
+  applySettings() {
+    if (!this.settings.blood) this.blood.clear();
   }
 
   leaveJetAt(pos, yaw) {
@@ -251,13 +229,18 @@ class Game {
   stockStores() {
     const sb = this.sandbox;
     const pick = (a) => a[Math.floor(Math.random() * a.length)];
-    const shelfItems = ITEMS.filter((i) => i.id !== 'mug');
+    const shelfItems = ITEMS.filter((i) => i.id !== 'mug' && i.id !== 'mop');
     const spots = [...this.ship.storeSpots].sort(() => Math.random() - 0.5);
     spots.slice(0, Math.min(spots.length, 30)).forEach((p) => {
       const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * 0.6 - 0.3 + (Math.abs(p.x) > 1 ? Math.PI / 2 : 0));
       sb.spawn(pick(shelfItems), p, q, { noHistory: true });
     });
     const mug = ITEMS.find((i) => i.id === 'mug'), rations = ITEMS.find((i) => i.id === 'rations');
+    // mops: one in the stores, one by the mess door, one out on deck by the hangar
+    const mop = ITEMS.find((i) => i.id === 'mop');
+    for (const p of [[2.6, DECK + 0.9, 6.2], [-2.6, DECK + 0.9, 1.6], [4.2, DECK + 0.9, 31.5]]) {
+      sb.spawn(mop, new THREE.Vector3(...p), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 2), { noHistory: true });
+    }
     this.ship.messSpots.forEach((p, i) => sb.spawn(i % 3 === 2 ? rations : mug, p, new THREE.Quaternion(), { noHistory: true }));
   }
 
@@ -275,7 +258,7 @@ class Game {
     const def = hit.prop.def;
     this.sb.remove(hit.prop);
     this.held = def;
-    this.viewmodel.setHeld(def.build().mesh);
+    this.viewmodel.setHeld(def.build().mesh, def.heldSize);
     this.hud.setHolding(def.name);
     this.sfx.play('grab');
     return true;
@@ -326,6 +309,108 @@ class Game {
     }
   }
 
+  // ---------- dragging bodies ----------
+  tryDrag() {
+    if (this.onShore) return false;
+    let hit = this.lookHit(3.2);
+    if (hit?.npc) {
+      // grabbing a living sailor knocks them out cold (no blood)
+      const rd = this.npcs.knockOver(hit.npc, new THREE.Vector3(), 0.5, { killed: false });
+      hit = { ...hit, prop: rd.torso, point: rd.torso.mesh.position.clone() };
+    }
+    const prop = hit?.prop;
+    if (!prop?.ragdoll) return false;
+    const t = prop.body.translation();
+    const q = new THREE.Quaternion().copy(prop.body.rotation()).invert();
+    this.dragging = { prop, local: hit.point.clone().sub(new THREE.Vector3(t.x, t.y, t.z)).applyQuaternion(q) };
+    this.viewmodel.gripTarget = 1;
+    this.sfx.play('grab');
+    return true;
+  }
+
+  endDrag(heave) {
+    const d = this.dragging;
+    this.dragging = null;
+    this.viewmodel.gripTarget = 0;
+    if (!d || !this.sandbox.props.has(d.prop)) return;
+    if (heave) {
+      const v = this.lookDir().multiplyScalar(7);
+      v.y += 2.5;
+      for (const p of d.prop.ragdoll.parts) p.body.setLinvel(v, true);
+      this.viewmodel.kick(1);
+      this.sfx.play('drop');
+    }
+  }
+
+  updateDrag() {
+    const d = this.dragging;
+    if (!d) return;
+    if (!this.sandbox.props.has(d.prop) || this.onShore) { this.endDrag(false); return; }
+    const b = d.prop.body;
+    const t = b.translation();
+    const grab = d.local.clone().applyQuaternion(new THREE.Quaternion().copy(b.rotation())).add(new THREE.Vector3(t.x, t.y, t.z));
+    const eye = this.player.eye;
+    const target = eye.clone().addScaledVector(this.lookDir(), 1.6);
+    target.y = Math.max(target.y, eye.y - 1.25);
+    if (grab.distanceTo(eye) > 4) { this.endDrag(false); return; }
+    const v = target.sub(grab).multiplyScalar(9);
+    if (v.length() > 7) v.setLength(7);
+    b.setLinvel(v, true);
+  }
+
+  // ---------- mop ----------
+  updateMop(dt) {
+    if (!this.mopping || this.held?.use !== 'mop') { this.mopScrub = 0; return; }
+    const hit = this.onShore ? null : this.blood.cast(this.player.eye, this.lookDir(), 3);
+    this.mopScrub = (this.mopScrub || 0) + dt;
+    this.viewmodel.kick(0.08);
+    if (hit) {
+      if (this.blood.mop(hit.point, 0.75, dt) && this.mopScrub > 0.35) { this.sfx.play('scrub'); this.mopScrub = 0; }
+    }
+  }
+
+  // ---------- stepping on and off the ship ----------
+  stepAshore(world, localVel) {
+    this.endDrag(false);
+    this.onShore = true;
+    const p = this.shorePlayer;
+    p.body.setTranslation(world, true);
+    p.vel.copy(localVel).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.ship.heading);
+    p.yaw = this.ship.heading + this.shipPlayer.yaw;
+    p.pitch = this.shipPlayer.pitch;
+    p.wasOnGround = false;
+    this.hud.setMode('shore');
+  }
+
+  stepAboard(local, localVel) {
+    this.onShore = false;
+    const p = this.shipPlayer;
+    p.body.setTranslation({ x: local.x, y: Math.max(local.y, DECK + 0.87), z: local.z }, true);
+    p.vel.copy(localVel);
+    p.yaw = this.shorePlayer.yaw - this.ship.heading;
+    p.pitch = this.shorePlayer.pitch;
+    p.wasOnGround = false;
+    this.hud.setMode('deck');
+  }
+
+  checkTransfer() {
+    if (this.flying || this.health.dead) return;
+    if (!this.onShore) {
+      const t = this.shipPlayer.body.translation();
+      if (Math.abs(t.z) < 56 && Math.abs(t.x) > deckHalfWidth(t.z) + 0.3 && t.y > DECK - 3) {
+        const w = this.frame.localToWorld(new THREE.Vector3(t.x, t.y, t.z));
+        if (this.ship.moored || onLand(w.x, w.z, 4)) this.stepAshore(w, this.shipPlayer.vel.clone());
+      }
+    } else {
+      const p = this.shorePlayer.body.translation();
+      const local = this.frame.worldToLocal(new THREE.Vector3(p.x, p.y, p.z));
+      if (Math.abs(local.z) < 54 && Math.abs(local.x) < deckHalfWidth(local.z) - 0.2 && local.y > DECK - 1.2 && local.y < DECK + 4) {
+        const v = this.shorePlayer.vel.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), -this.ship.heading);
+        this.stepAboard(local, v);
+      }
+    }
+  }
+
   overboard() {
     this.sfx.play('splash');
     this.hud.toast('Man overboard!', 0xff8a6a);
@@ -358,21 +443,33 @@ class Game {
       if (Math.abs(e.movementX) > 400 || Math.abs(e.movementY) > 400) return;
       this.mouseDX += e.movementX;
       this.mouseDY += e.movementY;
-      if (this.flying) this.jets.mouse(e.movementX, e.movementY);
-      else if (this.gunnery.active) this.gunnery.aim(e.movementX, e.movementY);
-      else this.player.look(e.movementX, e.movementY);
+      const sens = this.settings.mouseSens;
+      const dx = e.movementX * sens, dy = e.movementY * sens;
+      if (this.flying) this.jets.mouse(dx, this.settings.invertJet ? -dy : dy);
+      else if (this.gunnery.active) this.gunnery.aim(dx, dy);
+      else this.player.look(dx, dy);
     });
     addEventListener('mousedown', (e) => {
       if (!this.locked || this.health.dead) return;
       if (this.flying) { if (e.button === 0) this.jetTrigger = true; return; }
       if (this.gunnery.active) { if (e.button === 0) this.gunnery.trigger = true; return; }
       if (this.atHelm) return;
-      if (e.button === 0) { if (this.held) this.release(false); else this.pickUp(); }
+      if (this.dragging) {
+        if (e.button === 0) this.endDrag(false);
+        if (e.button === 2) this.endDrag(true);
+        return;
+      }
+      if (this.held?.use === 'mop') {
+        if (e.button === 0) this.mopping = true;
+        if (e.button === 2) this.release(false);
+        return;
+      }
+      if (e.button === 0) { if (this.held) this.release(false); else if (!this.tryDrag()) this.pickUp(); }
       if (e.button === 2 && this.held) this.release(true);
     });
     addEventListener('mouseup', (e) => {
       if (e.button === 0 && this.gunnery.gun?.kind === 'bullet') this.gunnery.trigger = false;
-      if (e.button === 0) this.jetTrigger = false;
+      if (e.button === 0) { this.jetTrigger = false; this.mopping = false; }
     });
     addEventListener('contextmenu', (e) => e.preventDefault());
     addEventListener('keydown', (e) => {
@@ -385,8 +482,6 @@ class Game {
         if (this.flying) { this.jets.exit(); return; }
         if (this.atHelm) this.leaveHelm();
         else if (this.gunnery.active) this.gunnery.leave();
-        else if (this.nearGangwayTop()) this.goAshore();
-        else if (this.nearGangwayFoot()) this.boardShip();
         else if (this.onShore) {
           const jet = this.jets.nearby(this.shorePlayer.body.translation());
           if (jet) this.jets.enter(jet);
@@ -421,8 +516,8 @@ class Game {
 
   promptText() {
     if (this.health.dead || this.atHelm || this.gunnery.active || this.flying) return null;
-    if (this.nearGangwayTop()) return '<kbd>E</kbd> Go ashore';
-    if (this.nearGangwayFoot()) return '<kbd>E</kbd> Board the ship';
+    if (this.dragging) return '<kbd>LMB</kbd> Let go · <kbd>RMB</kbd> Heave';
+    if (this.held?.use === 'mop') return '<kbd>LMB</kbd> (hold) Mop · <kbd>RMB</kbd> Put down';
     if (this.onShore) {
       const jet = this.jets.nearby(this.shorePlayer.body.translation());
       if (jet) return '<kbd>E</kbd> Fly the jet';
@@ -433,6 +528,10 @@ class Game {
     if (this.held) return null;
     const hit = this.lookHit();
     if (hit?.prop?.def.item) return `<kbd>LMB</kbd> Pick up ${hit.prop.def.name}`;
+    const far = !this.onShore && !hit ? this.lookHit(3.2) : null;
+    if (!this.onShore && far?.prop?.ragdoll) return `<kbd>LMB</kbd> Drag ${far.prop.ragdoll.dead ? 'body' : 'sailor'}`;
+    if (!this.onShore && hit?.prop?.ragdoll) return `<kbd>LMB</kbd> Drag ${hit.prop.ragdoll.dead ? 'body' : 'sailor'}`;
+    if (!this.onShore && hit?.npc) return '<kbd>LMB</kbd> Grab sailor';
     return null;
   }
 
@@ -449,7 +548,11 @@ class Game {
     const keys = walking ? k : new Set();
     const steps = Math.min(Math.max(Math.ceil(dt / (1 / 60) - 0.01), 1), 4);
     const sub = dt / steps;
+    // Loose things aboard feel the ship's roll and pitch: gravity in the ship frame tilts with her.
+    const gl = new THREE.Vector3(0, -9.81, 0).applyQuaternion(this.frame.quaternion.clone().invert());
+    this.world.gravity = { x: gl.x, y: gl.y, z: gl.z };
     for (let i = 0; i < steps; i++) {
+      this.updateDrag();
       // the jets fly in world space; sub-stepped for stable flight at low frame rates
       this.jets.update(sub, alive ? k : new Set(), this.jetTrigger && alive);
       if (!this.onShore) this.shipPlayer.update(sub, keys);
@@ -461,6 +564,9 @@ class Game {
       this.portWorld.timestep = sub;
       this.portWorld.step();
     }
+    this.checkTransfer();
+    this.blood.update(dt);
+    this.updateMop(dt);
     this.portSandbox.sync();
     this.port.update(dt, this.ship.time);
     this.port.updateGangway(this.frame.localToWorld(this.gangwayTop()), this.ship.moored);

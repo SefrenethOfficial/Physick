@@ -1,7 +1,7 @@
 const hex = (n) => '#' + n.toString(16).padStart(6, '0');
 const kbd = (rows) => rows.map(([k, d]) => `<div><kbd>${k}</kbd><span>${d}</span></div>`).join('');
 
-const ON_FOOT = [['W A S D', 'Walk'], ['Space', 'Jump'], ['Shift', 'Run'], ['LMB', 'Pick up / put down'], ['RMB', 'Throw held item'], ['F', 'Use held item'], ['E', 'Take the helm / man a gun']];
+const ON_FOOT = [['W A S D', 'Walk'], ['Space', 'Jump'], ['Shift', 'Run'], ['LMB', 'Pick up / put down / drag'], ['RMB', 'Throw / heave'], ['F', 'Use held item'], ['E', 'Helm / gun / jet']];
 const ON_GUN = [['Mouse', 'Aim'], ['LMB', 'Fire'], ['E', 'Leave the gun']];
 const IN_JET = [['W / S', 'Throttle'], ['Shift', 'Afterburner (full throttle)'], ['Mouse', 'Pitch / roll'], ['A / D', 'Rudder / steer'],
   ['B', 'Brakes'], ['G', 'Gear'], ['LMB', 'Cannon'], ['C', 'Cockpit / chase view'], ['E', 'Get out (stopped)']];

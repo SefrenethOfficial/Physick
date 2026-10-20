@@ -173,6 +173,25 @@ export const ITEMS = [
       return { mesh: g, colliders: [RAPIER.ColliderDesc.cuboid(0.14, 0.035, 0.035)], density: 500 };
     },
   },
+  {
+    id: 'mop', name: 'Mop', radius: 0.5, weight: 1.5, use: 'mop', heldSize: 0.5,
+    build: () => {
+      const g = new THREE.Group();
+      const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.4, 8), std({ color: 0xb58a55 }));
+      handle.position.y = 0.2;
+      const head = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 0.22, 14), std({ color: 0xdedbd2, roughness: 1 }));
+      head.position.y = -0.58;
+      for (let i = 0; i < 10; i++) {
+        const strand = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.14, 0.03), std({ color: 0xcfcabb, roughness: 1 }));
+        const a = (i / 10) * Math.PI * 2;
+        strand.position.set(Math.cos(a) * 0.12, -0.72, Math.sin(a) * 0.12);
+        strand.rotation.set(Math.sin(a) * 0.4, 0, -Math.cos(a) * 0.4);
+        g.add(strand);
+      }
+      g.add(handle, head);
+      return { mesh: g, colliders: [RAPIER.ColliderDesc.cylinder(0.7, 0.05).setTranslation(0, 0.2, 0), RAPIER.ColliderDesc.cylinder(0.12, 0.15).setTranslation(0, -0.6, 0)], density: 150 };
+    },
+  },
 ];
 export const ITEM_BY_ID = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
 for (const it of ITEMS) it.item = true;

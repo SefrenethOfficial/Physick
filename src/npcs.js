@@ -122,14 +122,16 @@ export class Npcs {
     if (npc.hp <= 0) {
       const v = dir.clone().multiplyScalar(7);
       v.y += 1.5;
-      this.knockOver(npc, v);
+      this.knockOver(npc, v, 3, { killed: true, point, dir });
     } else {
       this.game.sfx.play('ouch');
     }
   }
 
   // Turn a living NPC into a ragdoll made of ordinary props joined by ball joints.
-  knockOver(npc, velocity = new THREE.Vector3(), spin = 3) {
+  // opts.killed: a lethal hit (bleeds, if blood is on). Grabbing someone just knocks them out.
+  knockOver(npc, velocity = new THREE.Vector3(), spin = 3, opts = {}) {
+    const killed = opts.killed ?? true;
     const sb = this.game.sandbox;
     const { parts } = npc.fig;
     npc.fig.root.updateMatrixWorld(true);
@@ -175,9 +177,13 @@ export class Npcs {
     this.despawn(npc);
     this.ragdolls.push(rd);
     this.knockdowns++;
-    this.trimRagdolls(MAX_RAGDOLLS);
+    rd.dead = killed;
+    this.trimRagdolls(this.game.settings.keepBodies ? 40 : MAX_RAGDOLLS);
     this.game.sfx.play('thud');
-    this.game.effects.sparks(rd.torso.mesh.position, new THREE.Vector3(0, 1, 0), 0xffffff, 10, 2.5, 0.6);
+    if (killed && this.game.blood) {
+      const p = opts.point ? new THREE.Vector3().copy(opts.point) : rd.torso.mesh.position.clone();
+      this.game.blood.onKill(rd, p, opts.dir || velocity);
+    }
     // Everyone nearby panics.
     // (crew nearby keep calm; nobody runs)
     return rd;
@@ -195,7 +201,7 @@ export class Npcs {
   }
 
   inUse(rd) {
-    return rd.parts.some((p) => p.frozen || p.welds.size || p === this.game.heldProp);
+    return rd.parts.some((p) => p.frozen || p.welds.size || p === this.game.heldProp || p === this.game.dragging?.prop);
   }
 
   // ---------- physics step ----------
@@ -214,7 +220,8 @@ export class Npcs {
       if (worst && worst.speed > KNOCKDOWN_SPEED) {
         const v = new THREE.Vector3(worst.vel.x, worst.vel.y, worst.vel.z).multiplyScalar(1.1);
         v.y = Math.max(v.y, 0) + 2 + worst.speed * 0.15;
-        this.knockOver(npc, v, 4 + worst.speed * 0.3);
+        const tp = worst.prop.body.translation();
+        this.knockOver(npc, v, 4 + worst.speed * 0.3, { killed: true, point: new THREE.Vector3(t.x, t.y + 0.3, t.z), dir: new THREE.Vector3(t.x - tp.x, 0, t.z - tp.z) });
         continue;
       }
       // When you come up to a sailor they stop what they're doing and look at you.
@@ -293,7 +300,9 @@ export class Npcs {
     }
 
     // Keep the town populated (new people show up out of sight).
-    if (this.list.length < this.max) {
+    this.max = this.game.settings.crewCount;
+    if (this.list.length > this.max) this.despawn(this.list[this.list.length - 1]);
+    if (this.list.length < this.max && this.game.settings.crewRespawn) {
       this.respawnTimer -= dt;
       if (this.respawnTimer <= 0) {
         const p = this.randomPoint(30);
@@ -306,7 +315,7 @@ export class Npcs {
     const now = performance.now();
     const sb = this.game.sandbox;
     for (const rd of [...this.ragdolls]) {
-      if (now - rd.bornAt > RAGDOLL_LIFETIME * 1000 && !this.inUse(rd)) {
+      if (!this.game.settings.keepBodies && now - rd.bornAt > RAGDOLL_LIFETIME * 1000 && !this.inUse(rd)) {
         for (const p of rd.parts) sb.remove(p);
         this.ragdolls.splice(this.ragdolls.indexOf(rd), 1);
       }

@@ -8,6 +8,8 @@
 - `W A S D` walk, `Shift` run, `Space` jump
 - `LMB` pick up the item you're looking at (it's held in your robot-arm hand); `LMB` again to put it down where you're looking
 - `RMB` throw the held item, `F` use it (medkits heal, coffee perks you up)
+- Look at a body (or a sailor) and `LMB` to grab and drag it; `LMB` lets go, `RMB` heaves it (over the side, if you like)
+- Holding a mop: hold `LMB` to scrub blood off the deck, `RMB` to put it down
 - `E` take the helm (on the bridge, behind the wheel) or man a gun (stand behind it)
 - `Esc` pause
 
@@ -29,7 +31,7 @@
 - `H` sound the ship's horn
 - `E` leave the helm
 
-**Going ashore:** while the ship is moored, walk to the gangway amidships on the side facing the quay and press `E`. Press `E` at the foot of the gangway to come back aboard. Sail away by ringing up the engines at the helm; to moor again, bring her back alongside the quay, slowly and roughly parallel, and ring STOP.
+**Going ashore:** while the ship is moored there's an opening in the rail amidships on the side facing the quay. Walk down the gangway (or just jump off) and you're ashore; walk back up the gangway to come aboard. Sail away by ringing up the engines at the helm; to moor again, bring her back alongside the quay, slowly and roughly parallel, and ring STOP.
 
 **Getting below:** the doorways in the middle of the superstructure, on both sides of the main deck.
 
@@ -44,6 +46,8 @@
 - **Gunnery:** man the 5-inch gun or either CIWS; rounds fly in world space with gravity and the ship's own speed, splash into the sea and blow up target rafts.
 - **Naval air station:** a quay with bollards and lamp posts, an apron with three hangars, a control tower, container stacks and fuel tanks, a 1.3 km runway with a parallel taxiway, and a windsock. It has its own physics world, so you can walk around it while the ship sails off.
 - **Fighter jets:** procedural twin-tail navy fighters with a physical-ish flight model (thrust, drag, lift from angle of attack, stalls), taxiing, take-off, landing (or crashing), afterburners, a nose cannon that can hit the target rafts, flight HUD with flight-path marker and STALL / PULL UP warnings. Wrecked jets are replaced after a while.
+- **Casualties:** sailors hit hard (a thrown item, cannon fire from a jet) are killed and go ragdoll. Blood sprays, pools under the body and smears when you drag it. Mops are in the stores, by the mess and on the flight deck. Loose bodies and items feel the ship's roll at sea.
+- **Settings** (pause screen): crew respawn on/off, crew size, blood on/off, bodies stay or get cleared, mouse sensitivity, invert jet pitch. Saved in your browser.
 - **Crew:** sailors in working uniforms, cranials and dixie cups wander the main deck and stop to look at you when you walk up to them.
 - **Health:** fall damage and going overboard hurt; health regenerates; dying respawns you on the flight deck.
 
@@ -69,6 +73,8 @@ src/
   guns.js      manning guns, shells/tracers, splashes, explosions, target rafts
   port.js      the naval air station (world frame, own physics world)
   jets.js      fighter jets: model, flight model, cameras, cannon
+  blood.js     blood spray, pools, drag smears, mopping
+  settings.js  settings panel + saved settings
   items.js     grabbable storage items
   viewmodel.js the robot-arm hand (and what it's holding)
   player.js    first-person character controller
