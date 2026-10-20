@@ -8,6 +8,7 @@ export class Hud {
     this.el.innerHTML = `
       <img class="hud-logo" src="${import.meta.env.BASE_URL}assets/physick-logo.svg" alt="Physick">
       <div class="health" id="health"><div class="fill"></div><span>100</span></div>
+      <div class="armor" id="armor"><i></i></div>
       <div class="compass" id="compass"><div class="strip"></div><div class="needle"></div><b id="hdg">000°</b></div>
       <div class="crosshair"><b></b></div>
       <div class="stats" id="stats"></div>
@@ -87,8 +88,8 @@ export class Hud {
     this.el.classList.toggle('gunning', mode === 'gun');
     this.el.classList.toggle('flying', mode === 'jet');
     this.flightEl.classList.toggle('on', mode === 'jet');
-    this.boatEl.classList.toggle('on', mode === 'boat');
-    this.el.classList.toggle('boating', mode === 'boat');
+    this.boatEl.classList.toggle('on', mode === 'boat' || mode === 'car');
+    this.el.classList.toggle('boating', mode === 'boat' || mode === 'car');
     if (gun) this.gunEl.querySelector('#gunname').textContent = gun.name;
   }
 
@@ -208,6 +209,15 @@ export class Hud {
     this.statsEl.textContent = `${fps} FPS`;
   }
 
+  setArmor(f) {
+    const k = Math.round(f * 100);
+    if (k === this._armor) return;
+    this._armor = k;
+    const el = this.el.querySelector('#armor');
+    el.classList.toggle('on', k > 0);
+    el.querySelector('i').style.width = `${k}%`;
+  }
+
   setMoney(n, delta = 0) {
     this.moneyEl.querySelector('b').textContent = `$${n.toLocaleString()}`;
     if (delta) {
@@ -242,6 +252,7 @@ export class Hud {
   setBoat(b) {
     const $ = (id) => this.boatEl.querySelector('#' + id);
     $('bname').textContent = b.type.name;
+    this.boatEl.querySelectorAll('.row')[2].querySelector('span').textContent = b.type.car ? 'Body' : 'Hull';
     $('bspd').textContent = `${Math.round(Math.abs(b.speed) * 1.944)} kn`;
     const f = Math.max(b.hp, 0) / b.type.hp;
     $('bhp').textContent = `${Math.round(f * 100)}%`;

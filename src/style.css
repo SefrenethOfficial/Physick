@@ -281,3 +281,6 @@ kbd {
 .boatpanel.hit { animation: shake .3s; border-color: #ff6a5a; }
 #hud.boating .crosshair { display: none; }
 @media (max-width: 700px) { .minimap { width: 120px; height: 120px; } .banner { font-size: 44px; } }
+.armor { position: absolute; top: 121px; left: 14px; width: 190px; height: 5px; background: rgba(0,0,0,.45); border-radius: 2px; overflow: hidden; display: none; }
+.armor.on { display: block; }
+.armor i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #7fb2ff, #3f74d8); transition: width .2s; }

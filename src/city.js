@@ -3,6 +3,7 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import { ISLANDS, LAND_Y, addPier } from './world.js';
 import { canvasTex, speckle, std, sign, lamp, tree, carMesh, solidBox } from './buildkit.js';
 import { cityBuilding } from './architecture.js';
+import { dressAlley } from './underworld.js';
 
 // Port Calder: the city you start in. A compact 5 x 5 grid of blocks with kerbed pavements,
 // brick walk-ups with shopfronts, apartment blocks and glass towers downtown, shops and
@@ -126,6 +127,8 @@ export class City {
     this.plaza = plaza;
     this.spawn = plaza.clone().add(new THREE.Vector3(0, 1.1, 14));
     const special = new Set(['2,2', '1,1', '3,3', '1,3']);
+    const ALLEYS = ['0,2', '4,1', '2,4']; // blocks cut through by a service alley
+    this.alleys = [];
 
     // every block gets a kerbed pavement slab
     const walkM = std({ map: T.slabs });
@@ -248,6 +251,17 @@ export class City {
     // everything else: taller in the middle, low-rise brick at the edges
     for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) {
       if (special.has(`${i},${j}`) || (i === 3 && j === 2) || (i === 2 && j === 1)) continue;
+      if (ALLEYS.includes(`${i},${j}`)) {
+        // two rows of walk-ups back to back with a grimy service alley between them
+        const b = whole(i, j), mid = (b.z0 + b.z1) / 2, AW = 7;
+        place({ ...b, z1: mid - AW / 2, streets: new Set(['n', 'e', 'w']) }, 'n', { type: 'brick', floors: 2 + Math.floor(Math.random() * 3) });
+        place({ ...b, z0: mid + AW / 2, streets: new Set(['s', 'e', 'w']) }, 's', { type: 'brick', floors: 2 + Math.floor(Math.random() * 3) });
+        const bl = this.block(i, j);
+        const alley = { x0: bl.x0, x1: bl.x1, z: mid, w: AW, i, j };
+        this.alleys.push(alley);
+        dressAlley(g, sb, alley, Y + KERB);
+        continue;
+      }
       const c = bc(i, j);
       const centre = 1 - Math.min(Math.hypot(c.x - plaza.x, c.z - plaza.z) / 200, 1); // 1 downtown .. 0 edge
       const roll = Math.random();

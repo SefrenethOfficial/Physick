@@ -328,7 +328,65 @@ export const ITEMS = [
       return { mesh: g, colliders: [RAPIER.ColliderDesc.cylinder(0.42, 0.03)], density: 700 };
     },
   },
+  // ---- from the alley dealers ----
+  {
+    id: 'pistol', name: 'Pistol', radius: 0.2, weight: 1, heldSize: 0.11, heldRot: [0.05, 0.1, 0], heldPush: 0.015,
+    gun: { dmg: 40, rate: 0.28, pellets: 1, spread: 0.008, auto: false, ammo: 'pistolAmmo', sound: 'pistol', range: 90 },
+    build: () => gunMesh(0.2, 0.034, 0.15, 0x2b2d31),
+  },
+  {
+    id: 'smg', name: 'SMG', radius: 0.3, weight: 2, heldSize: 0.16, heldRot: [0.05, 0.1, 0], heldPush: 0.02,
+    gun: { dmg: 22, rate: 0.085, pellets: 1, spread: 0.025, auto: true, ammo: 'smgAmmo', sound: 'smg', range: 80 },
+    build: () => gunMesh(0.42, 0.05, 0.2, 0x26282b, true),
+  },
+  {
+    id: 'shotgun', name: 'Shotgun', radius: 0.45, weight: 3, heldSize: 0.26, heldRot: [0.05, 0.1, 0], heldPush: 0.03,
+    gun: { dmg: 16, rate: 0.85, pellets: 9, spread: 0.07, auto: false, ammo: 'shells', sound: 'shotgun', range: 45 },
+    build: () => gunMesh(0.8, 0.055, 0.17, 0x5a3a22, false, true),
+  },
+  {
+    id: 'grenade', name: 'Grenade', radius: 0.08, weight: 0.4, heldSize: 0.12, grenade: true,
+    build: () => {
+      const g = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 10), std({ color: 0x4b5a32, roughness: 0.8 }));
+      body.scale.y = 1.25;
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.04, 8), std({ color: 0x777777, metalness: 0.7 }));
+      cap.position.y = 0.085;
+      g.add(body, cap);
+      return { mesh: g, colliders: [RAPIER.ColliderDesc.ball(0.065)], density: 900, restitution: 0.3 };
+    },
+  },
+  {
+    id: 'armor', name: 'Body Armour', radius: 0.35, weight: 3, heldSize: 0.4, use: 'armor',
+    build: () => {
+      const g = new THREE.Group();
+      const v = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.55, 0.16), std({ color: 0x2f3a2a, roughness: 0.9 }));
+      const strap = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.06, 0.17), std({ color: 0x1a1a1a }));
+      strap.position.y = -0.1;
+      g.add(v, strap);
+      return { mesh: g, colliders: [RAPIER.ColliderDesc.cuboid(0.23, 0.275, 0.08)], density: 120 };
+    },
+  },
 ];
+
+// Simple firearm: barrel toward -Z.
+function gunMesh(len, bore, grip, color, mag = false, stock = false) {
+  const g = new THREE.Group();
+  const metal = std({ color, roughness: 0.4, metalness: 0.6 });
+  const dark = std({ color: 0x18191b, roughness: 0.5, metalness: 0.4 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.075, len * 0.55), metal);
+  body.position.z = -len * 0.05;
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(bore / 2, bore / 2, len * 0.5, 10), dark);
+  barrel.rotation.x = Math.PI / 2;
+  barrel.position.set(0, 0.015, -len * 0.45);
+  const handle = new THREE.Mesh(new THREE.BoxGeometry(0.04, grip, 0.06), dark);
+  handle.position.set(0, -grip / 2, len * 0.12);
+  handle.rotation.x = -0.25;
+  g.add(body, barrel, handle);
+  if (mag) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.16, 0.05), dark); m.position.set(0, -0.11, -len * 0.08); g.add(m); }
+  if (stock) { const s = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.09, len * 0.35), metal); s.position.set(0, -0.03, len * 0.38); g.add(s); }
+  return { mesh: g, colliders: [RAPIER.ColliderDesc.cuboid(0.03, 0.06, len / 2)], density: 900 };
+}
 
 // What a pawn shop pays for each thing ($).
 export const VALUES = {
@@ -336,6 +394,7 @@ export const VALUES = {
   wrench: 25, rope: 15, shell: 150, flashlight: 20, mop: 8,
   wallet: 45, phone: 120, watch: 220, necklace: 380, laptop: 450, tv: 300, painting: 650, goldbar: 1200,
   radio: 60, camera: 180, handbag: 90, vase: 110, cash: 100, bat: 30,
+  pistol: 250, smg: 900, shotgun: 600, grenade: 100, armor: 150,
 };
 export const LOOT_COMMON = ['wallet', 'phone', 'handbag', 'radio', 'mug', 'flashlight', 'rope', 'wrench', 'camera', 'bat'];
 export const LOOT_RARE = ['watch', 'necklace', 'laptop', 'tv', 'painting', 'vase', 'cash', 'goldbar'];

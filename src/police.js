@@ -376,7 +376,7 @@ export class Police {
     if (g.flying) this.lastSeen = Math.min(this.lastSeen, now - 1e9); // they lose you in a jet
 
     // losing them
-    if (this.wanted > 0 && now - this.lastSeen > (10 + this.wanted * 6) * 1000) {
+    if (this.wanted > 0 && now - this.lastSeen > (10 + this.wanted * 6) * (g.economy.perks.scanner ? 650 : 1000)) {
       this.wanted -= 1;
       this.heat = HEAT[this.wanted];
       this.lastSeen = now;

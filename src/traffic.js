@@ -21,7 +21,7 @@ export class Traffic {
 
   // A road grid: node (i, j) sits at (xs[i], zs[j]). lane: offset of each lane from the centreline.
   addNetwork(id, xs, zs, lane, count, cruise) {
-    const net = { id, xs, zs, lane, cruise };
+    const net = { id, xs, zs, lane, cruise, count };
     this.nets.push(net);
     for (let n = 0; n < count; n++) this.spawn(net);
   }
@@ -33,7 +33,7 @@ export class Traffic {
       .filter((m) => m.i >= 0 && m.j >= 0 && m.i < net.xs.length && m.j < net.zs.length);
   }
 
-  spawn(net) {
+  spawn(net, minDist = 25) {
     const g = this.game;
     for (let tries = 0; tries < 20; tries++) {
       const a = { i: Math.floor(Math.random() * net.xs.length), j: Math.floor(Math.random() * net.zs.length) };
@@ -45,7 +45,7 @@ export class Traffic {
       const pos = A.clone().lerp(B, t).addScaledVector(right(dir), net.lane);
       if (this.cars.some((c) => c.pos.distanceTo(pos) < 12)) continue;
       const pt = g.shorePlayer?.body.translation();
-      if (pt && Math.hypot(pt.x - pos.x, pt.z - pos.z) < 25) continue;
+      if (pt && Math.hypot(pt.x - pos.x, pt.z - pos.z) < minDist) continue;
       const mesh = carMesh(COLORS[Math.floor(Math.random() * COLORS.length)]);
       g.scene.add(mesh);
       const body = g.portWorld.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(pos.x, LAND_Y + 0.9, pos.z));
@@ -106,7 +106,13 @@ export class Traffic {
     const pt = g.shorePlayer.body.translation();
     const onFoot = g.onShore && !g.flying && !g.boats.active && !g.health.dead;
     const people = g.citizens.list;
-    const others = [...this.cars, ...g.police.cars];
+    const others = [...this.cars, ...g.police.cars, ...g.vehicles.list.filter((v) => !v.wreck)];
+    // keep the streets busy: replace stolen and wrecked cars out of sight
+    this.refillT = (this.refillT || 0) - dt;
+    if (this.refillT <= 0) {
+      this.refillT = 3;
+      for (const net of this.nets) if (this.cars.filter((c) => c.net === net).length < net.count) this.spawn(net, 60);
+    }
 
     for (const car of this.cars) {
       const f = new THREE.Vector3(-Math.sin(car.heading), 0, -Math.cos(car.heading));

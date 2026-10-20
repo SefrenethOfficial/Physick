@@ -108,7 +108,8 @@ export class Viewmodel {
   land() { this.landKick = 1; }
 
   // Show an item (a fresh mesh) clamped in the gripper, or nothing.
-  setHeld(mesh, size = 0.17) {
+  setHeld(mesh, size = 0.17, rot = null, push = 0) {
+    this.heldPush = push;
     if (this.held) { this.held.removeFromParent(); this.held = null; }
     if (!mesh) { this.gripTarget = 0; return; }
     const sizeTarget = size;
@@ -118,7 +119,7 @@ export class Viewmodel {
     mesh.position.sub(box.getCenter(new THREE.Vector3()));
     holder.add(mesh);
     holder.scale.setScalar(sizeTarget / Math.max(size.x, size.y, size.z, 0.05));
-    holder.rotation.set(0.25, -0.5, 0.1);
+    if (rot) holder.rotation.set(...rot); else holder.rotation.set(0.25, -0.5, 0.1);
     mesh.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
     this.scene.add(holder);
     this.held = holder;
@@ -180,8 +181,9 @@ export class Viewmodel {
     if (this.held) {
       // hang just in front of the gripper, swinging gently with the arm
       const fwd = new THREE.Vector3(-0.05, -0.04, -0.09).applyEuler(this.rig.rotation);
-      this.held.position.copy(tp).add(fwd);
-      this.held.rotation.z = 0.1 + this.sway.x * 2;
+      if (this.heldPush) this.held.position.copy(tp).add(new THREE.Vector3(0.012, -0.03, -this.heldPush).applyEuler(this.rig.rotation)); // a gun sits in the grip
+      else this.held.position.copy(tp).add(fwd);
+      this.held.rotation.z = (this.heldPush ? 0 : 0.1) + this.sway.x * 2;
     }
   }
 

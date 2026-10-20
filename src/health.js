@@ -15,10 +15,16 @@ export class Health {
     this.sinceHurt = 99;
     this.cooldown = new Map(); // prop -> time of last hit
     this.god = false;
+    this.armor = 0;
   }
 
   damage(amount, kind = '') {
     if (this.dead || this.god || amount <= 0.5) return;
+    if (this.armor > 0) { // armour takes 70% of the hit until it's shot through
+      const soak = Math.min(this.armor, amount * 0.7);
+      this.armor -= soak;
+      amount -= soak;
+    }
     this.hp = Math.max(this.hp - amount, 0);
     this.sinceHurt = 0;
     this.game.hud.hurt(Math.min(amount / 40, 1));
@@ -46,6 +52,9 @@ export class Health {
       car: 'Run down by a squad car',
       traffic: 'Hit by a car',
       drown: 'Drowned',
+      carExplosion: 'Your car blew up',
+      carCrash: 'Wrapped round a lamp post',
+      explosion: 'Blown up',
     }[kind] || 'You died';
     g.hud.showDeath(true, msg);
     g.sfx.play('die');
@@ -91,5 +100,6 @@ export class Health {
       if (this.sinceHurt > REGEN_DELAY && this.hp < this.max) this.hp = Math.min(this.max, this.hp + REGEN_RATE * dt);
     }
     this.game.hud.setHealth(this.hp / this.max, Math.ceil(this.hp));
+    this.game.hud.setArmor?.(this.armor / 100);
   }
 }

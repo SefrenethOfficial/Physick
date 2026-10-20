@@ -2,6 +2,7 @@
 
 const DEFAULTS = {
   civRespawn: true,
+  music: true,
   police: true,
   crewRespawn: true,
   crewCount: 8,
@@ -25,6 +26,7 @@ export function saveSettings(s) {
 
 const ROWS = [
   { key: 'civRespawn', label: 'Townspeople respawn', hint: 'New people wander in out of sight', type: 'toggle' },
+  { key: 'music', label: 'Chase music', hint: 'Plays when you have three or more stars', type: 'toggle' },
   { key: 'police', label: 'Police', hint: 'Off: crimes never get you a wanted level', type: 'toggle' },
   { key: 'crewRespawn', label: 'Crew respawn', hint: 'New sailors come on deck to replace the fallen', type: 'toggle' },
   { key: 'crewCount', label: 'Crew on the warship', type: 'choice', options: [0, 4, 8, 12, 16] },

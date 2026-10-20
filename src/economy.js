@@ -11,6 +11,8 @@ export class Economy {
     this.money = 150;
     this.bag = []; // item ids
     this.ownedBoats = ['dinghy'];
+    this.ammo = { pistolAmmo: 0, smgAmmo: 0, shells: 0 };
+    this.perks = {};
     this.load();
     this.panel = document.getElementById('panel');
     this.panel.addEventListener('click', (e) => {
@@ -26,12 +28,14 @@ export class Economy {
         this.money = s.money ?? this.money;
         this.bag = (s.bag || []).filter((id) => ITEM_BY_ID[id]);
         this.ownedBoats = s.ownedBoats?.length ? s.ownedBoats : this.ownedBoats;
+        Object.assign(this.ammo, s.ammo || {});
+        Object.assign(this.perks, s.perks || {});
       }
     } catch { /* no saved game */ }
   }
 
   save() {
-    try { localStorage.setItem(KEY, JSON.stringify({ money: this.money, bag: this.bag, ownedBoats: this.ownedBoats })); } catch { /* storage unavailable */ }
+    try { localStorage.setItem(KEY, JSON.stringify({ money: this.money, bag: this.bag, ownedBoats: this.ownedBoats, ammo: this.ammo, perks: this.perks })); } catch { /* storage unavailable */ }
   }
 
   get weight() { return this.bag.reduce((w, id) => w + (ITEM_BY_ID[id].weight ?? 1), 0); }
@@ -55,6 +59,12 @@ export class Economy {
     this.game.hud.setBag(this.weight, BAG_CAPACITY);
     this.save();
     return true;
+  }
+
+  addAmmo(kind, n) {
+    this.ammo[kind] = (this.ammo[kind] || 0) + n;
+    this.save();
+    this.game.refreshHolding?.();
   }
 
   takeOut(i) {

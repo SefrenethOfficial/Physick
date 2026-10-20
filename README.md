@@ -16,6 +16,16 @@
 - Boats: walk up to yours and press `E`; `W` / `S` throttle, `A` / `D` steer, `E` to get off at a pier or the coast. Ramming does damage both ways (tougher boats come off better).
 - Your money, bag and boats are saved in your browser.
 
+## Cars, guns and the back alleys
+
+- **Grand theft auto:** walk up to any car in traffic (or a parked-up police car) and press `E` to drag the driver out and take it. `W` / `S` drive and reverse, `A` / `D` steer, `Space` handbrake, `H` horn, `E` to get out. The driver runs off and calls the police; a cop car is a much bigger deal. Cars dent and eventually blow up, and you can run people over (that's murder if anyone sees).
+- **The alleys:** three blocks have a grimy service alley through the middle, and each has someone in it:
+  - **Vic** (arms dealer): pistol, shotgun, SMG, ammo, grenades and body armour.
+  - **Rosa** (the fence): buys your whole bag for 30% more than the pawn shop, makes the heat go away for $500 a star, and sells a police scanner (every cop on your minimap; you lose them faster).
+  - **Dimitri's chop shop:** park a stolen car in his alley and press `E` for cash. Cop cars pay best.
+- **Guns:** hold one and `LMB` fires (hold for the SMG); `RMB` throws it. Ammo is per weapon type and shown next to the gun. Gunfire sends everyone running and counts as a crime if anyone sees. **Grenades:** `RMB` to throw, then run. **Armour:** hold it and press `F` to put it on; it soaks up most damage until it's shot through.
+- **Chase music:** at three stars or more, *Starvation Pursuer* kicks in (toggle in Settings).
+
 ## Crime and the police
 
 - **Punch** (`LMB` with an empty hand) or swing a bat; **grab** someone (`RMB`) to knock them out. Kill someone and you can **search the body** (`E`) for cash and valuables.
@@ -99,6 +109,9 @@ src/
   city.js      Port Calder: streets, blocks, plaza, park, pawn shop, police, hospital, marina
   architecture.js city buildings (brick, apartment, office, civic) and walk-in interiors
   traffic.js   cars driving the street grids
+  vehicles.js  stealing and driving cars
+  underworld.js alleys, the arms dealer, the fence and the chop shop
+  music.js     chase music
   saltmarsh.js Saltmarsh Key: houses, market, church, lighthouse, fishing dock
   buildkit.js  shared builders (buildings, houses, signs, lamps, trees, cars)
   merge.js     merges static scenery into a few big meshes
