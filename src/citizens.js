@@ -51,7 +51,7 @@ export class Citizens extends Npcs {
       if (!onLand(x, z, -6)) continue;
       if (pp && minDistFromPlayer && Math.hypot(x - pp.x, z - pp.z) < minDistFromPlayer) continue;
       const hit = this.sb.raycast({ x, y: 150, z }, { x: 0, y: -1, z: 0 }, 160);
-      if (!hit || !hit.isWorld || Math.abs(hit.point.y - LAND_Y) > 0.25 || hit.normal.y < 0.9) continue;
+      if (!hit || !hit.isWorld || (id !== 'park' && Math.abs(hit.point.y - LAND_Y) > 0.25) || hit.normal.y < 0.85) continue;
       return hit.point;
     }
     return null;

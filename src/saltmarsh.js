@@ -93,11 +93,11 @@ export class Saltmarsh {
     solidBox(g, sb, 6, 12, 6, -560, Y + 4, -1662, std({ color: 0xece6da }), { collide: false });
     g.add(steeple);
     const lh = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 3, 22, 16), std({ map: canvasTex(64, 64, (c, w, h) => { for (let i = 0; i < 4; i++) { c.fillStyle = i % 2 ? '#c62828' : '#f2f2ee'; c.fillRect(0, (i * h) / 4, w, h / 4); } }) }));
-    lh.position.set(-1035, Y + 11, -1215);
+    lh.position.set(-470, Y + 11, -1215);
     const lamphouse = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, 2.5, 12), std({ color: 0xfff6d8, emissive: 0xfff1c4, emissiveIntensity: 1 }));
-    lamphouse.position.set(-1035, Y + 23.3, -1215);
+    lamphouse.position.set(-470, Y + 23.3, -1215);
     g.add(lh, lamphouse);
-    sb.addStaticCollider(RAPIER.ColliderDesc.cylinder(11, 3).setTranslation(-1035, Y + 11, -1215));
+    sb.addStaticCollider(RAPIER.ColliderDesc.cylinder(11, 3).setTranslation(-470, Y + 11, -1215));
 
     // general store + parked cars
     solidBox(g, sb, 20, 6, 14, -650, Y, -1350, std({ color: 0xd9c08a }));

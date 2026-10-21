@@ -32,7 +32,7 @@ export class Car {
       .setCcdEnabled(true)
       .setCanSleep(true));
     this.collider = w.createCollider(RAPIER.ColliderDesc.cuboid(HALF.x, HALF.y, HALF.z)
-      .setTranslation(0, 0.4 + HALF.y, 0)
+      .setTranslation(0, 0.55 + HALF.y, 0)
       .setDensity(120).setFriction(0.35).setRestitution(0.15)
       .setCollisionGroups(GROUPS.car)
       .setActiveEvents(RAPIER.ActiveEvents.NONE), this.body);
@@ -55,11 +55,13 @@ export class Car {
 
   get forward() { return new THREE.Vector3(-Math.sin(this.heading), 0, -Math.cos(this.heading)); }
 
-  groundAt(x, z) {
+  // Road surface under (x, z), searched from just above the car (hills, bridges, kerbs).
+  groundAt(x, z, fromY = (this.pos ? this.pos.y : LAND_Y) + 2.5) {
     const sb = this.game.portSandbox;
-    const hit = sb.world.castRay(new RAPIER.Ray({ x, y: LAND_Y + 1.5, z }, { x: 0, y: -1, z: 0 }), 2.5, true, undefined, undefined, undefined, undefined,
+    const hit = sb.world.castRay(new RAPIER.Ray({ x, y: fromY, z }, { x: 0, y: -1, z: 0 }), 8, true, undefined, undefined, undefined, undefined,
       (col) => sb.staticColliders.has(col.handle));
-    return hit ? LAND_Y + 1.5 - hit.timeOfImpact : LAND_Y;
+    this.lastGroundHit = !!hit;
+    return hit ? fromY - hit.timeOfImpact : (this.pos ? this.pos.y : LAND_Y);
   }
 
   // Read the physics body back (call after the world has stepped).
@@ -170,10 +172,24 @@ export class Car {
 
   // Keep the car on the road surface (we have no gravity; kerbs pass under the body).
   hover(dt) {
-    if (!blocked(this.pos.x, this.pos.z, -0.5)) return this.sinkInto(dt);
+    if (this.sinking || (!blocked(this.pos.x, this.pos.z, 1) && !this.overDeck())) return this.sinkInto(dt);
     this.groundT -= dt;
-    if (this.groundT <= 0) { this.groundT = 0.1; this.groundY = this.groundAt(this.pos.x, this.pos.z); }
-    return THREE.MathUtils.clamp((this.groundY - this.pos.y) * 10, -6, 6);
+    if (this.groundT <= 0) {
+      // ride on the highest of front, middle and back so climbing a hill doesn't dig the nose in
+      this.groundT = 0.05;
+      const f = this.forward;
+      const lead = 1.8 + Math.min(Math.abs(this.speed) * 0.08, 2);
+      this.groundY = Math.max(this.groundAt(this.pos.x, this.pos.z),
+        this.groundAt(this.pos.x + f.x * lead, this.pos.z + f.z * lead),
+        this.groundAt(this.pos.x - f.x * lead, this.pos.z - f.z * lead));
+    }
+    return THREE.MathUtils.clamp((this.groundY - this.pos.y) * 14, -8, 10);
+  }
+
+  // Is there something solid under us (a bridge deck) even though we're over water?
+  overDeck() {
+    this.groundAt(this.pos.x, this.pos.z);
+    return this.lastGroundHit;
   }
 
   // Driven off the edge: it goes down like a stone (and you swim for it).

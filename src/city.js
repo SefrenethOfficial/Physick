@@ -317,7 +317,7 @@ export class City {
       if (Math.random() < 0.6) tree(g, sb, x, Y, z, 0.9);
       else lamp(g, sb, x, Y, z);
     }
-    for (let z = z0; z < z1; z += 24) tree(g, sb, isl.x0 + 6, Y, z, 0.9);
+    for (let z = z0; z < z1; z += 24) if (Math.abs(z - this.zs[2]) > 14) tree(g, sb, isl.x0 + 6, Y, z, 0.9); // (gap for the park road)
 
     // ---- marina on the east waterfront ----
     const mx = isl.x1;

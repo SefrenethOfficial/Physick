@@ -312,6 +312,7 @@ export class Hud {
     for (const r of info.rects || []) rect(r, r.color);
     for (const p of info.piers) rect(p, '#a07d55');
     for (const r of info.roads) rect(r, '#55585e');
+    for (const l of info.lines || []) { g.strokeStyle = l.color; g.lineWidth = Math.max(2, l.w * s); g.lineCap = 'round'; g.beginPath(); l.pts.forEach(([x, z], i) => (i ? g.lineTo(X(x), Z(z)) : g.moveTo(X(x), Z(z)))); g.stroke(); }
     g.strokeStyle = '#8a6a3a'; g.lineWidth = Math.max(1, 3 * s);
     for (const line of info.trails || []) { g.beginPath(); line.forEach(([x, z], i) => (i ? g.lineTo(X(x), Z(z)) : g.moveTo(X(x), Z(z)))); g.stroke(); }
     // island names
@@ -359,6 +360,7 @@ export class Hud {
     }
     g.fillStyle = '#55585e';
     for (const r of info.roads || []) g.fillRect(X(r.x0), Z(r.z0), Math.max((r.x1 - r.x0) / S, 1), Math.max((r.z1 - r.z0) / S, 1));
+    for (const l of info.lines || []) { g.strokeStyle = l.color; g.lineWidth = Math.max(2, l.w / S); g.lineCap = 'round'; g.beginPath(); l.pts.forEach(([x, z], i) => (i ? g.lineTo(X(x), Z(z)) : g.moveTo(X(x), Z(z)))); g.stroke(); }
     g.fillStyle = '#a07d55';
     for (const p of info.piers) g.fillRect(X(p.x0), Z(p.z0), Math.max((p.x1 - p.x0) / S, 1), Math.max((p.z1 - p.z0) / S, 1));
     for (const m of info.marks) {

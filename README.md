@@ -6,7 +6,7 @@
 
 - **Verian City** (where you start): a compact 5 × 5 block downtown with kerbed pavements, brick walk-ups with shopfronts and fire escapes, apartment blocks with balconies and glass towers on stone podiums. Plenty of ground floors are walk-in: shops with shelves of stuff, diners, office and police/hospital lobbies, and the **pawn shop** (sell anything at its counter with `E`). Cars drive the streets (they queue, turn, stop for people and honk at you) and pedestrians walk the pavements and cross at the corners. There's a plaza with a fountain, a pocket park, the **boat dealer** at the marina, a police station and a hospital.
 - **Verian International Airport** (south-west of the city, over a causeway): closed. The gate's chained shut, the runway is coned off and marked with big yellow crosses, and three airliners sit parked on the apron.
-- **Cherry Estate National Park** (behind Verian City, to the west): thousands of pines, dirt trails that loop through the forest, a ranger station at the trailhead, three campsites with tents and picnic tables (and stuff to steal), boulders, fallen logs, and a lookout tower you can climb. Hikers and a ranger wander the trails.
+- **Cherry Estate National Park** (behind Verian City, to the west): forested mountains, with peaks over 80 m out west. A road climbs from the city's west side up through the hills to the **Saltmarsh Gate Bridge**, an international-orange suspension bridge (two towers, sweeping cables, a 940 m deck 30 m above the water) that crosses the strait to Saltmarsh Key. Off the road: dirt trails over the hills, a ranger station at the trailhead, three campsites with tents and picnic tables (and stuff to steal), boulders, fallen logs, and a lookout tower on a hilltop. Hikers and a ranger wander the trails.
 - **Saltmarsh Key** (north of the city): a small town of painted houses, a market square full of stalls, a church, a lighthouse, a general store and a fishing dock. Lots of stuff lying around on porches and stalls, and townspeople with cash in their pockets.
 - **NAS Halyard** (east): the naval air station with the destroyer moored alongside and fighter jets on the apron.
 
@@ -122,7 +122,8 @@ src/
   city.js      Verian City: streets, blocks, plaza, park, pawn shop, police, hospital, marina
   architecture.js city buildings (brick, apartment, office, civic) and walk-in interiors
   traffic.js   cars driving the street grids
-  park.js      Cherry Estate National Park
+  park.js      Cherry Estate National Park: terrain, road, trails, forest
+  bridge.js    the Saltmarsh Gate suspension bridge
   airport.js   Verian International Airport (closed)
   bank.js      the bank, ATMs and the bank job
   vehicles.js  stealing and driving cars

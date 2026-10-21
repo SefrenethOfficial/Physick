@@ -29,6 +29,7 @@ import { ISLANDS, PIERS, nearestLandPoint, islandAt } from './world.js';
 import { mergeStatic } from './merge.js';
 import { Traffic } from './traffic.js';
 import { Park } from './park.js';
+import { Bridge } from './bridge.js';
 import { Airport } from './airport.js';
 import { Bank } from './bank.js';
 import { Vehicles } from './vehicles.js';
@@ -114,6 +115,13 @@ class Game {
     loadingEl.textContent = 'Planting Cherry Estate…';
     this.park = new Park(this, this.portSandbox);
     mergeStatic(this.park.group);
+    loadingEl.textContent = 'Stringing the bridge…';
+    this.bridge = new Bridge(this, this.portSandbox, this.park.bridge.start, this.park.bridge.end);
+    {
+      const e = this.bridge.at(this.bridge.length + 12);
+      this.bridge.groundRoad([[e.x, e.z], [-1010, -1262], [-1000, -1300]]);
+    }
+    mergeStatic(this.bridge.group);
     loadingEl.textContent = 'Closing the airport…';
     this.airport = new Airport(this, this.portSandbox);
     mergeStatic(this.airport.group);
@@ -1064,7 +1072,7 @@ class Game {
     this.bank.addATM(c.isl.x1 - 8, Y, 40, Math.PI / 2); // marina
     const m = this.saltmarsh.market;
     this.bank.addATM(m.x + 30, Y, m.z + 44, 0); // Saltmarsh market
-    this.bank.addATM(-1175, Y, -70.5, 0); // ranger station
+    this.bank.addATM(-1175, this.park.ranger.y, -70.5, 0); // ranger station
   }
 
   drawBigMap(yaw) {
@@ -1086,6 +1094,7 @@ class Game {
     P({ x: -1165, z: -80 }, '#c9a26a', 'Ranger station');
     for (const [x, z] of [[-1380, -262], [-1420, 240], [-1605, -62]]) P({ x, z }, '#ff9a3a', 'Campsite', false, 3.5);
     P({ x: -1650, z: 330 }, '#c9a26a', 'Lookout');
+    { const m = this.bridge.at(this.bridge.length / 2); P(m, '#c0442c', 'Saltmarsh Gate Bridge', true); }
     P({ x: -1215, z: 475 }, '#b3261e', 'Airport (closed)', true);
     const sp = this.ship.root.position;
     P(sp, '#c9ced4', 'Destroyer', true);
@@ -1101,7 +1110,8 @@ class Game {
     }
     const bounds = { x0: Infinity, x1: -Infinity, z0: Infinity, z1: -Infinity };
     for (const i of ISLANDS) { bounds.x0 = Math.min(bounds.x0, i.x0 - 60); bounds.x1 = Math.max(bounds.x1, i.x1 + 60); bounds.z0 = Math.min(bounds.z0, i.z0 - 80); bounds.z1 = Math.max(bounds.z1, i.z1 + 60); }
-    this.hud.drawBigMap({ bounds, x: pos.x, z: pos.z, yaw, islands: ISLANDS, piers: PIERS, roads: this.roadsCache || [], trails: this.park.trails, rects: this.airport.mapRects, pois, marks });
+    const lines = [{ pts: this.park.roadLine, color: '#55585e', w: 10 }, { pts: this.bridge.mapLine, color: '#c0442c', w: 22 }];
+    this.hud.drawBigMap({ lines, bounds, x: pos.x, z: pos.z, yaw, islands: ISLANDS, piers: PIERS, roads: this.roadsCache || [], trails: this.park.trails, rects: this.airport.mapRects, pois, marks });
   }
 
   drawMinimap(yaw) {
@@ -1137,7 +1147,7 @@ class Game {
       }
     }
     const far = this.boats.active || this.flying || (this.vehicles.active && Math.abs(this.vehicles.active.speed) > 12);
-    this.hud.drawMap({ roads: this.roadsCache, x: c.x, z: c.z, yaw, scale: this.flying ? 12 : far ? 5 : 2.2, islands: ISLANDS, piers: PIERS, marks });
+    this.hud.drawMap({ lines: [{ pts: this.park.roadLine, color: '#55585e', w: 10 }, { pts: this.bridge.mapLine, color: '#c0442c', w: 22 }], roads: this.roadsCache, x: c.x, z: c.z, yaw, scale: this.flying ? 12 : far ? 5 : 2.2, islands: ISLANDS, piers: PIERS, marks });
   }
 
   // ---------- loop ----------
