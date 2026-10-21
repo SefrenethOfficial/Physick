@@ -407,6 +407,7 @@ export class Police {
 
   busted() {
     const g = this.game;
+    g.story?.onBusted();
     const lost = g.economy.loseBag();
     const fine = Math.round(g.economy.money * 0.25);
     if (fine) g.economy.addMoney(-fine);

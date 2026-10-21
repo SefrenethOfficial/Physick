@@ -15,6 +15,7 @@ export class Hud {
       <div class="money" id="money"><b>$0</b><i></i><small id="bankamt"></small></div>
       <div class="bagmeter" id="bagmeter"><span>Bag</span><div><i></i></div><b>0/40</b></div>
       <div class="wanted" id="wanted"></div>
+      <div class="objective" id="objective"><small></small><b></b><span></span></div>
       <canvas class="minimap" id="minimap" width="200" height="200"></canvas>
       <div class="banner" id="banner"></div>
       <div class="bigmap" id="bigmap"><canvas></canvas></div>
@@ -273,6 +274,19 @@ export class Hud {
     this.boatEl.classList.remove('hit');
     void this.boatEl.offsetWidth;
     this.boatEl.classList.add('hit');
+  }
+
+  // Current mission objective, under the money and bag.
+  setObjective(o) {
+    const el = this.el.querySelector('#objective');
+    if (!o) { el.classList.remove('on'); this._obj = null; return; }
+    const key = `${o.title}|${o.text}|${o.dist}`;
+    if (key === this._obj) return;
+    this._obj = key;
+    el.classList.add('on');
+    el.querySelector('small').textContent = o.title;
+    el.querySelector('b').innerHTML = o.text;
+    el.querySelector('span').textContent = o.dist != null ? `${o.dist} m` : '';
   }
 
   flashBanner(text, color = '#ffd166') {

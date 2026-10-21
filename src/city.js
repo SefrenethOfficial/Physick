@@ -347,8 +347,10 @@ export class City {
   styleFor(centre) {
     const o = this.styleBase(centre);
     const pk = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    // there's always exactly one Mini Mart (the story starts there)
+    if (o.interior === 'shop' && !this.miniMart) { this.miniMart = true; Object.assign(o, { name: 'MINI MART', signBg: '#1f5f3a' }); return o; }
     if (o.interior === 'shop') Object.assign(o, pk([
-      { name: 'MINI MART', signBg: '#1f5f3a' }, { name: 'GROCERY', signBg: '#2f6f2a' }, { name: 'HARDWARE', signBg: '#6a3a1a' },
+      { name: 'CORNER SHOP', signBg: '#1f5f3a' }, { name: 'GROCERY', signBg: '#2f6f2a' }, { name: 'HARDWARE', signBg: '#6a3a1a' },
       { name: 'PHARMACY', signBg: '#1f6f8f', signFg: '#ffffff' }, { name: 'GADGETS', signBg: '#1f2f6f' }]));
     if (o.interior === 'diner') Object.assign(o, pk([{ name: 'DINER', signBg: '#b0201c', signFg: '#ffffff' }, { name: 'BURGER BAR', signBg: '#d0701c', signFg: '#ffffff' }, { name: 'CAFÉ', signBg: '#3a2a1a' }]));
     if (o.interior === 'office' || o.interior === 'lobby') o.name = o.name || pk(['OFFICES', 'VERIAN TRUST', 'CALLOWAY & SONS', 'HALCYON CORP']);

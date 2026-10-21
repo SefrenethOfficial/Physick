@@ -19,6 +19,7 @@ import { Jets } from './jets.js';
 import { Blood } from './blood.js';
 import { loadSettings, bindSettingsPanel } from './settings.js';
 import { Graphics } from './graphics.js';
+import { Story } from './story.js';
 import { deckHalfWidth } from './ship.js';
 import { onLand } from './port.js';
 import { City } from './city.js';
@@ -200,6 +201,7 @@ class Game {
     this.timer = new THREE.Timer();
     this.timer.connect?.(document);
     this.fpsAcc = 0; this.fpsFrames = 0;
+    this.story = new Story(this);
     this.graphics = new Graphics(this);
     this.graphics.apply();
     this.renderer.setAnimationLoop((now) => { if (this.graphics.shouldRender(now)) this.tick(); });
@@ -971,6 +973,7 @@ class Game {
       if (document.querySelector('#overlay .play').disabled) return;
       this.started = true;
       this.lock();
+      if (!this.story.state.introSeen) setTimeout(() => this.story.showIntro(), 400);
     });
     this.canvas.addEventListener('click', () => { if (!this.locked) this.lock(); });
     document.addEventListener('pointerlockerror', () => this.hud.showOverlay(true));
@@ -1034,6 +1037,7 @@ class Game {
     }, { passive: true });
     addEventListener('keydown', (e) => {
       if (e.code === 'Space' || e.code === 'Tab') e.preventDefault();
+      if (e.code === 'KeyJ' && !e.repeat && this.locked && !this.panelOpen) { this.endDrag(false); this.story.openJournal(); return; }
       if (e.code === 'KeyM' && !e.repeat && (this.locked || this.hud.bigMapOpen) && !this.panelOpen) { this.hud.toggleBigMap(); this.bigMapT = 0; return; }
       if (this.panelOpen && (e.code === 'Tab' || e.code === 'Escape' || e.code === 'KeyE')) { this.economy.close(); return; }
       if (e.repeat || !this.locked) return;
@@ -1172,6 +1176,7 @@ class Game {
     const pos = this.vehicles.active?.pos || this.boats.active?.pos || this.camera.position;
     const pois = [];
     const P = (p, color, label, big = false, r = 4.5) => pois.push({ x: p.x, z: p.z, color, label, big, r });
+    if (this.story.waypoint) P(this.story.waypoint, "#ffd166", "★ Objective", true, 7);
     const c = this.city;
     P(c.pawnCounter, '#ffd166', 'Pawn shop');
     P(c.bank.counter, '#2fd38a', 'Bank', true, 5.5);
@@ -1227,6 +1232,8 @@ class Game {
       const t = n.body.translation();
       marks.push({ x: t.x, z: t.z, color: '#9ec5ff', r: 2.5 });
     }
+    const wp = this.story.waypoint;
+    if (wp) marks.push({ x: wp.x, z: wp.z, color: '#ffd166', r: 5.5, label: '★' });
     marks.push({ x: this.city.pawnCounter.x, z: this.city.pawnCounter.z, color: '#ffd166', r: 4, label: '$' });
     marks.push({ x: this.city.dealerCounter.x, z: this.city.dealerCounter.z, color: '#7fd3ff', r: 4, label: 'Boats' });
     marks.push({ x: this.city.hospital.x, z: this.city.hospital.z, color: '#ff6a6a', r: 3, label: '+' });
@@ -1290,6 +1297,7 @@ class Game {
     this.underworld.update(dt);
     this.bank.update(dt);
     this.stores.update(dt);
+    this.story.update(dt);
     this.updateHostage();
     this.updateGrenades(dt);
     this.gangs.update(dt);

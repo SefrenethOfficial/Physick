@@ -2,6 +2,14 @@
 
 **Physick** is an open-world island game built with [three.js](https://threejs.org) and [Rapier](https://rapier.rs). You start in the city of Verian City with $150 and a dinghy at the marina. Take what isn't nailed down, sell it at the pawn shop, buy faster boats, and try not to get seen doing it. Further out there's a navy destroyer and a fighter base.
 
+## Story
+
+Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **Eli Navarro**, your closest friend. A cell called **the Ashen Hand** did it, and they're still in the city. The story opens the first time you press Play. Press `J` any time for the mission list and the bounty board.
+
+- **Mission 1 · Seed Money:** Eli's cousin Vic wants money before he'll find you names. Take Eli's old pistol, rob the Mini Mart's till (`R` at the counter with the gun out), then lose the cops and get clear of the shop. Vic pays $500 on top of the till, and the first target goes up on the bounty board.
+- **The bounty board** lists the five members of the Ashen Hand: the Courier, the Chemist, the Banker, the Gunner and the Architect, with bounties from $5,000 to $100,000. Each one is unlocked by a later mission (coming soon).
+- Dying or getting busted fails the mission. You can retry or replay it from `J`.
+
 ## The world
 
 - **Verian City** (where you start): a compact 5 × 5 block downtown with kerbed pavements, brick walk-ups with shopfronts and fire escapes, apartment blocks with balconies and glass towers on stone podiums. Plenty of ground floors are walk-in: shops with shelves of stuff, diners, office and police/hospital lobbies, and the **pawn shop** (sell anything at its counter with `E`). Cars drive the streets (they queue, turn, stop for people and honk at you) and pedestrians walk the pavements and cross at the corners. There's a plaza with a fountain, a pocket park, the **boat dealer** at the marina, a police station and a hospital.
@@ -78,7 +86,7 @@ Shelf stock in the shops is only drawn when you're at the shop. Distant scenery 
 - `F` use the held item (medkits heal, coffee perks you up)
 - `B` bag it, `Tab` open the bag
 - `E` interact: shops, the bank and ATMs, boats, cars, searching bodies, picking pockets, jets, the ship's helm and guns
-- `M` full map · `R` rob the bank or a shop's till (holding a gun, at the counter) · `G` take or release a hostage
+- `M` full map · `R` rob the bank or a shop's till (holding a gun, at the counter) · `G` take or release a hostage · `J` story and bounties
 - Look at a body and `LMB` to drag it; `LMB` lets go, `RMB` heaves it
 - Holding a mop: hold `LMB` to scrub blood, `RMB` to put it down
 - `Esc` pause (Settings are on the pause screen)
