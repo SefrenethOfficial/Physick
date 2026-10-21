@@ -15,10 +15,13 @@ const angDiff = (a, b) => { const d = b - a; return Math.atan2(Math.sin(d), Math
 const yawOf = (q) => new THREE.Euler().setFromQuaternion(new THREE.Quaternion(q.x, q.y, q.z, q.w), 'YXZ').y;
 
 export class Car {
-  constructor(game, { color = 0x2f7fd8, police = false, x, z, heading = 0, hp } = {}) {
+  constructor(game, { color = 0x2f7fd8, police = false, x, z, heading = 0, hp, mesh = null, half = HALF, density = 120, wheelbase = WHEELBASE, maxSpeed = null, ride = 0.55 } = {}) {
     this.game = game;
     this.police = police;
-    this.mesh = carMesh(color, police);
+    this.half = half;
+    this.wheelbase = wheelbase;
+    this.maxSpeed = maxSpeed;
+    this.mesh = mesh || carMesh(color, police);
     game.scene.add(this.mesh);
     const w = game.portWorld;
     const y = this.groundAt(x, z);
@@ -31,9 +34,9 @@ export class Car {
       .setAngularDamping(0.4)
       .setCcdEnabled(true)
       .setCanSleep(true));
-    this.collider = w.createCollider(RAPIER.ColliderDesc.cuboid(HALF.x, HALF.y, HALF.z)
-      .setTranslation(0, 0.55 + HALF.y, 0)
-      .setDensity(120).setFriction(0.35).setRestitution(0.15)
+    this.collider = w.createCollider(RAPIER.ColliderDesc.cuboid(half.x, half.y, half.z)
+      .setTranslation(0, ride + half.y, 0)
+      .setDensity(density).setFriction(0.35).setRestitution(0.15)
       .setCollisionGroups(GROUPS.car)
       .setActiveEvents(RAPIER.ActiveEvents.NONE), this.body);
     this.pos = new THREE.Vector3(x, y, z);
@@ -113,7 +116,7 @@ export class Car {
     }
     if (mine) {
       g.shake = Math.min(1.2, m / 14);
-      if (m > 13) g.health.damage((m - 13) * 2, 'carCrash');
+      if (m > 13 && !this.monster) g.health.damage((m - 13) * 2, 'carCrash');
     }
   }
 
@@ -238,7 +241,7 @@ export class Car {
     const nv = { x: f.x * vf + r.x * vr, y: vy, z: f.z * vf + r.z * vr };
     this.body.setLinvel(nv, true);
     this.steer = THREE.MathUtils.lerp(this.steer, steerAngle, Math.min(1, dt * steerRate));
-    const yawRate = (vf / WHEELBASE) * Math.tan(this.steer);
+    const yawRate = (vf / this.wheelbase) * Math.tan(this.steer);
     const av = this.body.angvel();
     this.body.setAngvel({ x: 0, y: av.y + (yawRate - av.y) * Math.min(1, dt * grip * yawResponse), z: 0 }, true);
     this.expect = new THREE.Vector3(nv.x, 0, nv.z);
@@ -246,7 +249,7 @@ export class Car {
 
   // Player controls: throttle -1..1, steer -1 (right) .. 1 (left), handbrake.
   driveInput(dt, throttle, steer, handbrake) {
-    const max = this.police ? 36 : 30;
+    const max = this.maxSpeed ?? (this.police ? 36 : 30);
     const vf = this.speed;
     let target = vf;
     if (throttle > 0) target = vf < -0.5 ? 0 : Math.min(max, vf + 12);

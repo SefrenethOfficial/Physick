@@ -147,7 +147,7 @@ export class Citizens extends Npcs {
 
   // ---- perception (a few times a second per person) ----
   sense(npc, pp, playerVisible) {
-    if (npc.role === 'mascot' || npc.role === 'goon') return; // they don't call the police
+    if (npc.role === 'mascot' || npc.role === 'goon' || npc.role === 'escort') return; // they don't call the police
     const g = this.game;
     const t = npc.body.translation();
     const now = this.game.time * 1000;
@@ -243,6 +243,14 @@ export class Citizens extends Npcs {
       let want = null, speed = 0;
       if (npc.stunT > 0) {
         npc.stunT -= dt;
+      } else if (npc.walkTo) {
+        // scripted: walk somewhere, then go inside (vanish)
+        const to = new THREE.Vector3(npc.walkTo.x - t.x, 0, npc.walkTo.z - t.z);
+        if (to.length() < 1.5) { npc.walkTo = null; npc.arrived = true; }
+        else { want = to.normalize(); speed = npc.walkSpeed || 1.6; }
+      } else if (npc.role === 'escort') {
+        // scripted characters waiting on the story
+        if (npc.faceYaw != null) npc.heading = npc.faceYaw;
       } else if (npc.role === 'clerk') {
         // behind the counter: keep an eye on customers; angry armed clerks shoot
         const st = npc.store;

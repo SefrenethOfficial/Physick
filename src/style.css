@@ -369,3 +369,8 @@ h3.kih { margin: 16px 0 4px; font-size: 13px; letter-spacing: .12em; text-transf
 .ph-ring i { font-style: normal; font-size: 20px; animation: shake .4s infinite; }
 @keyframes ringPulse { to { box-shadow: 0 0 18px rgba(52,199,89,.6); } }
 @media (max-width: 560px) { #phone { place-items: center; padding: 10px; } }
+.story.act { text-align: center; padding: 8px 4px; }
+.story.act h1 { margin: 6px 0 0; font-size: 64px; letter-spacing: .2em; color: #ffd166; }
+.story.act h2 { margin: 0 0 14px; font-size: 18px; letter-spacing: .4em; text-transform: uppercase; opacity: .8; }
+.story.act .lede { font-style: italic; font-size: 18px; color: #ffd166; }
+.story.act .btns { justify-content: center; }

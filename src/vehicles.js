@@ -15,7 +15,7 @@ export class Vehicles {
   }
 
   // Every car in the world (traffic, police, parked, stolen).
-  get all() { return [...this.game.traffic.cars, ...this.game.police.cars, ...this.parked, ...this.list]; }
+  get all() { return [...this.game.traffic.cars, ...this.game.police.cars, ...this.parked, ...this.list, ...(this.game.story?.extraCars || [])]; }
 
   // A car you could get into from where you're standing.
   nearby(pos) {
@@ -87,6 +87,8 @@ export class Vehicles {
     const v = this.active;
     if (!v) return false;
     if (Math.abs(v.speed) > 5) { this.game.hud.toast('Slow down first'); return false; }
+    const lock = this.game.story?.vehicleLock?.(v);
+    if (lock) { this.game.hud.toast(lock, 0xffd166); return false; }
     const f = v.forward;
     const left = new THREE.Vector3(f.z, 0, -f.x);
     let out = v.pos.clone().addScaledVector(left, 2.2);
@@ -127,8 +129,9 @@ export class Vehicles {
   cameraPose(camera, dt, v = this.active) {
     const k = 1 - Math.exp(-dt * 5);
     this.camQuat.slerp(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, v.heading, 0)), k);
-    const off = new THREE.Vector3(0, 2.4, 7).applyQuaternion(this.camQuat);
-    const target = v.mesh.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+    const big = v.monster;
+    const off = new THREE.Vector3(0, big ? 4.6 : 2.4, big ? 12.5 : 7).applyQuaternion(this.camQuat);
+    const target = v.mesh.position.clone().add(new THREE.Vector3(0, big ? 3 : 1.2, 0));
     camera.position.copy(target).add(off);
     camera.up.set(0, 1, 0);
     camera.lookAt(target.clone().addScaledVector(v.forward, 3));

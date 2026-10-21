@@ -1,10 +1,12 @@
 import * as THREE from 'three';
+import { LAND_Y } from './world.js';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { ITEM_BY_ID } from './items.js';
 import { std } from './buildkit.js';
 import { Mansion } from './mansion.js';
 import { Phone } from './phone.js';
 import { Heli, SHIP } from './cargo.js';
+import { ElMonstruo, CARS_TOTAL, MAX_ALIVE } from './elmonstruo.js';
 
 // The story: Wren Takavic, your oldest friend, was killed in the Verian Central bombing.
 // The Ashen Hand cell did it. Work your way towards them one job at a time.
@@ -60,7 +62,16 @@ export const MISSIONS = [
     reward: 2500,
     passText: `${FIXER}: "You're alive and the bomb's in the harbour. Wren would've liked that. Get some sleep. This isn't over."`,
   },
-  { id: 'm5', title: 'Coming soon', locked: true, brief: 'Vic is working on what comes next.' },
+  {
+    id: 'm5',
+    title: 'El Monstruo',
+    requires: 'm4',
+    act: 1,
+    brief: `${FIXER}: "Rafe Doucet. The Courier. He brought the bomb in, and tonight he's moving to the Hollows. His driver had an accident. You're his driver now. The truck's at Dockside Motors by Saltmarsh's fishing dock: a monster truck they call El Monstruo. Don't touch him while his men are in the cab, or they'll kill you. Wait till they leave. Then get rid of the truck at the new scrapyard on Verian docks."`,
+    reward: 5000,
+    passText: `${FIXER}: "That's one of them. The Courier's done, the bomb's in the sea and El Monstruo's a pancake. Wren, that's for you."`,
+  },
+  { id: 'm6', title: 'Act II: coming soon', locked: true, brief: 'The Ashen Hand know your face now. Vic says lie low. For now.' },
 ];
 
 export class Story {
@@ -79,6 +90,7 @@ export class Story {
     this.buildParlour();
     this.phone = new Phone(game);
     this.heli = new Heli(game);
+    this.monstruo = new ElMonstruo(game);
     // Vic's texts: the brief for every job you've been given so far
     if (!this.state.messages) {
       this.state.messages = [];
@@ -344,6 +356,15 @@ export class Story {
       this.mansion.build();
       for (const d of this.mansion.docSpots) d.mesh.visible = true;
     }
+    if (id === 'm5') {
+      const M = this.monstruo;
+      M.clearEnemies(); M.clearCrew();
+      M.spawnTruck(); M.spawnCrew();
+      M.spawned = 0;
+      Object.assign(a, { stage: 'garage', destroyed: 0, carsDone: false, chopT: 18, spawnT: 0, chopSpawned: 0 });
+      if (!hasGun) { g.giveItem(ITEM_BY_ID.pistol); g.hud.toast(`${FIXER} left you a pistol`, 0xffd166); }
+      if ((g.economy.ammo.pistolAmmo || 0) < 24) g.economy.addAmmo('pistolAmmo', 24);
+    }
     if (id === 'm4') {
       Object.assign(a, { stage: 'board', goons: [], parts: [], sunk: 0, alert: false, reinfT: 0 });
       if (!hasGun) { g.giveItem(ITEM_BY_ID.pistol); g.hud.toast(`${FIXER} left you a pistol`, 0xffd166); }
@@ -364,6 +385,12 @@ export class Story {
     g.hud.setObjective(null);
     if (a.mascots) for (const n of a.mascots) if (g.citizens.list.includes(n)) g.citizens.despawn(n);
     if (a.goons) for (const n of a.goons) if (g.citizens.list.includes(n)) g.citizens.despawn(n);
+    if (a.id === 'm5') {
+      const M = this.monstruo;
+      M.clearEnemies(); M.clearCrew();
+      if (!pass) M.removeTruck();
+      M.plate.position.y = LAND_Y + 8.2;
+    }
     if (a.id === 'm4') {
       for (const p of [...g.portSandbox.props]) if (p.def.bombPart) g.portSandbox.remove(p);
       if (g.held?.bombPart) g.clearHand?.();
@@ -377,6 +404,7 @@ export class Story {
       g.sfx.play('cash');
       if (a.m.reward) g.economy.addMoney(a.m.reward, `from ${FIXER}`);
       if (a.m.passText) setTimeout(() => g.hud.toast(a.m.passText, 0xffd166), 1800);
+      if (a.m.act) setTimeout(() => this.actComplete(a.m.act), 3500);
       const next = MISSIONS[MISSIONS.indexOf(a.m) + 1];
       if (next && this.unlocked(next) && !this.state.messages.some((x) => x.text === next.brief.replace(`${FIXER}: `, ''))) setTimeout(() => this.phone.text(FIXER, next.brief.replace(`${FIXER}: `, '')), 6000);
     } else if (msg) {
@@ -472,6 +500,7 @@ export class Story {
     if (a.id === 'm2') this.updateM2(a, p, dt);
     if (a.id === 'm3') this.updateM3(a, p, dt);
     if (a.id === 'm4') this.updateM4(a, p, dt);
+    if (a.id === 'm5') this.updateM5(a, p, dt);
     if (!this.active) return;
     const wp = a.wp;
     const d = wp ? Math.hypot(wp.x - p.x, wp.z - p.z) : 0;
@@ -665,4 +694,142 @@ export class Story {
       a.wp = cg.padPos.clone();
     }
   }
+
+  // ---------------------------------------------------------------- mission 5: El Monstruo
+  get extraCars() { return this.monstruo.cars; }
+
+  vehicleLock(v) {
+    const a = this.active;
+    if (a?.id === 'm5' && v === this.monstruo.truck && (a.stage === 'escort' || a.stage === 'dropoff')) return 'The Courier: "Where do you think you\'re going? Drive."';
+    if (a?.id === 'm5' && v === this.monstruo.truck && a.stage === 'crush') return null;
+    return null;
+  }
+
+  // G in the truck: deal with the Courier. Too early and his men kill you.
+  onKeyG() {
+    const a = this.active, g = this.game, M = this.monstruo;
+    if (a?.id !== 'm5' || g.vehicles.active !== M.truck || !['escort', 'dropoff', 'kill'].includes(a.stage)) return false;
+    if (a.stage === 'kill') {
+      g.sfx.play('pistol'); g.shake = 0.6;
+      const c = M.riders[0].root;
+      c.rotation.set(0.35, 0, 0.9); c.position.y -= 0.25;
+      g.fx.flash(M.truck.pos.clone().add(new THREE.Vector3(0, 3.2, 0)), 0xffc060, 1, 0.08);
+      for (let i = 0; i < 14; i++) g.fx.emit(M.truck.pos.clone().add(new THREE.Vector3(0.3, 3.2, 0)), new THREE.Vector3((Math.random() - 0.5) * 2, Math.random() * 2, (Math.random() - 0.5) * 2), 0x8a0a0a, 0.6, 1, 0.25);
+      g.hud.toast('The Courier slumps against the window. Rafe Doucet won\'t be moving anything again.', 0xe8e2d4);
+      a.stage = 'escape';
+      a.spawnT = 6; a.chopT = 20;
+      setTimeout(() => { if (this.active === a) { g.hud.flashBanner('THEY KNOW', '#ff6a5a'); g.hud.toast('Ashen Hand cars are coming for the truck. Smash every one of them!', 0xff6a5a); } }, 3000);
+      return true;
+    }
+    // his men are still right there
+    g.sfx.play('pistol'); setTimeout(() => g.sfx.play('smg'), 150); setTimeout(() => g.sfx.play('smg'), 400);
+    g.hud.toast('His men saw it coming.', 0xff6a5a);
+    g.health.damage(999, 'goon');
+    return true;
+  }
+
+  updateM5(a, p, dt) {
+    const g = this.game, M = this.monstruo, t = M.truck;
+    const inTruck = g.vehicles.active === t && !!t;
+    if (!t || t.wreck || t.sinking) { if (a.stage !== 'crush') { this.end(false, t?.sinking ? 'El Monstruo went in the water' : 'El Monstruo was wrecked'); return; } }
+    if (a.stage === 'garage') {
+      a.text = inTruck ? '' : 'Go to Dockside Motors by Saltmarsh\'s fishing dock and get in El Monstruo';
+      a.wp = t.pos.clone();
+      if (inTruck) {
+        M.clearCrew();
+        for (const f of M.riders) f.root.visible = true;
+        a.stage = 'escort';
+        g.hud.toast('The Courier: "You\'re the new driver? The Hollows. Eyes on the road."', 0xe8e2d4);
+      }
+      return;
+    }
+    const hood = g.hood;
+    const drop = new THREE.Vector3(hood.xs[1], LAND_Y, hood.zs[2] + 18);
+    if (a.stage === 'escort') {
+      a.text = 'Drive the Courier to the Hollows. Don\'t touch him while his men are in the cab';
+      a.wp = drop.clone();
+      if (!inTruck) a.wp = t.pos.clone();
+      if (inTruck && Math.hypot(t.pos.x - drop.x, t.pos.z - drop.z) < 14 && Math.abs(t.speed) < 2.5) {
+        a.stage = 'dropoff';
+        g.hud.toast('The Courier: "Wait here." His men climb down and head off down the street.', 0xe8e2d4);
+        M.riders[1].root.visible = M.riders[2].root.visible = false;
+        M.crew = [];
+        const f = t.forward, r = new THREE.Vector3(-f.z, 0, f.x);
+        for (const s of [-1, 1]) {
+          const at = t.pos.clone().addScaledVector(r, s * 2.8).addScaledVector(f, -1.5); at.y = LAND_Y;
+          const n = g.citizens.spawnCitizen('hood', 'escort', at, { look: { shirt: 0x1d1f22, pants: 0x2a2c30, skin: s < 0 ? 0xa8724f : 0x7a4f35, hat: 'cap', hatColor: 0x111111 } });
+          if (!n) continue;
+          n.walkTo = t.pos.clone().addScaledVector(f, -40).addScaledVector(r, s * 4);
+          n.walkSpeed = 1.7;
+          M.crew.push(n);
+        }
+      }
+      return;
+    }
+    if (a.stage === 'dropoff') {
+      a.wp = null;
+      const near = M.crew.filter((n) => g.citizens.list.includes(n) && !n.arrived && Math.hypot(n.body.translation().x - t.pos.x, n.body.translation().z - t.pos.z) < 26);
+      a.text = 'Wait. His men are still close';
+      for (const n of M.crew) if (n.arrived && g.citizens.list.includes(n)) g.citizens.despawn(n);
+      if (!near.length) { M.clearCrew(); a.stage = 'kill'; g.sfx.play('select'); }
+      return;
+    }
+    if (a.stage === 'kill') { a.text = 'His men are gone. Press <kbd>G</kbd> to deal with the Courier'; a.wp = null; return; }
+    if (a.stage === 'escape') {
+      // more of them, until they've thrown everything they've got at you
+      const alive = M.cars.filter((c) => !c.wreck && !c.sinking).length;
+      const atDump = M.atDump(t.pos);
+      a.spawnT -= dt;
+      if (M.spawned < CARS_TOTAL && (a.spawnT <= 0 || atDump) && alive < (atDump ? CARS_TOTAL : MAX_ALIVE)) {
+        a.spawnT = M.spawned < 3 ? 1.5 : 9 + Math.random() * 4;
+        M.spawnCar();
+      }
+      a.chopT -= dt;
+      if (a.chopT <= 0 && a.chopSpawned < 4 && M.choppers.filter((c) => !c.falling).length < 2 && !a.carsDone) { a.chopT = 18; a.chopSpawned++; M.spawnChopper(); g.hud.toast('Chopper inbound!', 0xff8a6a); }
+      M.updateEnemies(dt, a);
+      a.carsDone = M.spawned >= CARS_TOTAL && alive === 0;
+      const left = CARS_TOTAL - a.destroyed;
+      if (!a.carsDone) {
+        a.text = `Smash the Ashen Hand cars with El Monstruo (${a.destroyed}/${CARS_TOTAL}), on your way to the scrapyard at Verian docks`;
+        a.wp = atDump ? null : new THREE.Vector3(-717, LAND_Y, -175);
+        if (atDump) a.text = `Finish them off before you dump the truck: ${left} Ashen Hand car${left === 1 ? '' : 's'} left`;
+        return;
+      }
+      a.text = inTruck ? 'Drive El Monstruo into the crusher' : 'Get back in El Monstruo and drive it into the crusher';
+      a.wp = new THREE.Vector3(-648, LAND_Y, -175);
+      if (inTruck && M.inBay(t.pos) && Math.abs(t.speed) < 2) {
+        a.stage = 'crush'; a.crushT = 0;
+        g.vehicles.active = null;
+        g.placeOnShore(new THREE.Vector3(-648 - 9, LAND_Y + 1, -175), Math.PI / 2);
+        g.hud.toast('You climb down. The crusher groans into life.', 0xe8e2d4);
+      }
+      return;
+    }
+    if (a.stage === 'crush') {
+      a.text = 'Watch it go';
+      a.wp = null;
+      a.crushT += dt;
+      const k = Math.min(1, a.crushT / 2.6);
+      M.plate.position.y = LAND_Y + 8.2 - k * 5.4;
+      if (t) { t.mesh.scale.y = Math.max(0.22, 1 - Math.max(0, (k - 0.55) / 0.45) * 0.78); t.body.setLinvel({ x: 0, y: 0, z: 0 }, true); }
+      if (k > 0.55 && !a.crunched) { a.crunched = true; g.sfx.play('crash'); g.shake = 1.2; for (let i = 0; i < 30; i++) g.fx.emit(t.pos.clone().add(new THREE.Vector3(0, 1.5, 0)), new THREE.Vector3((Math.random() - 0.5) * 8, Math.random() * 4, (Math.random() - 0.5) * 8), 0xbfe0ff, 0.6, 1, 0.2); }
+      if (a.crushT > 4.2) {
+        M.removeTruck();
+        M.plate.position.y = LAND_Y + 8.2;
+        this.end(true);
+      }
+    }
+  }
+
+  actComplete(n) {
+    const e = this.game.economy;
+    const html = `<div class="story act">
+      <h1>ACT ${['', 'I', 'II', 'III'][n]}</h1><h2>complete</h2>
+      <p>Verian Central Square is still standing. The bomb is at the bottom of the harbour, the Courier is dead in a truck that's now a metal pancake, and the Ashen Hand have lost their first man.</p>
+      <p>They know someone is coming for them now. They don't know it's you. Not yet.</p>
+      <p class="lede">For Wren.</p>
+      <div class="btns"><button data-a="ok">Continue</button></div></div>`;
+    e.open('The Ashen Hand', html, (body) => body.addEventListener('click', (ev) => { if (ev.target.closest('button[data-a]')) e.close(); }));
+  }
 }
+

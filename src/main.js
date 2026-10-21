@@ -1065,6 +1065,7 @@ class Game {
         }
         return;
       }
+      if (e.code === 'KeyG' && this.story.onKeyG()) return; // (works from the driver's seat)
       if (this.gunnery.active || this.boats.active || this.vehicles.active) return;
       if (e.code === 'KeyF') { this.useHeld(); return; }
       if (e.code === 'KeyB') { this.stash(); return; }
