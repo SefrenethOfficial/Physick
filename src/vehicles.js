@@ -86,9 +86,9 @@ export class Vehicles {
   exit() {
     const v = this.active;
     if (!v) return false;
-    if (Math.abs(v.speed) > 5) { this.game.hud.toast('Slow down first'); return false; }
     const lock = this.game.story?.vehicleLock?.(v);
     if (lock) { this.game.hud.toast(lock, 0xffd166); return false; }
+    if (Math.abs(v.speed) > 5) { this.bailOut(v); return true; }
     const f = v.forward;
     const left = new THREE.Vector3(f.z, 0, -f.x);
     let out = v.pos.clone().addScaledVector(left, 2.2);
@@ -97,6 +97,21 @@ export class Vehicles {
     this.game.sfx.setEngine(false);
     this.game.placeOnShore(new THREE.Vector3(out.x, v.pos.y + 1.1, out.z), v.heading);
     return true;
+  }
+
+  // Throw the door open and dive out of a moving car: you go flying (and it keeps going).
+  bailOut(v) {
+    const g = this.game;
+    const f = v.forward, left = new THREE.Vector3(f.z, 0, -f.x);
+    const speed = Math.abs(v.speed);
+    this.active = null;
+    g.sfx.setEngine(false);
+    const pos = v.pos.clone().addScaledVector(left, 1.9 + (v.monster ? 1 : 0)).add(new THREE.Vector3(0, v.monster ? 3 : 1.6, 0));
+    const vel = v.vel.clone().multiplyScalar(0.85).addScaledVector(left, 4).add(new THREE.Vector3(0, 3.5, 0));
+    g.pragdoll.start(pos, v.heading, vel, { spin: 3 + speed * 0.15 });
+    g.hud.setMode('deck');
+    g.shake = 0.8;
+    if (speed > 12) g.health.damage((speed - 12) * 1.4, 'bail');
   }
 
   remove(v) {

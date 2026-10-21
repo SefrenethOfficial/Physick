@@ -12,6 +12,7 @@ import { Ocean } from './ocean.js';
 import { Ship, HELM, DECK } from './ship.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Viewmodel } from './viewmodel.js';
+import { PlayerRagdoll } from './ragdoll.js';
 import { ITEMS, ITEM_BY_ID, LOOT_COMMON, LOOT_RARE } from './items.js';
 import { Gunnery } from './guns.js';
 import { Port, GANGWAY_FOOT, LAND_Y } from './port.js';
@@ -203,6 +204,7 @@ class Game {
     this.timer = new THREE.Timer();
     this.timer.connect?.(document);
     this.fpsAcc = 0; this.fpsFrames = 0;
+    this.pragdoll = new PlayerRagdoll(this);
     this.story = new Story(this);
     this.graphics = new Graphics(this);
     this.graphics.apply();
@@ -231,6 +233,7 @@ class Game {
 
   // ---------- city life: moving about, money, the bag ----------
   placeOnShore(pos, yaw = this.shorePlayer.yaw) {
+    if (this.pragdoll?.active) this.pragdoll.clear();
     this.endDrag(false);
     if (this.boats.active) { this.boats.active.driver.root.visible = false; this.boats.active = null; }
     if (this.vehicles?.active) this.vehicles.active = null;
@@ -560,8 +563,23 @@ class Game {
     this.health.damage(1000, 'jet');
   }
 
+  // Dying on land: you crumple (third person) until you come round at the hospital.
+  onDeath() {
+    if (!this.onShore || this.flying || this.boats.active) return;
+    if (this.pragdoll.active) { this.pragdoll.dead = true; return; }
+    const v = this.vehicles.active;
+    if (v) { this.vehicles.active = null; this.hud.setMode('deck'); }
+    const t = this.shorePlayer.body.translation();
+    const pos = v ? v.pos.clone().add(new THREE.Vector3(0, 1.6, 0)) : new THREE.Vector3(t.x, t.y, t.z);
+    const vel = v ? v.vel.clone().add(new THREE.Vector3(0, 2, 0)) : this.shorePlayer.vel.clone().add(new THREE.Vector3((Math.random() - 0.5) * 2, 1, (Math.random() - 0.5) * 2));
+    this.endDrag(false);
+    this.clearDropHeld?.();
+    this.pragdoll.start(pos, this.shorePlayer.yaw, vel, { dead: true, spin: 2 });
+  }
+
   respawnPlayer() {
     // patched up at the hospital in Verian City; the bill comes out of your pocket
+    if (this.pragdoll.active) this.pragdoll.clear();
     this.sinkingBoat = null;
     this.clearHand();
     this.police.clearWanted();
@@ -1050,6 +1068,7 @@ class Game {
       if (e.repeat || !this.locked) return;
       this.keys.add(e.code);
       if (this.health.dead) return;
+      if (this.pragdoll.active) { if (e.code === 'Space' && this.pragdoll.canGetUp()) this.pragdoll.getUp(); return; }
       if (this.flying && e.code !== 'KeyE') { this.jets.key(e.code); return; }
       if (e.code === 'KeyE') {
         if (this.flying) { this.jets.exit(); return; }
@@ -1099,6 +1118,7 @@ class Game {
   }
 
   promptText() {
+    if (this.pragdoll.active) return this.pragdoll.canGetUp() ? '<kbd>Space</kbd> Get up' : null;
     if (this.health.dead || this.atHelm || this.gunnery.active || this.flying) return null;
     if (this.boats.active) {
       const b = this.boats.active;
@@ -1272,7 +1292,7 @@ class Game {
     this.ship.update(dt, this.ocean, steer);
 
     const alive = this.locked && !this.health.dead && !this.panelOpen;
-    const walking = alive && !this.atHelm && !this.gunnery.active && !this.flying && !this.boats.active && !this.vehicles.active;
+    const walking = alive && !this.atHelm && !this.gunnery.active && !this.flying && !this.boats.active && !this.vehicles.active && !this.pragdoll.active;
     this.fireT = Math.max(0, this.fireT - dt);
     if (this.firing && this.held?.gun && alive && this.fireT <= 0) this.fire();
     this.saveAmmoT = (this.saveAmmoT || 0) - dt;
@@ -1295,7 +1315,7 @@ class Game {
       if (!this.onShore) this.health.checkImpacts();
       this.world.timestep = sub;
       this.world.step();
-      if (this.onShore && !this.flying && !this.boats.active && !this.vehicles.active) this.shorePlayer.update(sub, keys);
+      if (this.onShore && !this.flying && !this.boats.active && !this.vehicles.active && !this.pragdoll.active) this.shorePlayer.update(sub, keys);
       this.portWorld.timestep = sub;
       this.portWorld.step();
     }
@@ -1303,6 +1323,7 @@ class Game {
     this.checkTransfer();
     this.boats.update(dt, alive ? k : new Set());
     this.vehicles.update(dt, alive ? k : new Set());
+    this.pragdoll.update(dt);
     this.underworld.update(dt);
     this.bank.update(dt);
     this.stores.update(dt);
@@ -1343,7 +1364,9 @@ class Game {
       }
     }
 
-    if (this.flying) {
+    if (this.pragdoll.active) {
+      this.pragdoll.cameraPose(this.camera, dt);
+    } else if (this.flying) {
       this.jets.cameraPose(this.camera, dt);
     } else if (this.vehicles.active) {
       this.vehicles.cameraPose(this.camera, dt);
@@ -1401,7 +1424,7 @@ class Game {
     const r = this.renderer;
     r.autoClear = true;
     r.render(this.scene, this.camera);
-    const showArm = !this.atHelm && !this.gunnery.active && !this.health.dead && !this.flying && !this.boats.active && !this.vehicles.active;
+    const showArm = !this.atHelm && !this.gunnery.active && !this.health.dead && !this.flying && !this.boats.active && !this.vehicles.active && !this.pragdoll.active;
     this.viewmodel.update(dt, this.player, this.mouseDX, this.mouseDY, false);
     this.mouseDX = this.mouseDY = 0;
     if (showArm) {

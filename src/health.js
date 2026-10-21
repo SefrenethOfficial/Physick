@@ -38,7 +38,7 @@ export class Health {
 
   die(kind) {
     this.dead = true;
-    this.deadT = 3;
+    this.deadT = 4;
     const g = this.game;
     g.leaveHelm?.();
     g.gunnery?.leave();
@@ -59,9 +59,11 @@ export class Health {
       carExplosion: 'Your car blew up',
       carCrash: 'Wrapped round a lamp post',
       explosion: 'Blown up',
+      bail: 'Jumped out of a moving car',
     }[kind] || 'You died';
     g.hud.showDeath(true, msg);
     g.sfx.play('die');
+    g.onDeath?.(kind);
   }
 
   respawn() {
