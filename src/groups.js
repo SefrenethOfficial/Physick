@@ -5,10 +5,13 @@ export const WORLD = 0x1;
 export const PROP = 0x2;
 export const PLAYER = 0x4;
 export const NPC = 0x8;
+export const CAR = 0x10;
 
 export const GROUPS = {
   world: g(WORLD, 0xffff),
   prop: g(PROP, 0xffff),
+  // Cars bump into the world, props, you and each other (people are hit by query, not contact).
+  car: g(CAR, WORLD | PROP | PLAYER | CAR),
   player: g(PLAYER, 0xffff),
   // Living NPCs only physically touch the world and the player. Props pass through them,
   // and impacts are detected by query instead so a speeding quad doesn't stop dead on a person.

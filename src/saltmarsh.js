@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { ISLANDS, LAND_Y } from './world.js';
-import { canvasTex, speckle, std, house, sign, lamp, tree, solidBox, carMesh } from './buildkit.js';
+import { canvasTex, speckle, std, house, sign, lamp, tree, solidBox } from './buildkit.js';
 import { islandSlab, flat, pier } from './city.js';
 
 // Saltmarsh Key: a small island town of painted houses, a market square and a fishing dock.
@@ -17,6 +17,7 @@ export class Saltmarsh {
     this.group = new THREE.Group();
     game.scene.add(this.group);
     this.lootSpots = []; // { pos, kind: 'stall' | 'porch' | 'misc' }
+    this.parkedSpots = [];
     this.build();
   }
 
@@ -103,13 +104,9 @@ export class Saltmarsh {
     sign(g, 'GENERAL STORE', -650, Y + 5, -1342.9, 0, { w: 10, h: 1.6, bg: '#2f4f2f', fg: '#ffe7a0' });
     for (let n = 0; n < 4; n++) this.lootSpots.push({ pos: new THREE.Vector3(-656 + n * 4, Y + 0.3, -1340), kind: 'porch' });
     for (let n = 0; n < 8; n++) {
-      const car = carMesh([0xc23b2a, 0x2f7fd8, 0xe0e0e0, 0x3aa760][n % 4]);
       const z = this.zs[Math.floor(Math.random() * this.zs.length)];
       const x = -1000 + 60 + Math.random() * 440;
-      car.position.set(x, Y, z + 6.5);
-      car.rotation.y = Math.PI / 2;
-      g.add(car);
-      sb.addStaticCollider(RAPIER.ColliderDesc.cuboid(2.3, 0.9, 1).setTranslation(x, Y + 0.9, z + 6.5));
+      this.parkedSpots.push({ x, z: z + 6.5, heading: Math.PI / 2, color: [0xc23b2a, 0x2f7fd8, 0xe0e0e0, 0x3aa760][n % 4] });
     }
 
     // fishing dock on the north shore

@@ -66,7 +66,7 @@ export class Citizens extends Npcs {
 
   spawnCitizen(island, role = 'civ', at = null) {
     this._look = role === 'cop'
-      ? { shirt: 0x1c2f6e, pants: 0x111a33, skin: SKIN[Math.floor(Math.random() * SKIN.length)], hat: 'cap', hatColor: 0x111a33 }
+      ? { shirt: 0x1c2f6e, pants: 0x111a33, skin: SKIN[Math.floor(Math.random() * SKIN.length)], hat: 'cap', hatColor: 0x111a33, badge: true }
       : null;
     const p = at || this.randomPointOn(island);
     if (!p) return null;

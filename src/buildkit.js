@@ -179,55 +179,112 @@ export function tree(group, sb, x, y0, z, s = 1) {
   sb.addStaticCollider(RAPIER.ColliderDesc.cylinder(1.5 * s, 0.32 * s).setTranslation(x, y0 + 1.5 * s, z));
 }
 
-// A car body (nose toward -Z). Police cars get a light bar.
+// ---- low-poly pixel cars ----
+// Every panel of a car comes from one 32x32 pixel-art atlas per paint colour, so a whole car is
+// a single mesh and a single draw call (and one geometry we can dent).
+const carCache = new Map();
+const hx = (c) => '#' + c.toString(16).padStart(6, '0');
+const shadeC = (c, k) => { const f = (v) => Math.max(0, Math.min(255, Math.round(v * k))); return (f((c >> 16) & 255) << 16) | (f((c >> 8) & 255) << 8) | f(c & 255); };
+const R = { side: [0, 0, 32, 8], front: [0, 8, 16, 6], rear: [16, 8, 16, 6], win: [0, 16, 16, 6], screen: [16, 16, 16, 6], top: [0, 24, 4, 4], under: [4, 24, 2, 2], tyre: [8, 24, 8, 8] };
+function carAtlas(paint, police) {
+  const key = `${paint}|${police}`;
+  if (carCache.has(key)) return carCache.get(key);
+  const c = document.createElement('canvas');
+  c.width = c.height = 32;
+  const g = c.getContext('2d');
+  const px = (x, y, col, w = 1, h = 1) => { g.fillStyle = hx(col); g.fillRect(x, y, w, h); };
+  const dark = shadeC(paint, 0.7), light = shadeC(paint, 1.25), seam = shadeC(paint, 0.55);
+  // side panel
+  px(0, 0, paint, 32, 8); px(0, 0, light, 32, 1);
+  if (police) px(9, 1, 0xf2f2ee, 14, 5);
+  px(0, 6, dark, 32, 2);
+  for (const x of [9, 16, 23]) px(x, 1, seam, 1, 5);
+  px(12, 3, 0x9a9a9a, 2, 1); px(19, 3, 0x9a9a9a, 2, 1);
+  px(3, 5, 0x111111, 4, 3); px(25, 5, 0x111111, 4, 3);
+  if (police) { px(11, 3, 0x1c3f8f, 2, 1); px(14, 3, 0x1c3f8f, 1, 1); px(16, 3, 0x1c3f8f, 2, 1); }
+  // front: headlights + grille
+  px(0, 8, paint, 16, 6); px(0, 8, light, 16, 1);
+  px(1, 10, 0xfff6c8, 3, 2); px(12, 10, 0xfff6c8, 3, 2);
+  px(5, 10, 0x1a1a1a, 6, 3); for (let x = 5; x < 11; x += 2) px(x, 10, 0x555555, 1, 3);
+  px(0, 13, 0x222222, 16, 1);
+  // rear: tail lights + plate
+  px(16, 8, paint, 16, 6); px(16, 8, light, 16, 1);
+  px(17, 10, 0xd01818, 3, 2); px(28, 10, 0xd01818, 3, 2);
+  px(22, 11, 0xe8e8d8, 4, 2); px(23, 11, 0x333333, 2, 1);
+  px(16, 13, 0x222222, 16, 1);
+  // side windows
+  px(0, 16, paint, 16, 6); px(1, 17, 0x223344, 6, 5); px(9, 17, 0x223344, 6, 5); px(2, 17, 0x5a7a90, 1, 3); px(10, 17, 0x5a7a90, 1, 3);
+  // windscreen / rear window
+  px(16, 16, paint, 16, 6); px(17, 17, 0x223344, 14, 5); px(19, 17, 0x6a8aa0, 1, 2); px(20, 18, 0x6a8aa0, 1, 2);
+  // roof, underside, tyre
+  px(0, 24, paint, 4, 4); px(0, 24, light, 4, 1);
+  px(4, 24, 0x151515, 2, 2);
+  px(8, 24, 0x161616, 8, 8); px(10, 26, 0x8a8a8a, 4, 4); px(11, 27, 0x444444, 2, 2);
+  const t = new THREE.CanvasTexture(c);
+  t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+  t.colorSpace = THREE.SRGBColorSpace;
+  const m = new THREE.MeshStandardMaterial({ map: t, roughness: 0.5, metalness: 0.15 });
+  carCache.set(key, m);
+  return m;
+}
+
+// Point each face group of a box at its region of the atlas, then make it single-material.
+function atlasUV(geo, regions) {
+  const uv = geo.attributes.uv, idx = geo.index.array, done = new Set();
+  const inset = 0.15; // keep nearest-filtered texels from bleeding across regions
+  for (const gr of geo.groups) {
+    const [x, y, w, h] = regions[gr.materialIndex];
+    for (let i = gr.start; i < gr.start + gr.count; i++) {
+      const v = idx[i];
+      if (done.has(v)) continue;
+      done.add(v);
+      const u0 = uv.getX(v), v0 = uv.getY(v);
+      uv.setXY(v, (x + inset + u0 * (w - 2 * inset)) / 32, 1 - (y + inset + (1 - v0) * (h - 2 * inset)) / 32);
+    }
+  }
+  geo.clearGroups();
+  return geo;
+}
+
+// A car (nose toward -Z): chunky subdivided boxes so it can be dented.
 export function carMesh(color = 0x2f7fd8, police = false) {
   const g = new THREE.Group();
-  const paint = std({ color, roughness: 0.35, metalness: 0.4 });
-  const dark = std({ color: 0x1b1c1e, roughness: 0.9 });
-  const glassM = std({ color: 0x1d2a33, roughness: 0.1, metalness: 0.6 });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.75, 4.5), paint);
-  body.position.y = 0.65;
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.65, 2.3), glassM);
-  cabin.position.set(0, 1.35, 0.25);
-  const roof = new THREE.Mesh(new THREE.BoxGeometry(1.72, 0.08, 2.0), paint);
-  roof.position.set(0, 1.7, 0.3);
-  g.add(body, cabin, roof);
+  const m = carAtlas(police ? 0x15171c : color, police);
+  // faces: +x, -x, +y, -y, +z (rear), -z (front)
+  const body = new THREE.Mesh(atlasUV(new THREE.BoxGeometry(1.9, 0.72, 4.5, 3, 2, 8), [R.side, R.side, R.top, R.under, R.rear, R.front]), m);
+  body.position.y = 0.66;
+  const cabin = new THREE.Mesh(atlasUV(new THREE.BoxGeometry(1.66, 0.62, 2.3, 3, 2, 4), [R.win, R.win, R.top, R.under, R.screen, R.screen]), m);
+  cabin.position.set(0, 1.33, 0.25);
+  g.add(body, cabin);
+  for (const [x, z] of [[-0.85, -1.45], [0.85, -1.45], [-0.85, 1.45], [0.85, 1.45]]) {
+    const geo = new THREE.CylinderGeometry(0.36, 0.36, 0.26, 8);
+    const uv = geo.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, (R.tyre[0] + 0.5 + uv.getX(i) * 7) / 32, 1 - (R.tyre[1] + 0.5 + (1 - uv.getY(i)) * 7) / 32);
+    const w = new THREE.Mesh(geo, m);
+    w.rotation.z = Math.PI / 2;
+    w.position.set(x, 0.36, z);
+    g.add(w);
+  }
   if (police) {
-    const white = std({ color: 0xf2f2ee, roughness: 0.4 });
-    for (const z of [-0.9, 0.9]) {
-      const door = new THREE.Mesh(new THREE.BoxGeometry(1.92, 0.5, 1.0), white);
-      door.position.set(0, 0.7, z * 0.6);
-      g.add(door);
-    }
     const bar = new THREE.Group();
     const red = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.15, 0.3), new THREE.MeshStandardMaterial({ color: 0xff2020, emissive: 0xff0000, emissiveIntensity: 1 }));
     red.position.x = -0.35;
     const blue = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.15, 0.3), new THREE.MeshStandardMaterial({ color: 0x2050ff, emissive: 0x0030ff, emissiveIntensity: 1 }));
     blue.position.x = 0.35;
     bar.add(red, blue);
-    bar.position.set(0, 1.82, 0.3);
+    bar.position.set(0, 1.72, 0.3);
+    bar.userData.noMerge = true;
     g.add(bar);
     const glowR = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0xff2020, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
     const glowB = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0x3060ff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-    glowR.position.set(-0.35, 1.9, 0.3); glowB.position.set(0.35, 1.9, 0.3);
+    glowR.position.set(-0.35, 1.8, 0.3); glowB.position.set(0.35, 1.8, 0.3);
     glowR.scale.setScalar(2.5); glowB.scale.setScalar(2.5);
     g.add(glowR, glowB);
     g.userData.lights = { red, blue, glowR, glowB };
   }
-  for (const [x, z] of [[-0.85, -1.45], [0.85, -1.45], [-0.85, 1.45], [0.85, 1.45]]) {
-    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.25, 14), dark);
-    w.rotation.z = Math.PI / 2;
-    w.position.set(x, 0.36, z);
-    g.add(w);
-  }
-  const lampM = std({ color: 0xfff6d8, emissive: 0xfff1c4, emissiveIntensity: 0.8 });
-  for (const x of [-0.65, 0.65]) {
-    const l = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.15, 0.05), lampM);
-    l.position.set(x, 0.75, -2.26);
-    g.add(l);
-  }
   g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  mergeStatic(g, 1e6); // a handful of draw calls per car instead of a dozen
+  mergeStatic(g, 1e6); // body, cabin and wheels become one mesh
   for (const c of g.children) if (c.isMesh) c.matrixAutoUpdate = true;
+  g.userData.body = g.children.find((c) => c.isMesh && c.material === m);
   return g;
 }

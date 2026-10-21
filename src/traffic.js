@@ -1,8 +1,6 @@
 import * as THREE from 'three';
-import RAPIER from '@dimforge/rapier3d-compat';
-import { GROUPS } from './groups.js';
-import { carMesh } from './buildkit.js';
 import { LAND_Y, islandAt } from './world.js';
+import { Car, runOver } from './carphys.js';
 
 // Everyday traffic: cars that drive their lane round the street grid, turn at junctions,
 // queue behind each other, stop for people in the road (and honk at you), and knock down
@@ -10,7 +8,6 @@ import { LAND_Y, islandAt } from './world.js';
 
 const COLORS = [0xc23b2a, 0x2f7fd8, 0xe0e0e0, 0x1b1b1b, 0x3aa760, 0x7a4fb0, 0xe0a52b, 0x8a9096, 0x7a1f2a, 0x24546e];
 const right = (d) => new THREE.Vector3(-d.z, 0, d.x);
-const angDiff = (a, b) => { const d = b - a; return Math.atan2(Math.sin(d), Math.cos(d)); };
 
 export class Traffic {
   constructor(game) {
@@ -46,15 +43,8 @@ export class Traffic {
       if (this.cars.some((c) => c.pos.distanceTo(pos) < 12)) continue;
       const pt = g.shorePlayer?.body.translation();
       if (pt && Math.hypot(pt.x - pos.x, pt.z - pos.z) < minDist) continue;
-      const mesh = carMesh(COLORS[Math.floor(Math.random() * COLORS.length)]);
-      g.scene.add(mesh);
-      const body = g.portWorld.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(pos.x, LAND_Y + 0.9, pos.z));
-      body.userData = { traffic: true };
-      g.portWorld.createCollider(RAPIER.ColliderDesc.cuboid(0.95, 0.8, 2.25).setCollisionGroups(GROUPS.world), body);
-      const car = {
-        net, mesh, body, pos, from: a, to: b, path: [], heading: Math.atan2(-dir.x, -dir.z), speed: net.cruise * 0.6,
-        waitT: 0, ghostT: 0, honkT: 0, hitT: 0, turning: false,
-      };
+      const car = new Car(g, { color: COLORS[Math.floor(Math.random() * COLORS.length)], x: pos.x, z: pos.z, heading: Math.atan2(-dir.x, -dir.z) });
+      Object.assign(car, { net, from: a, to: b, path: [], waitT: 0, ghostT: 0, honkT: 0, bumpT: 0 });
       this.extend(car);
       this.cars.push(car);
       return car;
@@ -96,9 +86,28 @@ export class Traffic {
   }
 
   remove(car) {
-    car.mesh.removeFromParent();
-    this.game.portWorld.removeRigidBody(car.body);
+    car.dispose();
     this.cars.splice(this.cars.indexOf(car), 1);
+  }
+
+  // Knocked off its route (crash, shove): pick up the nearest road again.
+  repath(car) {
+    const net = car.net;
+    const cl = (v, n) => Math.max(0, Math.min(n - 1, v));
+    let best = null, bd = Infinity;
+    for (let i = 0; i < net.xs.length; i++) for (let j = 0; j < net.zs.length; j++) {
+      const d = Math.hypot(net.xs[i] - car.pos.x, net.zs[j] - car.pos.z);
+      if (d < bd) { bd = d; best = { i, j }; }
+    }
+    void cl;
+    const f = car.forward;
+    let to = null, td = -Infinity;
+    for (const n of this.neighbours(net, best)) {
+      const d = this.node(net, n).sub(this.node(net, best)).normalize().dot(f);
+      if (d > td) { td = d; to = n; }
+    }
+    car.from = best; car.to = to; car.path = [];
+    this.extend(car);
   }
 
   update(dt) {
@@ -114,11 +123,12 @@ export class Traffic {
       for (const net of this.nets) if (this.cars.filter((c) => c.net === net).length < net.count) this.spawn(net, 60);
     }
 
-    for (const car of this.cars) {
-      const f = new THREE.Vector3(-Math.sin(car.heading), 0, -Math.cos(car.heading));
+    for (const car of [...this.cars]) {
+      if (car.wreck) { car.coast(dt); if (car.wreckT > 40) this.remove(car); continue; }
+      const f = car.forward;
       const r = right(f);
       // what's in front of us?
-      const look = 6 + car.speed * 0.9;
+      const look = 6 + Math.max(0, car.speed) * 0.9;
       let block = Infinity, byPlayer = false, byCar = false;
       const check = (x, z, halfW, isCar) => {
         const dx = x - car.pos.x, dz = z - car.pos.z;
@@ -132,61 +142,28 @@ export class Traffic {
       if (onFoot && Math.abs(pt.y - LAND_Y - 1) < 2.5 && check(pt.x, pt.z, 2.1)) byPlayer = true;
       for (const n of people) { const t = n.body.translation(); check(t.x, t.z, 1.9); }
       if (car.ghostT <= 0) for (const o of others) if (o !== car) check(o.pos.x, o.pos.z, 2.2, true);
+      // follow the path (pure pursuit: aim at the next point, drop the ones we've passed)
+      if (car.path.length < 4) this.extend(car);
+      while (car.path.length > 1) {
+        const p = car.path[0].p;
+        const dx = p.x - car.pos.x, dz = p.z - car.pos.z;
+        if (Math.hypot(dx, dz) < 3.5 || (dx * f.x + dz * f.z < 0 && Math.hypot(dx, dz) < 9)) car.path.shift();
+        else break;
+      }
+      let tgt = car.path[0].p;
+      if (Math.hypot(tgt.x - car.pos.x, tgt.z - car.pos.z) > 80) { this.repath(car); tgt = car.path[0].p; }
       // pick a speed
       const cornering = car.path[0]?.turn || car.path[1]?.turn;
       let want = cornering ? 5.5 : car.net.cruise;
       if (block < Infinity) want = Math.min(want, Math.max(0, (block - 5) * 1.2));
-      car.speed += THREE.MathUtils.clamp(want - car.speed, -14 * dt, 4 * dt);
       if (car.speed < 0.3 && block < Infinity) {
         car.waitT += dt;
         if (byPlayer && car.waitT > 1.5 && car.honkT <= 0) { g.sfx.play('honk'); car.honkT = 3 + Math.random() * 2; }
         if (byCar && !byPlayer && car.waitT > 4) { car.ghostT = 2; car.waitT = 0; } // gridlock breaker
       } else car.waitT = 0;
-      car.honkT -= dt; car.ghostT -= dt; car.hitT -= dt;
-
-      // follow the path
-      let dist = car.speed * dt;
-      let guard = 0;
-      while (dist > 0 && guard++ < 10) {
-        if (car.path.length < 3) this.extend(car);
-        const tgt = car.path[0].p;
-        const dx = tgt.x - car.pos.x, dz = tgt.z - car.pos.z;
-        const d = Math.hypot(dx, dz);
-        if (d <= dist) { car.pos.set(tgt.x, LAND_Y, tgt.z); car.path.shift(); dist -= d; }
-        else { car.pos.x += (dx / d) * dist; car.pos.z += (dz / d) * dist; dist = 0; }
-      }
-      const tgt = car.path[0].p;
-      const want_h = Math.atan2(-(tgt.x - car.pos.x), -(tgt.z - car.pos.z));
-      if (Math.hypot(tgt.x - car.pos.x, tgt.z - car.pos.z) > 0.3) car.heading += angDiff(car.heading, want_h) * Math.min(1, dt * 7);
-      car.mesh.position.set(car.pos.x, LAND_Y, car.pos.z);
-      car.mesh.rotation.y = car.heading;
-      car.body.setNextKinematicTranslation({ x: car.pos.x, y: LAND_Y + 0.9, z: car.pos.z });
-      car.body.setNextKinematicRotation(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, car.heading, 0)));
-
-      // anyone who ends up under the bumper anyway gets hit
-      if (car.speed > 3) {
-        const inBox = (x, z) => {
-          const dx = x - car.pos.x, dz = z - car.pos.z;
-          return Math.abs(dx * f.x + dz * f.z) < 2.6 && Math.abs(dx * r.x + dz * r.z) < 1.3;
-        };
-        if (onFoot && car.hitT <= 0 && Math.abs(pt.y - LAND_Y - 1) < 1.5 && inBox(pt.x, pt.z)) {
-          car.hitT = 1;
-          g.health.damage(car.speed * 2.2, 'traffic');
-          g.shorePlayer.vel.addScaledVector(f, car.speed * 0.8).add(new THREE.Vector3(0, 4, 0));
-          g.shake = 0.7;
-          g.sfx.play('thud');
-          g.sfx.play('honk');
-          car.speed *= 0.2;
-        }
-        for (const n of [...people]) {
-          const t = n.body.translation();
-          if (!inBox(t.x, t.z)) continue;
-          const v = f.clone().multiplyScalar(car.speed * 1.1); v.y = 3.5;
-          g.citizens.knockOver(n, v, 5, { killed: car.speed > 7, point: new THREE.Vector3(t.x, t.y, t.z), dir: f.clone() });
-          car.speed *= 0.3;
-          g.sfx.play('honk');
-        }
-      }
+      car.honkT -= dt; car.ghostT -= dt;
+      car.driveTo(dt, want, tgt, { accel: 4, brake: 14, maxSpeed: car.net.cruise });
+      runOver(g, car, false);
     }
   }
 

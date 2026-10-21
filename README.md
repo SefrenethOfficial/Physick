@@ -18,7 +18,7 @@
 
 ## Cars, guns and the back alleys
 
-- **Grand theft auto:** walk up to any car in traffic (or a parked-up police car) and press `E` to drag the driver out and take it. `W` / `S` drive and reverse, `A` / `D` steer, `Space` handbrake, `H` horn, `E` to get out. The driver runs off and calls the police; a cop car is a much bigger deal. Cars dent and eventually blow up, and you can run people over (that's murder if anyone sees).
+- **Grand theft auto:** walk up to any car in traffic and press `E` to drag the driver out and take it, or smash your way into a parked one (police cars included). `W` / `S` drive and reverse, `A` / `D` steer, `Space` handbrake, `H` horn, `E` to get out. The driver runs off and calls the police; a cop car is a much bigger deal. Cars are physical: they shove each other, spin out, bounce off walls and push loose stuff around. Hits dent the bodywork and smash the glass; a beaten-up car smokes, then catches fire, then blows up. Drive off the edge and it sinks. You can run people over (that's murder if anyone sees).
 - **The alleys:** three blocks have a grimy service alley through the middle, and each has someone in it:
   - **Vic** (arms dealer): pistol, shotgun, SMG, ammo, grenades and body armour.
   - **Rosa** (the fence): buys your whole bag for 30% more than the pawn shop, makes the heat go away for $500 a star, and sells a police scanner (every cop on your minimap; you lose them faster).
@@ -81,7 +81,7 @@
 - **Naval air station:** a quay with bollards and lamp posts, an apron with three hangars, a control tower, container stacks and fuel tanks, a 1.3 km runway with a parallel taxiway, and a windsock. It has its own physics world, so you can walk around it while the ship sails off.
 - **Fighter jets:** procedural twin-tail navy fighters with a physical-ish flight model (thrust, drag, lift from angle of attack, stalls), taxiing, take-off, landing (or crashing), afterburners, a nose cannon that can hit the target rafts, flight HUD with flight-path marker and STALL / PULL UP warnings. Wrecked jets are replaced after a while.
 - **Casualties:** sailors hit hard (a thrown item, cannon fire from a jet) are killed and go ragdoll. Blood sprays, pools under the body and smears when you drag it. Mops are in the stores, by the mess and on the flight deck. Loose bodies and items feel the ship's roll at sea.
-- **Settings** (pause screen): townspeople respawn, police on/off, crew respawn and crew size on the destroyer, blood on/off, bodies stay or get cleared, mouse sensitivity, invert jet pitch. Saved in your browser.
+- **Settings** (pause screen): townspeople respawn, chase music, crew respawn and crew size on the destroyer, blood on/off, bodies stay or get cleared, mouse sensitivity, invert jet pitch. Saved in your browser.
 - **Crew:** sailors in working uniforms, cranials and dixie cups wander the main deck and stop to look at you when you walk up to them.
 - **Health:** fall damage and going overboard hurt; health regenerates; dying sends you to the hospital in Port Calder.
 
@@ -110,6 +110,7 @@ src/
   architecture.js city buildings (brick, apartment, office, civic) and walk-in interiors
   traffic.js   cars driving the street grids
   vehicles.js  stealing and driving cars
+  carphys.js   physical cars: driving model, crashes, dents, fire
   underworld.js alleys, the arms dealer, the fence and the chop shop
   music.js     chase music
   saltmarsh.js Saltmarsh Key: houses, market, church, lighthouse, fishing dock
@@ -127,7 +128,7 @@ src/
   viewmodel.js the robot-arm hand (and what it's holding)
   player.js    first-person character controller
   npcs.js      crew (wander, react, ragdoll)
-  figure.js    blocky person model with navy uniforms
+  figure.js    low-poly pixel-art people (townspeople, police, navy crew)
   health.js    health, damage, death/respawn
   hud.js       compass, health, money, bag, wanted stars, minimap, panels, prompts
   sandbox.js   static colliders and physics props

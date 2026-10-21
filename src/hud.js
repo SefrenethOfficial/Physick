@@ -252,7 +252,9 @@ export class Hud {
   setBoat(b) {
     const $ = (id) => this.boatEl.querySelector('#' + id);
     $('bname').textContent = b.type.name;
-    this.boatEl.querySelectorAll('.row')[2].querySelector('span').textContent = b.type.car ? 'Body' : 'Hull';
+    const rows = this.boatEl.querySelectorAll('.row');
+    rows[0].querySelector('span').textContent = b.type.car ? 'Car' : 'Boat';
+    rows[2].querySelector('span').textContent = b.type.car ? 'Body' : 'Hull';
     $('bspd').textContent = `${Math.round(Math.abs(b.speed) * 1.944)} kn`;
     const f = Math.max(b.hp, 0) / b.type.hp;
     $('bhp').textContent = `${Math.round(f * 100)}%`;

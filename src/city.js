@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { ISLANDS, LAND_Y, addPier } from './world.js';
-import { canvasTex, speckle, std, sign, lamp, tree, carMesh, solidBox } from './buildkit.js';
+import { canvasTex, speckle, std, sign, lamp, tree, solidBox } from './buildkit.js';
 import { cityBuilding } from './architecture.js';
 import { dressAlley } from './underworld.js';
 
@@ -78,6 +78,7 @@ export class City {
     this.group = new THREE.Group();
     game.scene.add(this.group);
     this.lootSpots = [];
+    this.parkedSpots = []; // parked cars (spawned as physical cars by the game)
     this.interiors = [];
     this.xs = []; this.zs = [];
     for (let i = 0; i < 6; i++) this.xs.push(-1090 + i * 70);
@@ -236,11 +237,7 @@ export class City {
     this.copNode = { i: 1, j: 2 };
     void pd;
     for (let k = -1; k <= 1; k++) {
-      const car = carMesh(0x15171c, true);
-      car.position.set(this.policeStation.x + k * 7, Y, this.zs[2] - PARK);
-      car.rotation.y = Math.PI / 2;
-      g.add(car);
-      sb.addStaticCollider(RAPIER.ColliderDesc.cuboid(2.3, 0.9, 1).setTranslation(car.position.x, Y + 0.9, car.position.z));
+      this.parkedSpots.push({ x: this.policeStation.x + k * 7, z: this.zs[2] - PARK, heading: Math.PI / 2, police: true });
     }
 
     // hospital (block 3,3)
@@ -295,11 +292,7 @@ export class City {
       const t = segs[segIdx] + 14 + Math.random() * (70 - 28);
       const x = alongX ? t : lines[lineIdx] + side * PARK, z = alongX ? lines[lineIdx] + side * PARK : t;
       if ((alongX && lineIdx === 2 && x > this.policeStation.x - 15 && x < this.policeStation.x + 15)) continue;
-      const car = carMesh(colors[k % colors.length]);
-      car.position.set(x, Y, z);
-      car.rotation.y = alongX ? Math.PI / 2 : 0;
-      g.add(car);
-      sb.addStaticCollider(RAPIER.ColliderDesc.cuboid(alongX ? 2.3 : 1, 0.9, alongX ? 1 : 2.3).setTranslation(x, Y + 0.9, z));
+      this.parkedSpots.push({ x, z, heading: alongX ? Math.PI / 2 : 0, color: colors[k % colors.length] });
       if (Math.random() < 0.3) this.lootSpots.push(new THREE.Vector3(alongX ? x : x - side * 1.6, Y + 0.3, alongX ? z - side * 1.6 : z));
     }
 
@@ -357,12 +350,8 @@ export class City {
     flat(g, b.x1 - b.x0 - 2, b.z1 - b.z0 - 2, (b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2, std({ color: 0x46494d }), Y + KERB + 0.01);
     for (let k = 0; k < 10; k++) {
       if (Math.random() < 0.3) continue;
-      const car = carMesh([0xc23b2a, 0x2f7fd8, 0xe0e0e0, 0x1b1b1b, 0x3aa760, 0xe0a52b][k % 6]);
       const x = b.x0 + 6 + (k % 5) * 10, z = (b.z0 + b.z1) / 2 + (k < 5 ? -9 : 9);
-      car.position.set(x, Y + KERB, z);
-      car.rotation.y = k < 5 ? 0 : Math.PI;
-      g.add(car);
-      sb.addStaticCollider(RAPIER.ColliderDesc.cuboid(1, 0.9, 2.3).setTranslation(x, Y + KERB + 0.9, z));
+      this.parkedSpots.push({ x, z, heading: k < 5 ? 0 : Math.PI, color: [0xc23b2a, 0x2f7fd8, 0xe0e0e0, 0x1b1b1b, 0x3aa760, 0xe0a52b][k % 6] });
       if (Math.random() < 0.4) this.lootSpots.push(new THREE.Vector3(x + 1.7, Y + KERB + 0.3, z));
     }
   }

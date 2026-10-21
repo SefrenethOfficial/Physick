@@ -3,7 +3,6 @@
 const DEFAULTS = {
   civRespawn: true,
   music: true,
-  police: true,
   crewRespawn: true,
   crewCount: 8,
   blood: true,
@@ -17,6 +16,7 @@ const KEY = 'physick.settings.v1';
 export function loadSettings() {
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { /* storage unavailable */ }
+  delete saved.police; // the police can't be switched off any more
   return { ...DEFAULTS, ...saved };
 }
 
@@ -27,7 +27,6 @@ export function saveSettings(s) {
 const ROWS = [
   { key: 'civRespawn', label: 'Townspeople respawn', hint: 'New people wander in out of sight', type: 'toggle' },
   { key: 'music', label: 'Chase music', hint: 'Plays when you have three or more stars', type: 'toggle' },
-  { key: 'police', label: 'Police', hint: 'Off: crimes never get you a wanted level', type: 'toggle' },
   { key: 'crewRespawn', label: 'Crew respawn', hint: 'New sailors come on deck to replace the fallen', type: 'toggle' },
   { key: 'crewCount', label: 'Crew on the warship', type: 'choice', options: [0, 4, 8, 12, 16] },
   { key: 'blood', label: 'Blood', hint: 'Blood spray, pools and drag smears', type: 'toggle' },

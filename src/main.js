@@ -29,6 +29,7 @@ import { ISLANDS, PIERS, nearestLandPoint, islandAt } from './world.js';
 import { mergeStatic } from './merge.js';
 import { Traffic } from './traffic.js';
 import { Vehicles } from './vehicles.js';
+import { Car } from './carphys.js';
 import { Underworld } from './underworld.js';
 import { ChaseMusic } from './music.js';
 
@@ -143,6 +144,9 @@ class Game {
     this.traffic.addNetwork('city', this.city.xs, this.city.zs, this.city.lane, 18, 11);
     this.traffic.addNetwork('town', this.saltmarsh.xs, this.saltmarsh.zs, 2.4, 5, 8);
     this.vehicles = new Vehicles(this);
+    for (const sp of [...this.city.parkedSpots, ...this.saltmarsh.parkedSpots]) {
+      this.vehicles.parked.push(new Car(this, { color: sp.color, police: !!sp.police, x: sp.x, z: sp.z, heading: sp.heading }));
+    }
     this.underworld = new Underworld(this);
     ['arms', 'fence', 'chop'].forEach((kind, i) => { if (this.city.alleys[i]) this.underworld.addDealer(kind, this.city.alleys[i], LAND_Y + 0.15); });
     this.music = new ChaseMusic(`${import.meta.env.BASE_URL}assets/music/starvation-pursuer.mp3`);
@@ -188,6 +192,7 @@ class Game {
     this.endDrag(false);
     if (this.boats.active) { this.boats.active.driver.root.visible = false; this.boats.active = null; }
     if (this.vehicles?.active) this.vehicles.active = null;
+    this.shorePlayer.collider.setEnabled(true);
     this.atHelm = false;
     this.onShore = true;
     this.shorePlayer.body.setTranslation({ x: pos.x, y: pos.y, z: pos.z }, true);
@@ -258,7 +263,7 @@ class Game {
         hit.prop.body.applyImpulseAtPoint(dir.clone().multiplyScalar(G.dmg * 0.02), hit.point, true);
       } else {
         const car = this.onShore && this.carByCollider(hit.collider);
-        if (car) this.shootCar(car, G.dmg);
+        if (car) this.shootCar(car, G.dmg, hit.point);
         for (let i = 0; i < 3; i++) this.fx.emit(toWorld(hit.point), hit.normal.clone().multiplyScalar(2).add(new THREE.Vector3(Math.random() - 0.5, Math.random(), Math.random() - 0.5)), 0xffd27a, 0.25, 1, 0);
       }
     }
@@ -273,13 +278,17 @@ class Game {
   carByCollider(col) {
     const body = col.parent();
     if (!body) return null;
-    return this.traffic.cars.find((c) => c.body === body) || this.vehicles.list.find((c) => c.body === body) || this.police.cars.find((c) => c.body === body) || null;
+    return this.vehicles.all.find((c) => c.body === body) || null;
   }
 
   // Shooting a car: your own takes damage; a driver under fire bails out and runs.
-  shootCar(car, dmg) {
-    if (this.vehicles.list.includes(car)) { this.vehicles.damage(car, dmg * 0.5); return; }
-    if (this.traffic.cars.includes(car)) {
+  shootCar(car, dmg, hitPoint = null) {
+    car.damage(dmg * 0.45);
+    if (hitPoint) { // a little dent where the round went in
+      const local = hitPoint.clone().sub(car.pos).setY(0).normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), -car.heading);
+      car.dent(local, 0.03);
+    }
+    if (this.traffic.cars.includes(car) && !car.wreck) {
       const v = this.vehicles;
       v.steal({ car, kind: 'traffic' }, false); // the driver bails out and runs
     }
@@ -305,8 +314,17 @@ class Game {
       const v = new THREE.Vector3(t.x - p.x, t.y - p.y + 1, t.z - p.z).normalize().multiplyScalar((1 - d / (radius * 1.3)) * 14);
       pr.body.setLinvel(v, true);
     }
-    for (const v of [...this.vehicles.list]) if (!v.wreck && v.pos.distanceTo(p) < radius) this.vehicles.damage(v, dmg * 2);
-    for (const c of [...this.traffic.cars]) if (c.pos.distanceTo(p) < radius * 0.8) { this.shootCar(c, 0); }
+    for (const c of this.vehicles.all) {
+      const d = c.pos.distanceTo(p);
+      if (c.wreck || d > radius * 1.4) continue;
+      const k = 1 - d / (radius * 1.4);
+      const push = c.pos.clone().sub(p).setY(0).normalize();
+      c.body.applyImpulse({ x: push.x * k * 9000, y: 0, z: push.z * k * 9000 }, true);
+      c.body.applyTorqueImpulse({ x: 0, y: (Math.random() - 0.5) * k * 20000, z: 0 }, true);
+      c.dent(push.clone().multiplyScalar(-1).applyAxisAngle(new THREE.Vector3(0, 1, 0), -c.heading), 0.25 * k);
+      c.dazedT = 2;
+      if (d < radius) this.shootCar(c, dmg * 2 * k / 0.45);
+    }
     const pt = this.shorePlayer.body.translation();
     const dp = Math.hypot(pt.x - p.x, pt.y - p.y, pt.z - p.z);
     if (this.onShore && dp < radius) this.health.damage(dmg * (1 - dp / radius) * 1.3, 'explosion');
@@ -995,7 +1013,7 @@ class Game {
     const near = (x, z, r) => (x - c.x) ** 2 + (z - c.z) ** 2 < r * r;
     const R = this.flying ? 0 : 170;
     for (const n of this.citizens.list) { const t = n.fig.root.position; n.fig.root.visible = near(t.x, t.z, R); }
-    for (const car of this.traffic.cars) car.mesh.visible = near(car.pos.x, car.pos.z, R * 1.6);
+    for (const car of this.vehicles.all) car.mesh.visible = near(car.pos.x, car.pos.z, R * 1.6);
     for (const p of this.portSandbox.props) { const t = p.mesh.position; p.mesh.visible = near(t.x, t.z, R * 0.8); }
     // the destroyer is a lot of little meshes: skip it when it's a speck on the horizon
     const sp = this.frame.position;
@@ -1075,6 +1093,7 @@ class Game {
       this.portWorld.timestep = sub;
       this.portWorld.step();
     }
+    for (const c of this.vehicles.all) c.sync(dt);
     this.checkTransfer();
     this.boats.update(dt, alive ? k : new Set());
     this.vehicles.update(dt, alive ? k : new Set());

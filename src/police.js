@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { GROUPS } from './groups.js';
-import { carMesh } from './buildkit.js';
+import { Car, runOver } from './carphys.js';
 import { LAND_Y, islandAt, blocked, onLand } from './world.js';
 
 // Wanted level, witnesses' calls, and the police response: officers on foot, squad cars that
@@ -37,7 +37,7 @@ export class Police {
     this.tracers.push({ l, t: 0.09 });
   }
 
-  get enabled() { return this.game.settings.police; }
+  get enabled() { return true; }
   get searching() { return this.wanted > 0 && this.game.time * 1000 - this.lastSeen > 2500; }
 
   // The player just did something. Anyone (or any officer) who sees it may call it in.
@@ -146,24 +146,15 @@ export class Police {
     }
     if (!nodes.length) return null;
     const n = nodes[Math.floor(Math.random() * nodes.length)];
-    const mesh = carMesh(0x15171c, true);
-    this.game.scene.add(mesh);
-    const w = this.game.portWorld;
-    const body = w.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(R.xs[n.i], LAND_Y + 0.9, R.zs[n.j]));
-    const col = w.createCollider(RAPIER.ColliderDesc.cuboid(1, 0.85, 2.3).setCollisionGroups(GROUPS.world), body);
-    const car = {
-      mesh, body, col, R, island,
-      pos: new THREE.Vector3(R.xs[n.i], LAND_Y, R.zs[n.j]),
-      at: { i: n.i, j: n.j }, from: null, to: null,
-      heading: 0, speed: 0, deployed: 0, ramT: 0, leaving: false, life: 0,
-    };
+    const toward = Math.atan2(-(target.x - R.xs[n.i]), -(target.z - R.zs[n.j]));
+    const car = new Car(this.game, { police: true, x: R.xs[n.i], z: R.zs[n.j], heading: Math.round(toward / (Math.PI / 2)) * (Math.PI / 2) });
+    Object.assign(car, { R, island, at: { i: n.i, j: n.j }, from: null, to: null, deployed: 0, ramT: 0, leaving: false, life: 0, stuckT: 0, reverseT: 0 });
     this.cars.push(car);
     return car;
   }
 
   removeCar(car) {
-    car.mesh.removeFromParent();
-    this.game.portWorld.removeRigidBody(car.body);
+    car.dispose();
     this.cars.splice(this.cars.indexOf(car), 1);
   }
 
@@ -202,65 +193,53 @@ export class Police {
     const sameIsland = target && onFoot && islandAt(target.x, target.z, 4)?.id === car.island;
     const goal = car.leaving ? null : sameIsland ? target : null;
     const dist = goal ? Math.hypot(goal.x - car.pos.x, goal.z - car.pos.z) : Infinity;
-    let want = 0, desired = car.heading;
+    let want = 0, aim = null;
+    const chasingCar = !!g.vehicles?.active;
     const direct = goal && dist < 45 && this.clearPath(car.pos, goal);
+    if (car.wreck) { car.coast(dt); return false; }
     if (direct) {
       car.to = null;
-      desired = Math.atan2(-(goal.x - car.pos.x), -(goal.z - car.pos.z));
-      want = CAR_SPEED * 0.8;
-      if (car.deployed && dist < 16) want = 0;
-      if (!car.deployed && dist < 13) {
-        want = 0;
-        if (Math.abs(car.speed) < 2) this.deploy(car, goal);
+      aim = goal;
+      want = chasingCar ? CAR_SPEED * 1.1 : CAR_SPEED * 0.8;
+      if (!chasingCar) {
+        if (car.deployed && dist < 16) want = 0;
+        if (!car.deployed && dist < 13) {
+          want = 0;
+          if (Math.abs(car.speed) < 2) this.deploy(car, goal);
+        }
+        if (dist < 6) want = 9; // they will run you down
       }
-      if (dist < 6) want = 9; // they will run you down
     } else {
       if (!car.to) { car.to = this.nextNode(car, goal); }
       const tp = this.nodePos(car.R, car.to);
       const d = Math.hypot(tp.x - car.pos.x, tp.z - car.pos.z);
-      if (d < 3) {
+      if (d < 6) {
         car.from = car.at; car.at = car.to; car.to = this.nextNode(car, goal);
       }
-      const np = this.nodePos(car.R, car.to);
-      desired = Math.atan2(-(np.x - car.pos.x), -(np.z - car.pos.z));
+      aim = this.nodePos(car.R, car.to);
       want = goal ? CAR_SPEED : 10;
     }
-    const turn = angleTo(car.heading, desired);
-    car.heading += THREE.MathUtils.clamp(turn, -2.4 * dt, 2.4 * dt);
-    if (Math.abs(turn) > 0.9) want = Math.min(want, 5);
-    car.speed += THREE.MathUtils.clamp(want - car.speed, -18 * dt, 9 * dt);
-    const fwd = new THREE.Vector3(-Math.sin(car.heading), 0, -Math.cos(car.heading));
-    const next = car.pos.clone().addScaledVector(fwd, car.speed * dt);
-    if (onLand(next.x, next.z, 3)) car.pos.copy(next);
-    else car.speed = 0;
-    car.body.setNextKinematicTranslation({ x: car.pos.x, y: LAND_Y + 0.9, z: car.pos.z });
-    car.body.setNextKinematicRotation(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, car.heading, 0)));
-    car.mesh.position.copy(car.pos);
-    car.mesh.rotation.y = car.heading;
-    const L = car.mesh.userData.lights;
-    const on = (performance.now() / 160) % 2 < 1;
-    L.glowR.visible = on; L.glowB.visible = !on;
+    // stuck against something? back up and try again
+    if (want > 3 && Math.abs(car.speed) < 1) car.stuckT += dt; else car.stuckT = 0;
+    if (car.stuckT > 1.5) { car.reverseT = 1.2; car.stuckT = 0; }
+    if (car.reverseT > 0) { car.reverseT -= dt; car.driveTo(dt, -6, aim, { maxSpeed: 36 }); }
+    else {
+      const turn = Math.abs(Math.atan2(Math.sin(Math.atan2(-(aim.x - car.pos.x), -(aim.z - car.pos.z)) - car.heading), Math.cos(Math.atan2(-(aim.x - car.pos.x), -(aim.z - car.pos.z)) - car.heading)));
+      if (turn > 0.9) want = Math.min(want, 7);
+      car.driveTo(dt, want, aim, { accel: 11, brake: 20, maxSpeed: 36 });
+    }
+    const fwd = car.forward;
 
-    // ramming the player
+    // ramming the player on foot
     car.ramT -= dt;
-    if (target && onFoot && car.ramT <= 0 && car.speed > 5 && Math.hypot(target.x - car.pos.x, target.z - car.pos.z) < 3 && Math.abs(target.y - LAND_Y - 1) < 2) {
+    if (target && onFoot && !chasingCar && car.ramT <= 0 && car.speed > 5 && Math.hypot(target.x - car.pos.x, target.z - car.pos.z) < 3 && Math.abs(target.y - LAND_Y - 1) < 2) {
       car.ramT = 1.2;
       g.health.damage(car.speed * 2.2, 'car');
       g.shorePlayer.vel.addScaledVector(fwd, car.speed * 0.9).add(new THREE.Vector3(0, 5, 0));
       g.shake = 0.8;
       g.sfx.play('thud');
-      car.speed *= 0.3;
     }
-    // ... and anyone else in the road
-    if (car.speed > 5) {
-      for (const n of [...g.citizens.list]) {
-        const t = n.body.translation();
-        if (Math.hypot(t.x - car.pos.x, t.z - car.pos.z) < 2.4) {
-          const v = fwd.clone().multiplyScalar(car.speed * 1.1); v.y = 4;
-          g.citizens.knockOver(n, v, 5, { killed: true, point: new THREE.Vector3(t.x, t.y, t.z), dir: fwd.clone() });
-        }
-      }
-    }
+    runOver(g, car, false);
     if (goal && dist < 60) return true; // can see you
     return false;
   }

@@ -84,6 +84,7 @@ export class Sfx {
       case 'explosion': this.noise(1.2, 0.9, 180, 0.4); this.tone('sine', 70, 25, 1.0, 0.7); break;
       case 'scrub': this.noise(0.3, 0.18, 1800, 1.5); this.noise(0.25, 0.12, 900, 1.2, 0.12); break;
       case 'punch': this.noise(0.08, 0.5, 600, 1); this.tone('sine', 180, 70, 0.1, 0.4); break;
+      case 'crash': this.noise(0.5, 0.9, 400, 0.5); this.noise(0.25, 0.5, 3200, 1.2, 0.04); this.tone('sine', 90, 35, 0.35, 0.6); break;
       case 'smg': this.noise(0.06, 0.45, 2200, 0.7); this.tone('square', 260, 90, 0.04, 0.14); break;
       case 'shotgun': this.noise(0.35, 0.8, 900, 0.5); this.tone('sine', 110, 40, 0.3, 0.5); break;
       case 'pistol': this.noise(0.12, 0.6, 1800, 0.6); this.tone('square', 300, 80, 0.06, 0.2); break;
