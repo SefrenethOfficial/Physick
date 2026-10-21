@@ -42,6 +42,7 @@ export class Police {
 
   // The player just did something. Anyone (or any officer) who sees it may call it in.
   crime(kind, severity, pos) {
+    if (this.game.story?.quietZone(pos)) return; // nobody to see it
     const now = this.game.time * 1000;
     this.crimes.push({ kind, severity, pos: pos.clone(), t: now });
     this.crimes = this.crimes.filter((c) => now - c.t < 3000);

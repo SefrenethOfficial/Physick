@@ -386,6 +386,7 @@ function interior(k, w, d, kind, wallM, opts) {
     for (let z = -d / 2 + 3; z <= d / 2 - 3; z += Math.max(4, (d - 6) / 2)) k.box(1.4, 0.05, 0.5, x, GROUND - 0.36, z, M.light(), { collide: false, cast: false });
   }
   out.door = k.world(0, 0, d / 2 + 1.5);
+  out.doorway = { pos: k.world(0, 0, fz), yaw: k.yaw, w: DOOR, h: DH };
   out.inside = k.world(0, 0, d / 2 - 2.5);
   const spot = (x, y, z) => out.loot.push(k.world(x, y, z));
   const hw = w / 2 - T, hd = d / 2 - T;

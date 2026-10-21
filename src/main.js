@@ -852,6 +852,8 @@ class Game {
   // What E does when you're on land, most specific first.
   shoreAction() {
     const pos = this.shorePlayer.body.translation();
+    const sa = this.story.action(pos);
+    if (sa) return sa;
     const jet = this.jets.nearby(pos);
     if (jet) return { label: 'Fly the jet', run: () => this.jets.enter(jet) };
     if (this.near(this.city.pawnCounter, 3.5)) return { label: 'Pawn shop — sell loot', run: () => this.economy.openPawn() };
@@ -1324,7 +1326,7 @@ class Game {
     const pt = this.player.body.translation();
     if (!this.health.dead && !this.flying) {
       if (!this.onShore && pt.y < DECK - 3.5) this.overboard();
-      if (this.onShore && !this.boats.active && !this.vehicles.active && pt.y < LAND_Y - 3) {
+      if (this.onShore && !this.boats.active && !this.vehicles.active && pt.y < LAND_Y - 3 && !this.story.underground) {
         this.sfx.play('splash');
         this.endDrag(false);
         this.hud.toast('You fell in the water!', 0xff8a6a);

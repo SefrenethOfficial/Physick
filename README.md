@@ -4,11 +4,13 @@
 
 ## Story
 
-Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **Wren Takavic**, your closest friend. A cell called **the Ashen Hand** did it, and they're still in the city. The story opens the first time you press Play. Press `J` any time for the mission list and the bounty board.
+Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **Wren Takavic**, your closest friend. A cell called **the Ashen Hand** did it, and they're still in the city. The story opens the first time you press Play. Press `J` any time for the missions and your key items.
 
-- **Mission 1 · Seed Money:** Wren's cousin Vic wants money before he'll find you names. Take Wren's old pistol, rob the Mini Mart's till (`R` at the counter with the gun out), then lose the cops and get clear of the shop. Vic pays $500 on top of the till, and the first target goes up on the bounty board.
-- **The bounty board** lists the five members of the Ashen Hand: the Courier, the Chemist, the Banker, the Gunner and the Architect, with bounties from $5,000 to $100,000. Each one is unlocked by a later mission (coming soon).
-- Dying or getting busted fails the mission. You can retry or replay it from `J`.
+- **Mission 1 · Seed Money:** Wren's cousin Vic wants money before he'll find you names. Take Wren's old pistol, rob the Mini Mart's till (`R` at the counter with the gun out), then lose the cops and get clear of the shop.
+- **Mission 2 · Sweet Tooth:** Scoops Ice Cream, by the plaza, has been shuttered since the bombing. Force the shutter (`E`) and go inside. Three waves of costumed ice cream mascots come out of the back, including the Big Scoop at the end. Then take the strange key hidden behind the counter.
+- **Mission 3 · Down the Rabbit Hole:** the key is stamped with a pine tree. Take it to the old bunker off the Pine Ridge trail in Cherry Estate and unlock the door. Stairs lead down to an underground mansion laid out as a maze. Find the three documents on lit desks in its dead ends, then climb back out.
+- **Key items** (the key and the documents) are listed in `J` and at the bottom of the bag (`Tab`). They can't be sold, dropped or confiscated. The documents can't be used yet.
+- Dying or getting busted fails a mission. You can retry or replay it from `J`.
 
 ## The world
 
@@ -86,7 +88,7 @@ Shelf stock in the shops is only drawn when you're at the shop. Distant scenery 
 - `F` use the held item (medkits heal, coffee perks you up)
 - `B` bag it, `Tab` open the bag
 - `E` interact: shops, the bank and ATMs, boats, cars, searching bodies, picking pockets, jets, the ship's helm and guns
-- `M` full map · `R` rob the bank or a shop's till (holding a gun, at the counter) · `G` take or release a hostage · `J` story and bounties
+- `M` full map · `R` rob the bank or a shop's till (holding a gun, at the counter) · `G` take or release a hostage · `J` story and key items
 - Look at a body and `LMB` to drag it; `LMB` lets go, `RMB` heaves it
 - Holding a mop: hold `LMB` to scrub blood, `RMB` to put it down
 - `Esc` pause (Settings are on the pause screen)

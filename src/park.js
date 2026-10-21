@@ -116,6 +116,7 @@ export class Park {
     const yRanger = flatSpot(-1165, -78, 14, LAND_Y + 0.5);
     const camps = [[-1380, -262], [-1420, 240], [-1605, -62]].map(([x, z]) => [x, z, flatSpot(x, z, 16)]);
     const yLook = flatSpot(-1650, 330, 12);
+    const yBunker = flatSpot(-1392, 92, 11);
 
     // ---- terrain: a sculpted mesh with a matching collider; grass with rocky steep slopes ----
     const bank = std({ map: photoTex(`${base}assets/textures/dirt.jpg`, w / 10, 1.4), roughness: 1 });
@@ -271,6 +272,26 @@ export class Park {
     for (let i = 0; i <= 30; i++) solidBox(g, sb, 1.3, 0.2, 0.42, tx, Yl + i * 0.4, tz - 2.75 - (30 - i) * 0.32, wood);
     this.lootSpots.push(new THREE.Vector3(tx, Yl + 12.6, tz));
     this.lookout = new THREE.Vector3(tx, Yl, tz);
+
+    // ---- an old Cold War bunker dug into the hillside, off the Pine Ridge trail ----
+    {
+      const bx = -1392, bz = 92, Yb = yBunker;
+      clearing(bx, bz, 9, Yb);
+      const conc = std({ color: 0x8d8a82, roughness: 0.95 });
+      const steel = std({ color: 0x3f4a44, roughness: 0.5, metalness: 0.6 });
+      solidBox(g, sb, 7, 3.4, 6, bx - 1.5, Yb - 0.3, bz, conc); // the blockhouse, door facing east to the trail
+      solidBox(g, sb, 7.6, 0.5, 6.6, bx - 1.5, Yb + 3.1, bz, conc);
+      // a mound of earth heaped over the back
+      const mound = new THREE.Mesh(new THREE.SphereGeometry(7, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), std({ color: 0x4f6a35, roughness: 1, flatShading: true }));
+      mound.scale.set(1, 0.6, 1.1); mound.position.set(bx - 5, Yb - 0.5, bz);
+      g.add(mound);
+      solidBox(g, sb, 0.25, 2.3, 1.5, bx + 2.05, Yb, bz, steel); // the door
+      for (const s of [-1, 1]) solidBox(g, sb, 0.3, 2.6, 0.25, bx + 2.1, Yb, bz + s * 0.9, conc, { collide: false });
+      const vent = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 1.4, 10), steel);
+      vent.position.set(bx - 3, Yb + 4, bz + 1.5); g.add(vent);
+      sign(g, 'KEEP OUT', bx + 2.2, Yb + 2.75, bz, Math.PI / 2, { w: 1.6, h: 0.35, bg: '#c9b23a', fg: '#1b1b1b' });
+      this.bunker = { door: new THREE.Vector3(bx + 2.6, Yb, bz), out: new THREE.Vector3(bx + 4.5, Yb, bz), yaw: -Math.PI / 2 };
+    }
 
     // ---- the forest: pines everywhere that isn't a road, trail or clearing ----
     this.plantPines();

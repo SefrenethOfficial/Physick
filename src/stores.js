@@ -42,7 +42,7 @@ export class Stores {
     this.list = [];
     this.unpaid = []; // { def, st, held }
     for (const it of [...game.city.interiors, ...(game.hood?.interiors || [])]) {
-      if (!it.clerk) continue;
+      if (!it.clerk || it.name?.startsWith('SCOOPS')) continue; // the parlour's shut
       const st = { it, theme: themeOf(it), island: it.island, clerk: null, stocked: false, showStock: false, props: [], angry: 0, robbedAt: -1e9, clerkGoneAt: 0 };
       st.label = it.name ? it.name.split('·')[0].trim() : st.theme;
       this.list.push(st);

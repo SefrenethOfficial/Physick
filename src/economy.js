@@ -119,7 +119,7 @@ export class Economy {
         return `<div class="erow"><div><b>${d.name}</b><small>worth ~$${d.value} · weight ${d.weight ?? 1}</small></div>
           <div class="btns"><button data-a="hold" data-i="${i}">Hold</button><button data-a="drop" data-i="${i}">Drop</button></div></div>`;
       }).join('') || '<p class="empty">Your bag is empty. Pick things up and press <kbd>B</kbd> to bag them.</p>';
-      this.open('Storage bag', this.header() + rows, (body) => body.addEventListener('click', (e) => {
+      this.open('Storage bag', this.header() + rows + (this.game.story?.keyItemsHtml() || ''), (body) => body.addEventListener('click', (e) => {
         const b = e.target.closest('button[data-a]');
         if (!b) return;
         const i = +b.dataset.i;

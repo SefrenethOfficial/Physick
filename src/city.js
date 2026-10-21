@@ -219,9 +219,9 @@ export class City {
     const pawn = place(pq[0], 'w', { type: 'brick', floors: 3, interior: 'pawn', name: 'PAWN · WE BUY ANYTHING', signBg: '#a8281e' });
     this.pawnCounter = pawn.counter;
     this.pawnDoor = pawn.door;
-    place(pq[1], 'n', { type: 'brick', floors: 4 });
+    place(pq[1], 'n', { type: 'brick', floors: 4, interior: 'diner', name: 'SCOOPS ICE CREAM', signBg: '#e8789f', signFg: '#ffffff' }); // closed since the bombing
     place(pq[2], 's', { type: 'apartment', floors: 7 });
-    place(pq[3], 'w', { type: 'brick', floors: 3, interior: 'shop', name: 'CORNER STORE', signBg: '#1f5f3a' });
+    place(pq[3], 'w', { type: 'brick', floors: 3, interior: 'shop', name: 'MINI MART', signBg: '#1f5f3a' });
 
     // diner and a shop facing the plaza from the north
     const dq = quad(2, 1);
@@ -347,8 +347,6 @@ export class City {
   styleFor(centre) {
     const o = this.styleBase(centre);
     const pk = (arr) => arr[Math.floor(Math.random() * arr.length)];
-    // there's always exactly one Mini Mart (the story starts there)
-    if (o.interior === 'shop' && !this.miniMart) { this.miniMart = true; Object.assign(o, { name: 'MINI MART', signBg: '#1f5f3a' }); return o; }
     if (o.interior === 'shop') Object.assign(o, pk([
       { name: 'CORNER SHOP', signBg: '#1f5f3a' }, { name: 'GROCERY', signBg: '#2f6f2a' }, { name: 'HARDWARE', signBg: '#6a3a1a' },
       { name: 'PHARMACY', signBg: '#1f6f8f', signFg: '#ffffff' }, { name: 'GADGETS', signBg: '#1f2f6f' }]));

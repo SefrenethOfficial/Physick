@@ -147,6 +147,7 @@ export class Citizens extends Npcs {
 
   // ---- perception (a few times a second per person) ----
   sense(npc, pp, playerVisible) {
+    if (npc.role === 'mascot') return; // they don't call the police
     const g = this.game;
     const t = npc.body.translation();
     const now = this.game.time * 1000;
@@ -258,6 +259,8 @@ export class Citizens extends Npcs {
           this.setMarker(npc, '!');
           if (g.gangs.shoot(npc, pp, 0.3)) g.health.damage(11, 'clerk');
         } else if (!(st?.angry > 0)) this.setMarker(npc, null);
+      } else if (npc.role === 'mascot') {
+        ({ want, speed } = this.mascotBrain(npc, t, dt, pp, distP));
       } else if (npc.role === 'gang') {
         ({ want, speed } = this.gangBrain(npc, t, dt, pp, distP, playerVisible));
       } else if (npc.role === 'cop') {
@@ -374,6 +377,22 @@ export class Citizens extends Npcs {
   }
 
   // ---- gang members ----
+  // Costumed goons: straight at you, swinging.
+  mascotBrain(npc, t, dt, pp, distP) {
+    const g = this.game;
+    npc.atkT = (npc.atkT || 0) - dt;
+    if (g.health.dead || !g.onShore) return { want: null, speed: 0 };
+    if (distP > 1.35) return { want: new THREE.Vector3(pp.x - t.x, 0, pp.z - t.z).normalize(), speed: npc.boss ? 2.7 : 3.3 };
+    npc.heading = Math.atan2(pp.x - t.x, pp.z - t.z);
+    if (npc.atkT <= 0) {
+      npc.atkT = npc.boss ? 1.6 : 1.35;
+      g.sfx.play('punch');
+      g.health.damage(npc.boss ? 12 : 5, 'mascot');
+      g.shake = Math.max(g.shake || 0, npc.boss ? 1 : 0.5);
+    }
+    return { want: null, speed: 0 };
+  }
+
   gangBrain(npc, t, dt, pp, distP, seen) {
     const g = this.game, G = g.gangs, crew = G.crews[npc.gang];
     const driving = g.vehicles.active;
