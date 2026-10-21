@@ -54,6 +54,7 @@ export class Economy {
   // Put an item in the bag; cash bundles go straight into your pocket.
   stash(def, silent = false) {
     if (def.cash) { this.addMoney(80 + Math.floor(Math.random() * 120), 'cash'); return true; }
+    if (def.noBag) { if (!silent) this.game.hud.toast(`The ${def.name.toLowerCase()} won't go in the bag — throw it in the sea`, 0xff8a6a); return false; }
     if (this.weight + (def.weight ?? 1) > BAG_CAPACITY) {
       if (!silent) this.game.hud.toast('Bag is full', 0xff8a6a);
       return false;

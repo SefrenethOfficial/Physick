@@ -446,6 +446,45 @@ function gunMesh(len, bore, grip, color, mag = false, stock = false) {
 }
 
 // What a pawn shop pays for each thing ($).
+// ---- bomb parts (mission 4): too awkward to bag, and only good for throwing in the sea ----
+function bombPart(kind) {
+  const g = new THREE.Group();
+  const red = std({ color: 0xb3261e, emissive: 0x5a0a06, emissiveIntensity: 0.6 });
+  const dark = std({ color: 0x2b2d31, roughness: 0.5, metalness: 0.6 });
+  const olive = std({ color: 0x55603a, roughness: 0.8 });
+  let col;
+  if (kind === 'charge') {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.16, 0.2), olive); g.add(b);
+    for (const x of [-0.1, 0, 0.1]) { const w = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.17, 0.21), red); w.position.x = x; g.add(w); }
+    col = RAPIER.ColliderDesc.cuboid(0.15, 0.08, 0.1);
+  } else if (kind === 'detonator') {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.08, 0.12), dark); g.add(b);
+    const led = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.01, 0.03), std({ color: 0xff2020, emissive: 0xff2020, emissiveIntensity: 2 })); led.position.set(0.05, 0.045, 0); g.add(led);
+    const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.16, 6), dark); ant.position.set(-0.07, 0.11, 0); g.add(ant);
+    col = RAPIER.ColliderDesc.cuboid(0.09, 0.04, 0.06);
+  } else if (kind === 'casing') {
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.5, 14), dark); b.rotation.z = Math.PI / 2; g.add(b);
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.142, 0.142, 0.06, 14), red); band.rotation.z = Math.PI / 2; g.add(band);
+    col = RAPIER.ColliderDesc.cuboid(0.25, 0.14, 0.14);
+  } else if (kind === 'timer') {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.06), std({ color: 0x1f5a2a })); g.add(b);
+    const scr = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.04, 0.005), std({ color: 0x111, emissive: 0xff3020, emissiveIntensity: 1.5 })); scr.position.z = 0.032; g.add(scr);
+    col = RAPIER.ColliderDesc.cuboid(0.08, 0.05, 0.03);
+  } else {
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.3, 12), std({ color: 0x8a8f96, metalness: 0.7, roughness: 0.3 })); g.add(b);
+    const hz = new THREE.Mesh(new THREE.CylinderGeometry(0.122, 0.122, 0.08, 12), std({ color: 0xe0c020 })); g.add(hz);
+    col = RAPIER.ColliderDesc.cylinder(0.15, 0.12);
+  }
+  return { mesh: g, colliders: [col], density: 600 };
+}
+ITEMS.push(
+  { id: 'bp_charge', name: 'Explosive Charge', radius: 0.17, weight: 3, noBag: true, bombPart: true, heldSize: 0.3, build: () => bombPart('charge') },
+  { id: 'bp_detonator', name: 'Detonator', radius: 0.1, weight: 1, noBag: true, bombPart: true, heldSize: 0.2, build: () => bombPart('detonator') },
+  { id: 'bp_casing', name: 'Bomb Casing', radius: 0.26, weight: 6, noBag: true, bombPart: true, heldSize: 0.45, build: () => bombPart('casing') },
+  { id: 'bp_timer', name: 'Timer Circuit', radius: 0.09, weight: 0.5, noBag: true, bombPart: true, heldSize: 0.2, build: () => bombPart('timer') },
+  { id: 'bp_shrapnel', name: 'Shrapnel Canister', radius: 0.15, weight: 4, noBag: true, bombPart: true, heldSize: 0.3, build: () => bombPart('shrapnel') },
+);
+
 export const VALUES = {
   ammo: 40, toolbox: 60, rations: 25, medkit: 50, extinguisher: 35, jerrycan: 30, mug: 5, lifejacket: 20,
   wrench: 25, rope: 15, shell: 150, flashlight: 20, mop: 8,

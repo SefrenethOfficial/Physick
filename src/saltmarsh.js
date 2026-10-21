@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { ISLANDS, LAND_Y } from './world.js';
-import { canvasTex, speckle, std, house, sign, lamp, tree, solidBox } from './buildkit.js';
+import { canvasTex, speckle, std, sign, lamp, tree, solidBox } from './buildkit.js';
+import { suburbanHome } from './suburb.js';
 import { islandSlab, flat, pier } from './city.js';
 
-// Saltmarsh Key: a small island town of painted houses, a market square and a fishing dock.
+// Saltmarsh Key: a leafy suburb of family homes on a street grid, a market square and a fishing dock.
 // Lots of stuff lying around, and townspeople with wallets worth taking.
 
 const Y = LAND_Y;
@@ -32,9 +33,37 @@ export class Saltmarsh {
     }, [(isl.x1 - isl.x0) / 8, (isl.z1 - isl.z0) / 8]);
     islandSlab(g, sb, isl, grass, 0x9a8a6a);
 
-    // cobbled lanes
+    // suburban streets: asphalt with a centre line, grass verges and concrete footpaths
     this.xs = [-1000, -900, -800, -700];
     this.zs = [-1700, -1600, -1500, -1400, -1300];
+    const asphalt = (len) => canvasTex(64, 256, (c, w, h) => {
+      c.fillStyle = '#45484c'; c.fillRect(0, 0, w, h); speckle(c, w, h, 900, 0.07);
+      c.fillStyle = '#e8c547'; for (let y = 0; y < h; y += 32) c.fillRect(w / 2 - 1, y, 2, 18);
+    }, [1, len / 24]);
+    const path = (len) => canvasTex(32, 64, (c, w, h) => {
+      c.fillStyle = '#c4c0b8'; c.fillRect(0, 0, w, h); speckle(c, w, h, 120, 0.05);
+      c.fillStyle = 'rgba(0,0,0,.2)'; for (let y = 0; y < h; y += 16) c.fillRect(0, y, w, 1);
+    }, [1, len / 4]);
+    const zLen = this.zs.at(-1) - this.zs[0] + 10, xLen = this.xs.at(-1) - this.xs[0] + 10;
+    const zMid = (this.zs[0] + this.zs.at(-1)) / 2, xMid = (this.xs[0] + this.xs.at(-1)) / 2;
+    const kerb = std({ color: 0xa9a59d, roughness: 0.9 });
+    for (const x of this.xs) {
+      flat(g, 10, zLen, x, zMid, std({ map: asphalt(zLen) }), Y + 0.03);
+      for (const s of [-1, 1]) {
+        flat(g, 2, zLen, x + s * 7.3, zMid, std({ map: path(zLen) }), Y + 0.05);
+        const k = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.14, zLen), kerb); k.position.set(x + s * 5.1, Y + 0.07, zMid); g.add(k);
+      }
+    }
+    for (const z of this.zs) {
+      flat(g, 10, xLen, xMid, z, std({ map: asphalt(xLen) }), Y + 0.035, Math.PI / 2);
+      for (const s of [-1, 1]) {
+        flat(g, 2, xLen, xMid, z + s * 7.3, std({ map: path(xLen) }), Y + 0.055, Math.PI / 2);
+        const k = new THREE.Mesh(new THREE.BoxGeometry(xLen, 0.14, 0.25), kerb); k.position.set(xMid, Y + 0.07, z + s * 5.1); g.add(k);
+      }
+    }
+    // intersections: plain asphalt over the kerbs and footpaths
+    for (const x of this.xs) for (const z of this.zs) flat(g, 16.8, 16.8, x, z, std({ color: 0x45484c, roughness: 0.95 }), Y + 0.08);
+
     const cobble = (len) => canvasTex(64, 128, (c, w, h) => {
       c.fillStyle = '#8f8576'; c.fillRect(0, 0, w, h);
       for (let y = 0; y < h; y += 10) for (let x = (y / 10) % 2 ? 0 : 6; x < w; x += 12) {
@@ -42,10 +71,6 @@ export class Saltmarsh {
         c.fillRect(x + 1, y + 1, 10, 8);
       }
     }, [1, len / 10]);
-    const zLen = 520, xLen = this.xs.at(-1) - this.xs[0] + 10;
-    for (const x of this.xs) flat(g, 10, zLen, x, (isl.z0 + isl.z1) / 2, std({ map: cobble(zLen) }), Y + 0.03);
-    for (const z of this.zs) flat(g, 10, xLen, (this.xs[0] + this.xs.at(-1)) / 2, z, std({ map: cobble(xLen) }), Y + 0.035, Math.PI / 2);
-
     // market square (block between xs[2..3], zs[2..3])
     const mx = -750, mz = -1450;
     this.market = new THREE.Vector3(mx, Y, mz);
@@ -70,21 +95,25 @@ export class Saltmarsh {
     tree(g, sb, mx - 38, Y, mz - 38, 1.2); tree(g, sb, mx + 38, Y, mz + 38, 1.2); tree(g, sb, mx - 38, Y, mz + 38, 1.2); tree(g, sb, mx + 38, Y, mz - 38, 1.2);
     sign(g, 'SALTMARSH MARKET', mx, Y + 3.4, mz - 44, Math.PI, { w: 11, h: 1.6, bg: '#7a2e2e', fg: '#ffe7a0', post: Y });
 
-    // houses around every other block's edges
-    for (let i = 0; i < this.xs.length - 1; i++) for (let j = 0; j < 4; j++) {
+    // houses: four lots facing each street along the north and south side of every block
+    const LOT0 = 8.6; // from the road centre to the front of a lot
+    for (let i = 0; i < this.xs.length - 1; i++) for (let j = 0; j < this.zs.length - 1; j++) {
       const x0 = this.xs[i], x1 = this.xs[i + 1], z0 = this.zs[j], z1 = this.zs[j + 1];
-      const bx = (x0 + x1) / 2, bz = (z0 + z1) / 2;
-      if (Math.abs(bx - mx) < 10 && Math.abs(bz - mz) < 10) continue;
-      // a house (sometimes two) facing each lane around the block
-      const pickT = () => (Math.random() < 0.3 ? [-22, 22] : [Math.random() < 0.5 ? -22 : 22]);
-      for (const t of pickT()) this.addHouse(bx + t, z0 + 14, Math.PI);
-      for (const t of pickT()) this.addHouse(bx + t, z1 - 14, 0);
-      for (const t of pickT()) this.addHouse(x0 + 14, bz + t, -Math.PI / 2);
-      for (const t of pickT()) this.addHouse(x1 - 14, bz + t, Math.PI / 2);
-      if (Math.random() < 0.6) tree(g, sb, bx + (Math.random() - 0.5) * 20, Y, bz + (Math.random() - 0.5) * 20, 1 + Math.random() * 0.5);
+      if (Math.abs((x0 + x1) / 2 - mx) < 10 && Math.abs((z0 + z1) / 2 - mz) < 10) continue;
+      const span = x1 - x0 - LOT0 * 2, lotW = span / 4, lotD = (z1 - z0 - LOT0 * 2) / 2;
+      for (let k = 0; k < 4; k++) {
+        const lx = x0 + LOT0 + lotW * (k + 0.5);
+        this.addHome(lx, z0 + LOT0, Math.PI, lotW, lotD); // faces the street to the -z side
+        this.addHome(lx, z1 - LOT0, 0, lotW, lotD);
+      }
+      // street trees on the verges, between lots
+      for (let k = 0; k <= 4; k++) {
+        const tx = x0 + LOT0 + lotW * k;
+        if (k > 0 && k < 4 && Math.random() < 0.8) { tree(g, sb, tx, Y, z0 + 5.9 + 0.15, 0.9 + Math.random() * 0.3); tree(g, sb, tx, Y, z1 - 6.05, 0.9 + Math.random() * 0.3); }
+      }
     }
-    // a few lamps
-    for (const x of this.xs) for (const z of this.zs) if (Math.random() < 0.5) lamp(g, sb, x + 6, Y, z + 6);
+    // street lights at the corners
+    for (const x of this.xs) for (const z of this.zs) lamp(g, sb, x + 6.1, Y, z + 6.1);
 
     // church + lighthouse landmarks
     solidBox(g, sb, 14, 10, 22, -667, Y, -1650, std({ color: 0xece6da }));
@@ -103,10 +132,12 @@ export class Saltmarsh {
     solidBox(g, sb, 14, 6, 20, -667, Y, -1350, std({ color: 0xd9c08a }));
     sign(g, 'GENERAL STORE', -674.1, Y + 5, -1350, -Math.PI / 2, { w: 10, h: 1.6, bg: '#2f4f2f', fg: '#ffe7a0' });
     for (let n = 0; n < 4; n++) this.lootSpots.push({ pos: new THREE.Vector3(-676, Y + 0.3, -1356 + n * 4), kind: 'porch' });
+    // cars parked on the street
     for (let n = 0; n < 8; n++) {
       const z = this.zs[Math.floor(Math.random() * this.zs.length)];
-      const x = -1000 + 60 + Math.random() * 230;
-      this.parkedSpots.push({ x, z: z + 6.5, heading: Math.PI / 2, color: [0xc23b2a, 0x2f7fd8, 0xe0e0e0, 0x3aa760][n % 4] });
+      const x = -1000 + 20 + Math.random() * 260;
+      if (this.xs.some((xx) => Math.abs(xx - x) < 14)) continue;
+      this.parkedSpots.push({ x, z: z + 3.6, heading: Math.PI / 2, color: [0xc23b2a, 0x2f7fd8, 0xe0e0e0, 0x3aa760][n % 4] });
     }
 
     // fishing dock on the north shore
@@ -122,8 +153,11 @@ export class Saltmarsh {
     sign(g, 'SALTMARSH KEY', -742, Y + 3, isl.z1 - 3, 0, { w: 8, h: 1.5, bg: '#2c3e5e', post: Y });
   }
 
-  addHouse(x, z, yaw) {
-    const porch = house(this.group, this.sb, x, Y, z, yaw, 9 + Math.random() * 2, 7 + Math.random() * 2, 3.6 + Math.random());
-    if (Math.random() < 0.55) this.lootSpots.push({ pos: porch, kind: 'porch' });
+  addHome(x, z, yaw, lotW, lotD) {
+    const h = suburbanHome(this.group, this.sb, x, Y, z, yaw, lotW, lotD);
+    if (Math.random() < 0.55) this.lootSpots.push({ pos: h.porch, kind: 'porch' });
+    // a car in some driveways
+    if (h.garage && Math.random() < 0.45) this.parkedSpots.push({ x: h.drive.x, z: h.drive.z, heading: yaw === 0 ? 0 : Math.PI, color: [0xc23b2a, 0x2f7fd8, 0xe0e0e0, 0x3aa760, 0x2a2a2a, 0x8a8f96][Math.floor(Math.random() * 6)] });
+    if (Math.random() < 0.5) tree(this.group, this.sb, h.backYard.x, Y, h.backYard.z, 1 + Math.random() * 0.4);
   }
 }

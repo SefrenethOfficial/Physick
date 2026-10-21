@@ -20,6 +20,7 @@ import { Blood } from './blood.js';
 import { loadSettings, bindSettingsPanel } from './settings.js';
 import { Graphics } from './graphics.js';
 import { Story } from './story.js';
+import { CargoShip } from './cargo.js';
 import { deckHalfWidth } from './ship.js';
 import { onLand } from './port.js';
 import { City } from './city.js';
@@ -118,6 +119,7 @@ class Game {
     loadingEl.textContent = 'Building Verian City…';
     this.city = new City(this, this.portSandbox);
     this.saltmarsh = new Saltmarsh(this, this.portSandbox);
+    this.cargo = new CargoShip(this, this.portSandbox);
     loadingEl.textContent = 'Running down the Hollows…';
     this.hood = new Hood(this, this.portSandbox);
     mergeStatic(this.hood.group);
@@ -274,6 +276,7 @@ class Game {
   fire() {
     const def = this.held, G = def?.gun;
     if (!G || this.fireT > 0) return;
+    this.lastShotT = this.time;
     const e = this.economy;
     if (!(e.ammo[G.ammo] > 0)) { this.sfx.play('error'); this.hud.toast(`Out of ${def.name.toLowerCase()} ammo — Vic sells more`, 0xff8a6a); this.firing = false; this.fireT = 0.4; return; }
     e.ammo[G.ammo]--;
@@ -1039,8 +1042,9 @@ class Game {
     }, { passive: true });
     addEventListener('keydown', (e) => {
       if (e.code === 'Space' || e.code === 'Tab') e.preventDefault();
-      if (e.code === 'KeyJ' && !e.repeat && this.locked && !this.panelOpen) { this.endDrag(false); this.story.openJournal(); return; }
+      if (e.code === 'KeyJ' && !e.repeat && this.locked && !this.panelOpen) { this.endDrag(false); this.story.phone.toggle(); return; }
       if (e.code === 'KeyM' && !e.repeat && (this.locked || this.hud.bigMapOpen) && !this.panelOpen) { this.hud.toggleBigMap(); this.bigMapT = 0; return; }
+      if (this.story.phone.isOpen) return; // the phone handles its own keys
       if (this.panelOpen && (e.code === 'Tab' || e.code === 'Escape' || e.code === 'KeyE')) { this.economy.close(); return; }
       if (e.repeat || !this.locked) return;
       this.keys.add(e.code);
@@ -1235,6 +1239,7 @@ class Game {
       marks.push({ x: t.x, z: t.z, color: '#9ec5ff', r: 2.5 });
     }
     const wp = this.story.waypoint;
+    if (this.story.active?.id === 'm4') for (const p of this.portSandbox.props) if (p.def.bombPart) { const t = p.body.translation(); marks.push({ x: t.x, z: t.z, color: '#ff3030', r: 3.5 }); }
     if (wp) marks.push({ x: wp.x, z: wp.z, color: '#ffd166', r: 5.5, label: '★' });
     marks.push({ x: this.city.pawnCounter.x, z: this.city.pawnCounter.z, color: '#ffd166', r: 4, label: '$' });
     marks.push({ x: this.city.dealerCounter.x, z: this.city.dealerCounter.z, color: '#7fd3ff', r: 4, label: 'Boats' });

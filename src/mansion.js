@@ -174,11 +174,11 @@ export class Mansion {
     box(1.6, 2.4, 0.15, e.x, Y, Z0 + S - WALL / 2 - 0.1, std({ color: 0x3f4a44, metalness: 0.6, roughness: 0.5 }), false);
     for (let k = 0; k < 4; k++) box(1.8, 0.2, 0.4, e.x, Y + 2.5 + k * 0.2, Z0 + S - 0.4 - k * 0.0, panelM, false);
 
-    // ---- the documents: on writing desks in the three deepest dead ends ----
+    // ---- the documents: on writing desks in the two deepest dead ends ----
     deadEnds.sort((a, b) => b.d - a.d);
     const picks = [];
-    for (const de of deadEnds) { if (picks.every((p) => Math.abs(p.i - de.i) + Math.abs(p.j - de.j) > 3)) picks.push(de); if (picks.length === 3) break; }
-    while (picks.length < 3) picks.push(deadEnds[picks.length] || { i: N - 1, j: picks.length });
+    for (const de of deadEnds) { if (picks.every((p) => Math.abs(p.i - de.i) + Math.abs(p.j - de.j) > 3)) picks.push(de); if (picks.length === 2) break; }
+    while (picks.length < 2) picks.push(deadEnds[picks.length] || { i: N - 1, j: picks.length });
     const deskM = std({ color: 0x4a2c18, roughness: 0.5 });
     const paperM = std({ color: 0xf4ecd8, emissive: 0xfff2c0, emissiveIntensity: 0.5 });
     this.docSpots = picks.map((de) => {

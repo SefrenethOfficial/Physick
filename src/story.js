@@ -3,6 +3,8 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import { ITEM_BY_ID } from './items.js';
 import { std } from './buildkit.js';
 import { Mansion } from './mansion.js';
+import { Phone } from './phone.js';
+import { Heli, SHIP } from './cargo.js';
 
 // The story: Wren Takavic, your oldest friend, was killed in the Verian Central bombing.
 // The Ashen Hand cell did it. Work your way towards them one job at a time.
@@ -16,10 +18,9 @@ export const FIXER = 'Vic';
 export const KEY_ITEMS = {
   key: { name: 'Strange iron key', desc: 'Heavy and old, stamped with a pine tree and the letters "C.E.". It\'s cold to the touch.' },
   manifest: { name: 'Shipping manifest', desc: 'Crates through Saltmarsh dock marked "agricultural". Half of it is in some kind of code.' },
-  ledger: { name: 'Wire-transfer ledger', desc: 'Payments routed through Halcyon Corp. The account names mean nothing to you. Yet.' },
   blueprint: { name: 'Torn blueprint', desc: 'Part of a floor plan, with a circle drawn round one room. You can\'t tell where it is from this piece.' },
 };
-const DOCS = ['manifest', 'ledger', 'blueprint'];
+const DOCS = ['manifest', 'blueprint'];
 
 const INTRO = [
   `Three weeks ago a bomb went off at Verian Central. Eleven people died. One of them was <b>${FRIEND}</b>, the closest thing you ever had to family.`,
@@ -49,9 +50,17 @@ export const MISSIONS = [
     requires: 'm2',
     brief: `${FIXER}: "Take the key up to the bunker in Cherry Estate, off the Pine Ridge trail. Whatever it opens, bring back anything with writing on it."`,
     reward: 1000,
-    passText: `${FIXER}: "Manifests, ledgers, blueprints… I can't read half of this. I need to find someone who can. Sit tight."`,
+    passText: `${FIXER}: "A manifest and half a blueprint… I can\'t read this. I know someone who can. I\'ll call you."`,
   },
-  { id: 'm4', title: 'Coming soon', locked: true, brief: 'The documents need someone who can make sense of them. Vic\'s working on it.' },
+  {
+    id: 'm4',
+    title: 'Dead Cargo',
+    requires: 'm3',
+    brief: `${FIXER}: "My guy read the blueprint. It's a bomb, and the circled room is Verian Central Square. They're doing it again. The manifest says the parts came in on the MV Halvard, tied up off Saltmarsh's west pier. Get aboard and put every piece of it in the sea."`,
+    reward: 2500,
+    passText: `${FIXER}: "You're alive and the bomb's in the harbour. Wren would've liked that. Get some sleep. This isn't over."`,
+  },
+  { id: 'm5', title: 'Coming soon', locked: true, brief: 'Vic is working on what comes next.' },
 ];
 
 export class Story {
@@ -59,7 +68,7 @@ export class Story {
     this.game = game;
     this.state = { introSeen: false, passed: [], keyItems: [] };
     try { Object.assign(this.state, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch { /* storage unavailable */ }
-    this.state.keyItems ||= [];
+    this.state.keyItems = (this.state.keyItems || []).filter((id) => KEY_ITEMS[id]);
     // a save from before missions 2 and 3: the Courier "unlock" is gone, nothing to carry over
     delete this.state.unlocked;
     this.active = null;
@@ -68,6 +77,13 @@ export class Story {
     this.mansion = new Mansion(game);
     this.buildBeacon();
     this.buildParlour();
+    this.phone = new Phone(game);
+    this.heli = new Heli(game);
+    // Vic's texts: the brief for every job you've been given so far
+    if (!this.state.messages) {
+      this.state.messages = [];
+      for (const m of MISSIONS) if (this.state.introSeen && this.unlocked(m)) this.state.messages.push({ from: FIXER, text: m.brief.replace(`${FIXER}: `, '') });
+    }
     this.fadeEl = document.createElement('div');
     this.fadeEl.className = 'fade';
     document.body.appendChild(this.fadeEl);
@@ -82,6 +98,15 @@ export class Story {
     this.game.sfx.play('freeze');
     this.game.hud.toast(`Key item: ${KEY_ITEMS[id].name}`, 0xffd166);
   }
+  keyItem(id) { return KEY_ITEMS[id]; }
+
+  missionList() {
+    return MISSIONS.map((m, i) => {
+      const state = this.active?.id === m.id ? 'active' : this.passed(m.id) ? 'passed' : this.unlocked(m) ? 'ready' : 'locked';
+      return { id: m.id, n: i + 1, title: m.title, state, canStart: state !== 'locked' && state !== 'active', lockText: m.locked ? m.brief : `Finish "${MISSIONS.find((x) => x.id === m.requires)?.title}" first` };
+    });
+  }
+
   unlocked(m) { return !m.locked && (!m.requires || this.passed(m.requires)); }
 
   get underground() { return this.mansion.built && this.mansion.inside(this.game.shorePlayer.body.translation()); }
@@ -89,6 +114,7 @@ export class Story {
   // Nobody's calling the police from in here.
   quietZone(pos) {
     if (this.mansion.built && this.mansion.inside(pos)) return true;
+    if (this.game.cargo?.onDeck(pos, 2)) return true;
     const a = this.active;
     return !!(a?.id === 'm2' && a.fighting && this.parlour && this.inRoom(this.parlour, pos, 1));
   }
@@ -272,6 +298,7 @@ export class Story {
     </div>`;
     this.state.introSeen = true;
     this.save();
+    if (!this.state.messages.length) this.phone.text(FIXER, MISSIONS[0].brief.replace(`${FIXER}: `, ''), true);
     e.open('For Wren', html, (body) => body.addEventListener('click', (ev) => {
       const b = ev.target.closest('button[data-a]');
       if (!b) return;
@@ -285,27 +312,7 @@ export class Story {
     return `<h3 class="kih">Key items</h3>${this.state.keyItems.map((id) => `<div class="erow key"><div><b>${KEY_ITEMS[id].name}</b><small>${KEY_ITEMS[id].desc}</small></div></div>`).join('')}`;
   }
 
-  openJournal() {
-    const e = this.game.economy;
-    const missions = MISSIONS.map((m, i) => {
-      const done = this.passed(m.id), on = this.active?.id === m.id, open = this.unlocked(m);
-      const status = done ? '<em class="ok">Passed</em>' : on ? '<em class="on">In progress</em>' : !open ? '<em>Locked</em>' : '';
-      const btn = !open || on ? '' : `<button data-a="start" data-id="${m.id}">${done ? 'Replay' : 'Start'}</button>`;
-      return `<div class="erow"><div><b>${i + 1}. ${m.title}</b><small>${open || done ? m.brief : m.locked ? m.brief : `Finish "${MISSIONS.find((x) => x.id === m.requires).title}" first.`}</small></div><div class="btns">${status}${btn}</div></div>`;
-    }).join('');
-    const html = `<div class="story">
-      <p class="lede">${FRIEND} is dead. The Ashen Hand did it. Find them.</p>
-      <h3>Missions</h3>${missions}
-      ${this.active ? '<div class="btns"><button data-a="abandon" class="ghost">Abandon current mission</button></div>' : ''}
-      ${this.keyItemsHtml()}
-    </div>`;
-    e.open('Story', html, (body) => body.addEventListener('click', (ev) => {
-      const b = ev.target.closest('button[data-a]');
-      if (!b) return;
-      if (b.dataset.a === 'start') { e.close(); this.start(b.dataset.id); }
-      if (b.dataset.a === 'abandon') { this.end(false, 'Mission abandoned'); this.openJournal(); }
-    }));
-  }
+  openJournal() { this.phone.open('missions'); }
 
   // ---------------------------------------------------------------- running a mission
   start(id) {
@@ -337,6 +344,14 @@ export class Story {
       this.mansion.build();
       for (const d of this.mansion.docSpots) d.mesh.visible = true;
     }
+    if (id === 'm4') {
+      Object.assign(a, { stage: 'board', goons: [], parts: [], sunk: 0, alert: false, reinfT: 0 });
+      if (!hasGun) { g.giveItem(ITEM_BY_ID.pistol); g.hud.toast(`${FIXER} left you a pistol`, 0xffd166); }
+      if ((g.economy.ammo.pistolAmmo || 0) < 60) g.economy.addAmmo('pistolAmmo', 60);
+      if ((g.economy.ammo.smgAmmo || 0) < 90) g.economy.addAmmo('smgAmmo', 90);
+      if (!g.held?.gun && !g.economy.bag.includes('smg')) { g.economy.stash(ITEM_BY_ID.smg, true); g.hud.toast(`${FIXER} put an SMG in your bag`, 0xffd166); }
+      this.setupShip(a);
+    }
     g.hud.flashBanner(m.title.toUpperCase(), '#ffd166');
     this.update(0);
   }
@@ -348,6 +363,13 @@ export class Story {
     this.beacon.visible = false;
     g.hud.setObjective(null);
     if (a.mascots) for (const n of a.mascots) if (g.citizens.list.includes(n)) g.citizens.despawn(n);
+    if (a.goons) for (const n of a.goons) if (g.citizens.list.includes(n)) g.citizens.despawn(n);
+    if (a.id === 'm4') {
+      for (const p of [...g.portSandbox.props]) if (p.def.bombPart) g.portSandbox.remove(p);
+      if (g.held?.bombPart) g.clearHand?.();
+      this.heli.hide();
+      if (this.phone.call) { this.phone.call = null; this.phone.ringEl.classList.remove('on'); }
+    }
     if (pass) {
       if (!this.passed(a.id)) this.state.passed.push(a.id);
       this.save();
@@ -356,7 +378,7 @@ export class Story {
       if (a.m.reward) g.economy.addMoney(a.m.reward, `from ${FIXER}`);
       if (a.m.passText) setTimeout(() => g.hud.toast(a.m.passText, 0xffd166), 1800);
       const next = MISSIONS[MISSIONS.indexOf(a.m) + 1];
-      if (next && this.unlocked(next)) setTimeout(() => g.hud.toast(`New mission: ${next.title} — press J`, 0x9ec5ff), 5200);
+      if (next && this.unlocked(next) && !this.state.messages.some((x) => x.text === next.brief.replace(`${FIXER}: `, ''))) setTimeout(() => this.phone.text(FIXER, next.brief.replace(`${FIXER}: `, '')), 6000);
     } else if (msg) {
       g.hud.flashBanner('MISSION FAILED', '#ff6a5a');
       g.hud.toast(`${msg} — press J to retry`, 0xff8a6a);
@@ -383,6 +405,12 @@ export class Story {
         g.hud.toast(KEY_ITEMS.key.desc, 0xe8e2d4);
         this.end(true);
       } };
+    }
+    const cg = g.cargo;
+    if (cg && a?.id === 'm4') {
+      if (near(cg.ladderFoot, 2.6)) return { label: 'Climb the ladder aboard the Halvard', run: () => this.fade(() => { g.placeOnShore(cg.ladderTop.clone().setY(cg.ladderTop.y + 1), Math.PI / 2); g.cullFar(); }) };
+      if (near(cg.ladderTop, 1.8) && a.stage !== 'extract') return { label: 'Climb down to the pier', run: () => this.fade(() => { g.placeOnShore(cg.ladderFoot.clone().setY(cg.ladderFoot.y + 1), -Math.PI / 2); g.cullFar(); }) };
+      if (a.stage === 'extract' && near(cg.padPos, 5)) return { label: 'Grab the helicopter ladder', run: () => this.extract() };
     }
     const bk = g.park.bunker;
     if (bk && near(bk.door, 2.6) && !this.underground) {
@@ -435,6 +463,7 @@ export class Story {
     const a = this.active;
     const g = this.game;
     if (this.keyMesh?.visible) this.keyMesh.rotation.y += dt * 1.5;
+    this.phone.update(dt);
     if (!a) { this.beacon.visible = false; return; }
     a.t += dt;
     if (g.health.dead) { this.end(false, 'You died'); return; }
@@ -442,6 +471,7 @@ export class Story {
     if (a.id === 'm1') this.updateM1(a, p, dt);
     if (a.id === 'm2') this.updateM2(a, p, dt);
     if (a.id === 'm3') this.updateM3(a, p, dt);
+    if (a.id === 'm4') this.updateM4(a, p, dt);
     if (!this.active) return;
     const wp = a.wp;
     const d = wp ? Math.hypot(wp.x - p.x, wp.z - p.z) : 0;
@@ -523,5 +553,116 @@ export class Story {
     }
     a.text = this.underground ? 'Get back to the surface (the stairs where you came in)' : 'Get clear of the bunker';
     if (!this.underground) this.end(true);
+  }
+
+  // ---------------------------------------------------------------- mission 4: the MV Halvard
+  spawnGoon(a, at) {
+    const g = this.game;
+    const n = g.citizens.spawnCitizen('town', 'goon', at.clone(), { look: { shirt: 0x1d1f22, pants: 0x2a2c30, skin: 0x1a1a1a, hat: 'cap', hatColor: 0x111111 } });
+    if (!n) return null;
+    n.hp = 90;
+    n.cash = 30 + Math.floor(Math.random() * 90);
+    n.items = Math.random() < 0.3 ? ['pistol'] : [];
+    n.heading = Math.random() * Math.PI * 2;
+    n.mission = a;
+    a.goons.push(n);
+    return n;
+  }
+
+  setupShip(a) {
+    const g = this.game, cg = g.cargo;
+    for (const p of [...g.portSandbox.props]) if (p.def.bombPart) g.portSandbox.remove(p);
+    const parts = ['bp_casing', 'bp_charge', 'bp_detonator', 'bp_charge', 'bp_timer', 'bp_shrapnel'];
+    a.total = parts.length;
+    parts.forEach((id, k) => {
+      const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * 6);
+      g.portSandbox.spawn(ITEM_BY_ID[id], cg.partSpots[k].clone(), q, { noHistory: true });
+    });
+    for (const p of cg.posts.slice(0, 7)) this.spawnGoon(a, p);
+  }
+
+  extract() {
+    const g = this.game;
+    const a = this.active;
+    this.fade(() => {
+      // set down on the plaza in Verian City
+      const c = g.city.spawn;
+      g.placeOnShore(new THREE.Vector3(c.x, c.y + 1, c.z), 0);
+      g.cullFar();
+      if (a) this.end(true);
+      g.hud.toast('The helicopter drops you on the plaza and peels away over the rooftops.', 0xe8e2d4);
+    });
+  }
+
+  updateM4(a, p, dt) {
+    const g = this.game, cg = g.cargo, sb = g.portSandbox;
+    a.goons = a.goons.filter((n) => g.citizens.list.includes(n));
+    const aboard = cg.onDeck(p, 0.5);
+    // bomb parts that went over the side
+    for (const prop of [...sb.props]) {
+      if (!prop.def.bombPart) continue;
+      const t = prop.body.translation();
+      if (t.y < 0.6 && !cg.onDeck(t, -0.5)) {
+        g.fx?.splash?.(new THREE.Vector3(t.x, 0, t.z));
+        g.sfx.play('splash');
+        sb.remove(prop);
+        a.sunk++;
+        g.hud.toast(`${prop.def.name} — gone. ${a.total - a.sunk ? `${a.total - a.sunk} to go` : 'That\'s the lot.'}`, 0x7be08a);
+      }
+    }
+    // the crew wake up as soon as one of them sees you
+    // the crew wake up when one of them sees you, you get close, a part goes over the side, or shots are fired aboard
+    const close = aboard && a.goons.some((n) => { const t = n.body.translation(); return Math.hypot(t.x - p.x, t.z - p.z) < 12; });
+    const shots = aboard && g.time - (g.lastShotT ?? -99) < 0.5;
+    if (!a.alert && (a.goons.some((n) => n.playerVisible) || close || a.sunk > 0 || shots)) { a.alert = true; g.hud.toast('"Intruder on deck!"', 0xff6a5a); }
+    for (const n of a.goons) n.alerted = a.alert;
+    if (a.stage === 'board') {
+      a.text = 'Get aboard the MV Halvard: the ladder at the end of Saltmarsh\'s west pier';
+      a.wp = cg.ladderFoot.clone();
+      if (aboard) { a.stage = 'parts'; g.hud.toast('Bomb parts are marked red on your map. Pick them up and throw them overboard (RMB).', 0xffd166); }
+      return;
+    }
+    if (a.stage === 'parts') {
+      a.wp = null;
+      const left = a.total - a.sunk;
+      a.text = aboard ? `Throw the bomb parts into the sea (${a.sunk}/${a.total})` : `Get back aboard: ${left} bomb part${left > 1 ? 's' : ''} left`;
+      if (!aboard) a.wp = cg.ladderFoot.clone();
+      if (left <= 0) {
+        a.stage = 'call';
+        setTimeout(() => this.phone.ring(FIXER, [
+          `<b>${FIXER}:</b> Tell me that was the last of it.`,
+          '<b>You:</b> Every piece is at the bottom of the harbour.',
+          `<b>${FIXER}:</b> Good. Now the bad news: they know. Every one of them in Verian is heading for that ship.`,
+          `<b>${FIXER}:</b> I've got a friend with a helicopter. Three minutes. Stay alive for three minutes.`,
+          `<b>${FIXER}:</b> When you hear the rotors, get to the pad on the bow.`,
+        ], () => { if (this.active === a) { a.stage = 'hold'; a.holdT = 180; a.reinfT = 4; g.hud.flashBanner('HOLD OUT', '#ffd166'); } }), 1500);
+      }
+      return;
+    }
+    if (a.stage === 'call') { a.text = 'Your phone is ringing: press <kbd>J</kbd> to answer'; a.wp = null; return; }
+    if (a.stage === 'hold' || a.stage === 'extract') {
+      // reinforcements up from below decks
+      a.reinfT -= dt;
+      if (a.stage === 'hold' && a.reinfT <= 0 && a.goons.length < 8) {
+        a.reinfT = 14 + Math.random() * 6;
+        const k = 2 + Math.floor(Math.random() * 2);
+        for (let i = 0; i < k; i++) this.spawnGoon(a, cg.doorPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 3, 0, Math.random() * 2)));
+        g.hud.toast('More of them coming up from below!', 0xff8a6a);
+      }
+      const hover = cg.padPos.clone().add(new THREE.Vector3(0, 5.2, 0));
+      const from = new THREE.Vector3(-1000, 80, -400);
+      if (a.stage === 'hold') {
+        a.holdT -= dt;
+        const s = Math.max(0, Math.ceil(a.holdT));
+        a.text = `Hold out until the helicopter gets here: <b>${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}</b>`;
+        a.wp = null;
+        if (a.holdT < 35) this.heli.pose(from, hover, (35 - a.holdT) / 35, g.time);
+        if (a.holdT <= 0) { a.stage = 'extract'; g.hud.toast('The rope ladder comes down over the pad. GO!', 0x7be08a); }
+        return;
+      }
+      this.heli.pose(from, hover, 1, g.time);
+      a.text = 'Get to the helicopter on the bow';
+      a.wp = cg.padPos.clone();
+    }
   }
 }

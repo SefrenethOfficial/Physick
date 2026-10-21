@@ -4,13 +4,16 @@
 
 ## Story
 
-Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **Wren Takavic**, your closest friend. A cell called **the Ashen Hand** did it, and they're still in the city. The story opens the first time you press Play. Press `J` any time for the missions and your key items.
+Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **Wren Takavic**, your closest friend. A cell called **the Ashen Hand** did it, and they're still in the city. The story opens the first time you press Play.
 
-- **Mission 1 · Seed Money:** Wren's cousin Vic wants money before he'll find you names. Take Wren's old pistol, rob the Mini Mart's till (`R` at the counter with the gun out), then lose the cops and get clear of the shop.
-- **Mission 2 · Sweet Tooth:** Scoops Ice Cream, by the plaza, has been shuttered since the bombing. Force the shutter (`E`) and go inside. Three waves of costumed ice cream mascots come out of the back, including the Big Scoop at the end. Then take the strange key hidden behind the counter.
-- **Mission 3 · Down the Rabbit Hole:** the key is stamped with a pine tree. Take it to the old bunker off the Pine Ridge trail in Cherry Estate and unlock the door. Stairs lead down to an underground mansion laid out as a maze. Find the three documents on lit desks in its dead ends, then climb back out.
-- **Key items** (the key and the documents) are listed in `J` and at the bottom of the bag (`Tab`). They can't be sold, dropped or confiscated. The documents can't be used yet.
-- Dying or getting busted fails a mission. You can retry or replay it from `J`.
+**Your phone** (`J`) holds your jobs (start or replay a mission), texts from Vic (each new job arrives as a message) and your key items. Calls come in on it mid-mission: press `J` to answer.
+
+- **1 · Seed Money:** Wren's cousin Vic wants money before he'll find you names. Take Wren's old pistol, rob the Mini Mart's till (`R` at the counter with the gun out), then lose the cops and get clear of the shop.
+- **2 · Sweet Tooth:** Scoops Ice Cream, by the plaza, has been shuttered since the bombing. Force the shutter (`E`) and go inside. Three waves of costumed ice cream mascots come out of the back, including the Big Scoop at the end. Then take the strange key hidden behind the counter.
+- **3 · Down the Rabbit Hole:** the key is stamped with a pine tree. Take it to the old bunker off the Pine Ridge trail in Cherry Estate and unlock the door. Stairs lead down to an underground mansion laid out as a maze. Find the two documents (a shipping manifest and a torn blueprint) on lit desks in its dead ends, then climb back out.
+- **4 · Dead Cargo:** the blueprint is a bomb, and its target is Verian Central Square, again. The parts came in on the **MV Halvard**, a container ship tied up off Saltmarsh's west pier. Climb the ladder aboard, fight off the Ashen Hand gunmen, and throw all six bomb parts (marked red on the map) over the side (`RMB` to throw). They're too awkward to bag. When the last one goes in, Vic calls: hold out for three minutes against their reinforcements until his helicopter arrives over the bow pad, then grab the ladder to get lifted back to Verian City.
+- **Key items** (the key and the documents) are listed on the phone and at the bottom of the bag (`Tab`). They can't be sold, dropped or confiscated. The documents can't be used yet.
+- Dying or getting busted fails a mission. You can retry or replay it from the phone.
 
 ## The world
 
@@ -18,7 +21,7 @@ Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **
 - **Verian International Airport** (south-west of the city, over a causeway): closed. The gate's chained shut, the runway is coned off and marked with big yellow crosses, and three airliners sit parked on the apron.
 - **Cherry Estate National Park** (behind Verian City, to the west): forested mountains, with peaks over 80 m out west. A road climbs from the city's west side up through the hills to the **Saltmarsh Gate Bridge**, an international-orange suspension bridge (two towers, sweeping cables, a 940 m deck 30 m above the water) that crosses the strait to Saltmarsh Key. Off the road: dirt trails over the hills, a ranger station at the trailhead, three campsites with tents and picnic tables (and stuff to steal), boulders, fallen logs, and a lookout tower on a hilltop. Hikers and a ranger wander the trails.
 - **The Hollows** (east of Saltmarsh Key, over a short road bridge): the rough part of town. Cracked streets with potholes, boarded-up walk-ups and graffiti, two grim project towers, a liquor store and laundromat, dumped couches and burned-out cars. Two crews hold turf here: the **Eastside Kings** (red) at the basketball court and the **Hollow Boys** (green) in the burned-out lot. Act suspicious around them — get in their faces, come round waving a gun, speed at them, start trouble or drag a body past — and the "?" over their heads turns to "!": they come for you and the whole neighbourhood erupts in a **gang war**, with the crews pushing into each other's turf and shooting it out. It calms down once you've been gone a while. Gang members carry cash and sometimes a pistol.
-- **Saltmarsh Key** (north of the city): a small town of painted houses, a market square full of stalls, a church, a lighthouse, a general store and a fishing dock. Lots of stuff lying around on porches and stalls, and townspeople with cash in their pockets.
+- **Saltmarsh Key** (north of the city): a leafy suburb. Asphalt streets with kerbs, grass verges, footpaths, street trees and corner street lights, lined with family homes: one- and two-storey houses in lap siding with pitched shingle roofs, porches, shuttered windows, attached garages, driveways (some with a car in them), mailboxes, hedges and fenced back yards. In the middle is a market square full of stalls, with a church, a lighthouse, a general store and a fishing dock round the edge. Lots of stuff lying around on porches and stalls, and townspeople with cash in their pockets. The container ship **MV Halvard** is tied up off its west pier.
 - **NAS Halyard** (east): the naval air station with the destroyer moored alongside and fighter jets on the apron.
 
 ## Money, the bag and boats
@@ -88,7 +91,7 @@ Shelf stock in the shops is only drawn when you're at the shop. Distant scenery 
 - `F` use the held item (medkits heal, coffee perks you up)
 - `B` bag it, `Tab` open the bag
 - `E` interact: shops, the bank and ATMs, boats, cars, searching bodies, picking pockets, jets, the ship's helm and guns
-- `M` full map · `R` rob the bank or a shop's till (holding a gun, at the counter) · `G` take or release a hostage · `J` story and key items
+- `M` full map · `R` rob the bank or a shop's till (holding a gun, at the counter) · `G` take or release a hostage · `J` phone (jobs, messages, key items, calls)
 - Look at a body and `LMB` to drag it; `LMB` lets go, `RMB` heaves it
 - Holding a mop: hold `LMB` to scrub blood, `RMB` to put it down
 - `Esc` pause (Settings are on the pause screen)

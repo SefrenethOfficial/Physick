@@ -54,6 +54,7 @@ export class Health {
       gang: 'Gunned down in the Hollows',
       clerk: 'Shot by a shopkeeper',
       mascot: 'Beaten senseless by an ice cream mascot',
+      goon: 'Gunned down by the Ashen Hand',
       drown: 'Drowned',
       carExplosion: 'Your car blew up',
       carCrash: 'Wrapped round a lamp post',

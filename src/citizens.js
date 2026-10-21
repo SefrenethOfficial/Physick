@@ -147,7 +147,7 @@ export class Citizens extends Npcs {
 
   // ---- perception (a few times a second per person) ----
   sense(npc, pp, playerVisible) {
-    if (npc.role === 'mascot') return; // they don't call the police
+    if (npc.role === 'mascot' || npc.role === 'goon') return; // they don't call the police
     const g = this.game;
     const t = npc.body.translation();
     const now = this.game.time * 1000;
@@ -259,6 +259,8 @@ export class Citizens extends Npcs {
           this.setMarker(npc, '!');
           if (g.gangs.shoot(npc, pp, 0.3)) g.health.damage(11, 'clerk');
         } else if (!(st?.angry > 0)) this.setMarker(npc, null);
+      } else if (npc.role === 'goon') {
+        ({ want, speed } = this.goonBrain(npc, t, dt, pp, distP, playerVisible));
       } else if (npc.role === 'mascot') {
         ({ want, speed } = this.mascotBrain(npc, t, dt, pp, distP));
       } else if (npc.role === 'gang') {
@@ -377,6 +379,30 @@ export class Citizens extends Npcs {
   }
 
   // ---- gang members ----
+  // Ashen Hand gunmen: hold a firing distance, keep shooting while they can see you.
+  goonBrain(npc, t, dt, pp, distP, seen) {
+    const g = this.game;
+    npc.atkT = (npc.atkT || 0) - dt;
+    if (g.health.dead) return { want: null, speed: 0 };
+    if (seen) npc.lastSeen = pp.clone();
+    if (!npc.alerted && !seen) return { want: null, speed: 0 }; // on watch
+    const tgt = seen ? pp : npc.lastSeen || pp;
+    const to = new THREE.Vector3(tgt.x - t.x, 0, tgt.z - t.z);
+    const d = to.length();
+    if (!seen || distP > 17) {
+      if (d < 1.2) return { want: null, speed: 0 };
+      return { want: to.normalize(), speed: 3.4 };
+    }
+    npc.heading = Math.atan2(to.x, to.z);
+    this.setMarker(npc, '!');
+    if (npc.atkT <= 0) {
+      npc.atkT = 0.9 + Math.random() * 0.9;
+      if (g.gangs.shoot(npc, pp, distP < 9 ? 0.32 : 0.2)) g.health.damage(7, 'goon');
+    }
+    if (distP < 5) return { want: to.normalize().multiplyScalar(-1), speed: 2.2 };
+    return { want: null, speed: 0 };
+  }
+
   // Costumed goons: straight at you, swinging.
   mascotBrain(npc, t, dt, pp, distP) {
     const g = this.game;
@@ -504,7 +530,7 @@ export class Citizens extends Npcs {
     if (want) {
       // stay on the island
       const ahead = t.x + want.x * 3, aheadZ = t.z + want.z * 3;
-      if (!onLand(ahead, aheadZ, -2)) { want.multiplyScalar(-1); npc.target = null; }
+      if (!onLand(ahead, aheadZ, -2) && !this.game.cargo?.onDeck(t, 1)) { want.multiplyScalar(-1); npc.target = null; } // (the ship's deck isn't land, but it's fine)
       const targetH = Math.atan2(want.x, want.z);
       let d = targetH - npc.heading;
       d = Math.atan2(Math.sin(d), Math.cos(d));

@@ -321,3 +321,51 @@ kbd {
 .fade.on { opacity: 1; }
 h3.kih { margin: 16px 0 4px; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: #ffd166; }
 .erow.key { border-left: 3px solid #ffd166; padding-left: 8px; }
+
+/* ---------------- phone ---------------- */
+#phone { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center end; padding: 20px 6vw; background: rgba(0,0,0,.35); }
+#phone.hidden { display: none; }
+.ph-frame { position: relative; width: 300px; height: min(600px, 92vh); border-radius: 38px; background: #0d0f12; border: 3px solid #2a2d33; box-shadow: 0 0 0 2px #000, 0 30px 70px rgba(0,0,0,.7); padding: 12px; display: flex; flex-direction: column; animation: phIn .25s ease-out; }
+@keyframes phIn { from { transform: translateY(40px); opacity: 0; } }
+.ph-notch { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); width: 92px; height: 22px; background: #000; border-radius: 0 0 14px 14px; z-index: 2; }
+.ph-status { display: flex; justify-content: space-between; padding: 4px 16px 6px; font-size: 11px; color: #fff; opacity: .85; }
+.ph-screen { flex: 1; border-radius: 26px; overflow: hidden; background: linear-gradient(160deg, #1d2b44, #3a1f3a 60%, #1a1a24); color: #fff; display: flex; flex-direction: column; min-height: 0; }
+.ph-homebar { height: 5px; width: 110px; background: #888; border-radius: 3px; margin: 8px auto 0; cursor: pointer; }
+.ph-home { padding: 22px 18px; display: flex; flex-direction: column; gap: 18px; height: 100%; }
+.ph-clock { font-size: 54px; font-weight: 300; text-align: center; letter-spacing: .02em; }
+.ph-widget { background: rgba(255,255,255,.1); border-radius: 16px; padding: 10px 12px; backdrop-filter: blur(6px); }
+.ph-widget small { display: block; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #ffd166; }
+.ph-widget b { display: block; font-size: 15px; }
+.ph-widget span { display: block; font-size: 12px; opacity: .8; margin-top: 2px; }
+.ph-apps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.ph-apps button { position: relative; background: none; border: 0; color: #fff; font: 600 11px var(--font, sans-serif); display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; }
+.ph-apps i { font-style: normal; font-size: 26px; width: 56px; height: 56px; display: grid; place-items: center; border-radius: 15px; background: rgba(255,255,255,.14); box-shadow: inset 0 1px 0 rgba(255,255,255,.2); }
+.ph-apps em { position: absolute; top: -4px; right: 6px; font-style: normal; background: #ff3b30; border-radius: 10px; min-width: 18px; height: 18px; font-size: 11px; display: grid; place-items: center; }
+.ph-hint { margin-top: auto; text-align: center; opacity: .5; font-size: 11px; }
+.ph-head { display: flex; align-items: center; gap: 8px; padding: 14px 12px 10px; background: rgba(0,0,0,.25); }
+.ph-head button { background: none; border: 0; color: #4fa3ff; font-size: 26px; line-height: 1; cursor: pointer; padding: 0 6px; }
+.ph-head b { font-size: 16px; }
+.ph-list { overflow: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.ph-item { display: flex; align-items: center; gap: 8px; padding: 10px; border-radius: 12px; background: rgba(255,255,255,.08); }
+.ph-item > div { flex: 1; } .ph-item b { display: block; font-size: 13px; } .ph-item small { display: block; font-size: 11px; opacity: .7; margin-top: 2px; line-height: 1.35; }
+.ph-item.locked { opacity: .5; } .ph-item.passed b::after { content: ' ✓'; color: #7be08a; } .ph-item.active { border-left: 3px solid #ffd166; }
+.ph-item button, .ph-foot button, .ph-callbtns button { font: 700 12px var(--font, sans-serif); border: 0; border-radius: 14px; padding: 6px 12px; background: #4fa3ff; color: #fff; cursor: pointer; }
+.ph-foot { padding: 8px; } .ph-foot button { width: 100%; background: rgba(255,255,255,.12); }
+.ph-thread { overflow: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.ph-thread p { margin: 0; max-width: 85%; padding: 8px 11px; border-radius: 16px 16px 16px 4px; background: #2f3542; font-size: 12.5px; line-height: 1.4; }
+.ph-thread p.me { align-self: flex-end; background: #2f7fe8; border-radius: 16px 16px 4px 16px; }
+.ph-empty { opacity: .6; text-align: center; padding: 20px; display: block; }
+.ph-call { display: flex; flex-direction: column; align-items: center; padding: 34px 16px 18px; height: 100%; gap: 6px; background: linear-gradient(#20242c, #0e1014); }
+.ph-avatar { width: 84px; height: 84px; border-radius: 50%; background: #5a6a7a; display: grid; place-items: center; font-size: 38px; font-weight: 700; }
+.ph-caller { font-size: 22px; } .ph-call small { opacity: .6; }
+.ph-lines { flex: 1; overflow: auto; width: 100%; margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.ph-lines p { margin: 0; font-size: 13px; line-height: 1.45; background: rgba(255,255,255,.06); border-radius: 10px; padding: 8px 10px; }
+.ph-lines p.new { animation: phIn .2s; }
+.ph-callbtns { margin-top: auto; display: flex; gap: 12px; }
+.ph-callbtns button { padding: 12px 26px; font-size: 14px; border-radius: 24px; }
+.ph-green { background: #34c759 !important; } .ph-red { background: #ff3b30 !important; }
+.ph-ring { position: absolute; right: 16px; bottom: 120px; display: none; align-items: center; gap: 10px; padding: 10px 14px; background: rgba(16,18,22,.9); border: 1px solid #34c759; border-radius: 24px; font-size: 14px; animation: ringPulse 1s infinite alternate; }
+.ph-ring.on { display: flex; }
+.ph-ring i { font-style: normal; font-size: 20px; animation: shake .4s infinite; }
+@keyframes ringPulse { to { box-shadow: 0 0 18px rgba(52,199,89,.6); } }
+@media (max-width: 560px) { #phone { place-items: center; padding: 10px; } }
