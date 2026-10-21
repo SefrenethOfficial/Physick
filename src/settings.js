@@ -26,7 +26,7 @@ export function saveSettings(s) {
 
 const ROWS = [
   { key: 'civRespawn', label: 'Townspeople respawn', hint: 'New people wander in out of sight', type: 'toggle' },
-  { key: 'music', label: 'Chase music', hint: 'Plays when you have three or more stars', type: 'toggle' },
+  { key: 'music', label: 'Chase music', hint: 'Plays while the police are after you', type: 'toggle' },
   { key: 'crewRespawn', label: 'Crew respawn', hint: 'New sailors come on deck to replace the fallen', type: 'toggle' },
   { key: 'crewCount', label: 'Crew on the warship', type: 'choice', options: [0, 4, 8, 12, 16] },
   { key: 'blood', label: 'Blood', hint: 'Blood spray, pools and drag smears', type: 'toggle' },

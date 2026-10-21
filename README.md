@@ -1,10 +1,11 @@
 <p align="center"><img src="public/assets/physick-logo.svg" alt="Physick" width="520"></p>
 
-**Physick** is an open-world island game built with [three.js](https://threejs.org) and [Rapier](https://rapier.rs). You start in the city of Port Calder with $150 and a dinghy at the marina. Take what isn't nailed down, sell it at the pawn shop, buy faster boats, and try not to get seen doing it. Further out there's a navy destroyer and a fighter base.
+**Physick** is an open-world island game built with [three.js](https://threejs.org) and [Rapier](https://rapier.rs). You start in the city of Verian City with $150 and a dinghy at the marina. Take what isn't nailed down, sell it at the pawn shop, buy faster boats, and try not to get seen doing it. Further out there's a navy destroyer and a fighter base.
 
 ## The world
 
-- **Port Calder** (where you start): a compact 5 × 5 block downtown with kerbed pavements, brick walk-ups with shopfronts and fire escapes, apartment blocks with balconies and glass towers on stone podiums. Plenty of ground floors are walk-in: shops with shelves of stuff, diners, office and police/hospital lobbies, and the **pawn shop** (sell anything at its counter with `E`). Cars drive the streets (they queue, turn, stop for people and honk at you) and pedestrians walk the pavements and cross at the corners. There's a plaza with a fountain, a pocket park, the **boat dealer** at the marina, a police station and a hospital.
+- **Verian City** (where you start): a compact 5 × 5 block downtown with kerbed pavements, brick walk-ups with shopfronts and fire escapes, apartment blocks with balconies and glass towers on stone podiums. Plenty of ground floors are walk-in: shops with shelves of stuff, diners, office and police/hospital lobbies, and the **pawn shop** (sell anything at its counter with `E`). Cars drive the streets (they queue, turn, stop for people and honk at you) and pedestrians walk the pavements and cross at the corners. There's a plaza with a fountain, a pocket park, the **boat dealer** at the marina, a police station and a hospital.
+- **Cherry Estate National Park** (behind Verian City, to the west): thousands of pines, dirt trails that loop through the forest, a ranger station at the trailhead, three campsites with tents and picnic tables (and stuff to steal), boulders, fallen logs, and a lookout tower you can climb. Hikers and a ranger wander the trails.
 - **Saltmarsh Key** (north of the city): a small town of painted houses, a market square full of stalls, a church, a lighthouse, a general store and a fishing dock. Lots of stuff lying around on porches and stalls, and townspeople with cash in their pockets.
 - **NAS Halyard** (east): the naval air station with the destroyer moored alongside and fighter jets on the apron.
 
@@ -24,7 +25,7 @@
   - **Rosa** (the fence): buys your whole bag for 30% more than the pawn shop, makes the heat go away for $500 a star, and sells a police scanner (every cop on your minimap; you lose them faster).
   - **Dimitri's chop shop:** park a stolen car in his alley and press `E` for cash. Cop cars pay best.
 - **Guns:** hold one and `LMB` fires (hold for the SMG); `RMB` throws it. Ammo is per weapon type and shown next to the gun. Gunfire sends everyone running and counts as a crime if anyone sees. **Grenades:** `RMB` to throw, then run. **Armour:** hold it and press `F` to put it on; it soaks up most damage until it's shot through.
-- **Chase music:** at three stars or more, *Starvation Pursuer* kicks in (toggle in Settings).
+- **Chase music:** *Chase on Foot* plays at one or two stars, *Starvation Pursuer* takes over at three or more (toggle in Settings).
 
 ## Crime and the police
 
@@ -83,7 +84,7 @@
 - **Casualties:** sailors hit hard (a thrown item, cannon fire from a jet) are killed and go ragdoll. Blood sprays, pools under the body and smears when you drag it. Mops are in the stores, by the mess and on the flight deck. Loose bodies and items feel the ship's roll at sea.
 - **Settings** (pause screen): townspeople respawn, chase music, crew respawn and crew size on the destroyer, blood on/off, bodies stay or get cleared, mouse sensitivity, invert jet pitch. Saved in your browser.
 - **Crew:** sailors in working uniforms, cranials and dixie cups wander the main deck and stop to look at you when you walk up to them.
-- **Health:** fall damage and going overboard hurt; health regenerates; dying sends you to the hospital in Port Calder.
+- **Health:** fall damage and going overboard hurt; health regenerates; dying sends you to the hospital in Verian City.
 
 Physics runs in the ship's own frame (the ship is static there) and the whole frame is moved on the ocean for rendering, so walking on a rolling deck is solid.
 
@@ -106,9 +107,10 @@ src/
   ship.js      procedural warship, interior, colliders, helm and ship motion
   guns.js      manning guns, shells/tracers, splashes, explosions, target rafts
   world.js     island and pier layout shared by everything on land and water
-  city.js      Port Calder: streets, blocks, plaza, park, pawn shop, police, hospital, marina
+  city.js      Verian City: streets, blocks, plaza, park, pawn shop, police, hospital, marina
   architecture.js city buildings (brick, apartment, office, civic) and walk-in interiors
   traffic.js   cars driving the street grids
+  park.js      Cherry Estate National Park
   vehicles.js  stealing and driving cars
   carphys.js   physical cars: driving model, crashes, dents, fire
   underworld.js alleys, the arms dealer, the fence and the chop shop

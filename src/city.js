@@ -5,7 +5,7 @@ import { canvasTex, speckle, std, sign, lamp, tree, solidBox } from './buildkit.
 import { cityBuilding } from './architecture.js';
 import { dressAlley } from './underworld.js';
 
-// Port Calder: the city you start in. A compact 5 x 5 grid of blocks with kerbed pavements,
+// Verian City: the city you start in. A compact 5 x 5 grid of blocks with kerbed pavements,
 // brick walk-ups with shopfronts, apartment blocks and glass towers downtown, shops and
 // lobbies you can walk into, a plaza with a fountain, the pawn shop, police station,
 // hospital, and a marina on the east waterfront.
@@ -171,7 +171,7 @@ export class City {
       solidBox(g, sb, 3, 0.5, 0.7, plaza.x + dx, Y + KERB, plaza.z + dz, benchM, { rotY: r });
       this.lootSpots.push(new THREE.Vector3(plaza.x + dx, Y + KERB + 0.8, plaza.z + dz));
     }
-    sign(g, 'PORT CALDER', plaza.x, Y + 5, plaza.z - 24, 0, { w: 12, h: 2, bg: '#1f3b63' });
+    sign(g, 'VERIAN CITY', plaza.x, Y + 5, plaza.z - 24, 0, { w: 12, h: 2, bg: '#1f3b63' });
 
     // pocket park (block 1,3)
     const park = this.block(1, 3);
@@ -225,7 +225,7 @@ export class City {
 
     // diner and a shop facing the plaza from the north
     const dq = quad(2, 1);
-    place(dq[3], 's', { type: 'brick', floors: 2, interior: 'diner', name: 'CALDER DINER', signBg: '#b0201c', signFg: '#ffffff' });
+    place(dq[3], 's', { type: 'brick', floors: 2, interior: 'diner', name: 'VERIAN DINER', signBg: '#b0201c', signFg: '#ffffff' });
     place(dq[2], 's', { type: 'brick', floors: 4, interior: 'shop', name: 'ELECTRONICS', signBg: '#1f2f6f' });
     place(dq[0], 'n', { type: 'apartment', floors: 8 });
     place(dq[1], 'e', { type: 'office', floors: 12 });

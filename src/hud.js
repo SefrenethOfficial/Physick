@@ -286,7 +286,7 @@ export class Hud {
     g.beginPath(); g.arc(W / 2, W / 2, W / 2 - 2, 0, Math.PI * 2); g.clip();
     g.fillStyle = '#1d4a6b'; g.fillRect(0, 0, W, W);
     for (const isl of info.islands) {
-      g.fillStyle = isl.id === 'town' ? '#5f8a45' : isl.id === 'city' ? '#8f8b84' : '#7d7a70';
+      g.fillStyle = isl.id === 'town' ? '#5f8a45' : isl.id === 'city' ? '#8f8b84' : isl.id === 'park' ? '#2f5a2a' : '#7d7a70';
       g.fillRect(X(isl.x0), Z(isl.z0), (isl.x1 - isl.x0) / S, (isl.z1 - isl.z0) / S);
     }
     g.fillStyle = '#55585e';

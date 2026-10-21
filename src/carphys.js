@@ -207,7 +207,7 @@ export class Car {
   }
 
   // Low-level: approach a forward speed and steering angle (+ = left) with tyre grip.
-  apply(dt, targetSpeed, steerAngle, { accel = 9, brake = 18, grip = 7, maxSpeed = 30 } = {}) {
+  apply(dt, targetSpeed, steerAngle, { accel = 9, brake = 18, grip = 10, maxSpeed = 30, steerRate = 8, yawResponse = 1.2 } = {}) {
     if (this.wreck || this.sinking) { this.coast(dt); return; }
     const dazed = this.dazedT > 0;
     if (dazed) { this.dazedT -= dt; grip *= 0.25; accel *= 0.3; }
@@ -221,10 +221,10 @@ export class Car {
     const vy = this.hover(dt);
     const nv = { x: f.x * vf + r.x * vr, y: vy, z: f.z * vf + r.z * vr };
     this.body.setLinvel(nv, true);
-    this.steer = THREE.MathUtils.lerp(this.steer, steerAngle, Math.min(1, dt * 8));
+    this.steer = THREE.MathUtils.lerp(this.steer, steerAngle, Math.min(1, dt * steerRate));
     const yawRate = (vf / WHEELBASE) * Math.tan(this.steer);
     const av = this.body.angvel();
-    this.body.setAngvel({ x: 0, y: av.y + (yawRate - av.y) * Math.min(1, dt * grip * 1.2), z: 0 }, true);
+    this.body.setAngvel({ x: 0, y: av.y + (yawRate - av.y) * Math.min(1, dt * grip * yawResponse), z: 0 }, true);
     this.expect = new THREE.Vector3(nv.x, 0, nv.z);
   }
 
@@ -236,9 +236,10 @@ export class Car {
     if (throttle > 0) target = vf < -0.5 ? 0 : Math.min(max, vf + 12);
     else if (throttle < 0) target = vf > 0.5 ? 0 : -9;
     else target = vf * 0.97;
-    const lock = 0.6 / (1 + Math.abs(vf) * 0.05) * (handbrake ? 1.4 : 1);
+    // tight, direct steering: plenty of lock even at speed, and the tyres bite hard
+    const lock = 0.62 / (1 + Math.abs(vf) * 0.022) * (handbrake ? 1.35 : 1);
     this.apply(dt, handbrake ? vf * 0.9 : target, steer * lock, {
-      accel: 10 - Math.abs(vf) * 0.12, brake: handbrake ? 6 : 20, grip: handbrake ? 1.4 : 7, maxSpeed: max,
+      accel: 10 - Math.abs(vf) * 0.12, brake: handbrake ? 6 : 20, grip: handbrake ? 1.8 : 16, maxSpeed: max, steerRate: 16, yawResponse: handbrake ? 2 : 3,
     });
   }
 

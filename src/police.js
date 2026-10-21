@@ -368,7 +368,7 @@ export class Police {
     if (this.wanted > 0 && this.spawnT <= 0) {
       this.spawnT = 2.5;
       const isl = onFoot ? islandAt(target.x, target.z, 4) : null;
-      const island = isl && (isl.id === 'city' || isl.id === 'town') ? isl.id : null;
+      const island = isl && ['city', 'town', 'park'].includes(isl.id) ? isl.id : null;
       if (island) {
         const foot = g.citizens.list.filter((n) => n.dispatched && !n.leaving).length;
         if (foot < FOOT[this.wanted]) this.dispatchFoot(target, island);

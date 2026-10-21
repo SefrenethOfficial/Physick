@@ -26,8 +26,8 @@ function markerTex(ch, color) {
 export class Citizens extends Npcs {
   constructor(game) {
     super(game);
-    this.quota = { city: 36, town: 24 };
-    this.copQuota = { city: 2, town: 1 };
+    this.quota = { city: 36, town: 24, park: 9 };
+    this.copQuota = { city: 2, town: 1, park: 1 };
     this.marks = { '?': markerTex('?', '#ffd166'), '!': markerTex('!', '#ff4a3a'), cop: markerTex('★', '#7fb2ff') };
     this.respawnT = 3;
   }
@@ -58,7 +58,7 @@ export class Citizens extends Npcs {
   }
 
   populate() {
-    for (const id of ['city', 'town']) {
+    for (const id of ['city', 'town', 'park']) {
       for (let k = 0; k < this.quota[id]; k++) this.spawnCitizen(id);
       for (let k = 0; k < this.copQuota[id]; k++) this.spawnCitizen(id, 'cop');
     }
@@ -395,7 +395,7 @@ export class Citizens extends Npcs {
       this.respawnT -= dt;
       if (this.respawnT <= 0) {
         this.respawnT = 4;
-        for (const id of ['city', 'town']) {
+        for (const id of ['city', 'town', 'park']) {
           const civs = this.list.filter((n) => n.island === id && n.role === 'civ').length;
           if (civs < this.quota[id]) { const p = this.randomPointOn(id, null, 0, 60); if (p) this.spawnCitizen(id, 'civ', p); }
           const cops = this.list.filter((n) => n.island === id && n.role === 'cop' && !n.dispatched).length;

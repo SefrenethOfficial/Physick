@@ -4,14 +4,14 @@ import { canvasTex, std } from './buildkit.js';
 import { buildFigure, animateWalk } from './figure.js';
 import { ITEM_BY_ID } from './items.js';
 
-// The back alleys of Port Calder: bins, crates, graffiti and puddles, and the people you
+// The back alleys of Verian City: bins, crates, graffiti and puddles, and the people you
 // don't meet on the high street: an arms dealer, a fence who buys hot goods and sells
 // "services", and a chop shop that pays cash for stolen cars.
 
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
 function graffitiTex() {
-  const tags = ['VEX', 'KR8Z', 'NO COPS', 'SKUL', 'DRIP', 'R.I.P. JAY', 'CALDER KINGS', 'ZOMB', '187', 'WAKE UP', 'LOOP'];
+  const tags = ['VEX', 'KR8Z', 'NO COPS', 'SKUL', 'DRIP', 'R.I.P. JAY', 'VERIAN KINGS', 'ZOMB', '187', 'WAKE UP', 'LOOP'];
   return canvasTex(256, 128, (g, w, h) => {
     g.clearRect(0, 0, w, h);
     for (let n = 0; n < 2; n++) {

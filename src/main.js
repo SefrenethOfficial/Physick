@@ -28,6 +28,7 @@ import { Police } from './police.js';
 import { ISLANDS, PIERS, nearestLandPoint, islandAt } from './world.js';
 import { mergeStatic } from './merge.js';
 import { Traffic } from './traffic.js';
+import { Park } from './park.js';
 import { Vehicles } from './vehicles.js';
 import { Car } from './carphys.js';
 import { Underworld } from './underworld.js';
@@ -105,9 +106,12 @@ class Game {
     this.portWorld = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
     this.portSandbox = new Sandbox(this, { world: this.portWorld, scene: this.scene });
     this.port = new Port(this, this.portSandbox);
-    loadingEl.textContent = 'Building Port Calder…';
+    loadingEl.textContent = 'Building Verian City…';
     this.city = new City(this, this.portSandbox);
     this.saltmarsh = new Saltmarsh(this, this.portSandbox);
+    loadingEl.textContent = 'Planting Cherry Estate…';
+    this.park = new Park(this, this.portSandbox);
+    mergeStatic(this.park.group);
     mergeStatic(this.port.group);
     mergeStatic(this.city.group);
     mergeStatic(this.saltmarsh.group);
@@ -149,7 +153,7 @@ class Game {
     }
     this.underworld = new Underworld(this);
     ['arms', 'fence', 'chop'].forEach((kind, i) => { if (this.city.alleys[i]) this.underworld.addDealer(kind, this.city.alleys[i], LAND_Y + 0.15); });
-    this.music = new ChaseMusic(`${import.meta.env.BASE_URL}assets/music/starvation-pursuer.mp3`);
+    this.music = new ChaseMusic(import.meta.env.BASE_URL);
     this.grenades = [];
     this.fireT = 0;
     this.spawnLoot();
@@ -398,6 +402,7 @@ class Game {
       sb.spawn(def, new THREE.Vector3(p.x, p.y + 0.25, p.z), q, { noHistory: true });
     };
     for (const p of this.city.lootSpots) if (Math.random() < 0.6) place(pick(Math.random() < 0.1 ? LOOT_RARE : LOOT_COMMON), p);
+    for (const p of this.park.lootSpots) place(pick(Math.random() < 0.15 ? LOOT_RARE : LOOT_COMMON), p);
     for (const s of this.saltmarsh.lootSpots) {
       const rare = s.kind === 'porch' ? 0.3 : s.kind === 'stall' ? 0.2 : 0.08;
       place(pick(Math.random() < rare ? LOOT_RARE : LOOT_COMMON), s.pos);
@@ -515,7 +520,7 @@ class Game {
   }
 
   respawnPlayer() {
-    // patched up at the hospital in Port Calder; the bill comes out of your pocket
+    // patched up at the hospital in Verian City; the bill comes out of your pocket
     this.sinkingBoat = null;
     this.clearHand();
     this.police.clearWanted();
@@ -1099,7 +1104,7 @@ class Game {
     this.vehicles.update(dt, alive ? k : new Set());
     this.underworld.update(dt);
     this.updateGrenades(dt);
-    this.music.update(dt, this.started && this.police.wanted >= 3 && this.settings.music && !this.health.dead);
+    this.music.update(dt, this.started && this.settings.music && !this.health.dead ? this.police.wanted : 0);
     this.police.update(dt);
     this.updatePickpocket(dt);
     this.blood.update(dt);
