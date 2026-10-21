@@ -128,7 +128,7 @@ src/
   viewmodel.js the robot-arm hand (and what it's holding)
   player.js    first-person character controller
   npcs.js      crew (wander, react, ragdoll)
-  figure.js    low-poly pixel-art people (townspeople, police, navy crew)
+  figure.js    blocky person model (townspeople, police, navy crew)
   health.js    health, damage, death/respawn
   hud.js       compass, health, money, bag, wanted stars, minimap, panels, prompts
   sandbox.js   static colliders and physics props

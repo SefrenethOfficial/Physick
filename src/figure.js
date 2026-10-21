@@ -36,126 +36,64 @@ export function crewLook() {
   return { ...pick(CREW), skin: pick(SKIN) };
 }
 
-// ---- low-poly pixel people: boxes wearing tiny nearest-filtered textures ----
-const HAIR = [0x2a1d14, 0x4a2f1c, 0x7a4f2a, 0xc9a35a, 0x111111, 0x8a8a8a, 0xa83a1c];
-const texCache = new Map();
-const hex = (c) => '#' + c.toString(16).padStart(6, '0');
-const shade = (c, k) => { const r = (c >> 16) & 255, g = (c >> 8) & 255, b = c & 255; const f = (v) => Math.max(0, Math.min(255, Math.round(v * k))); return (f(r) << 16) | (f(g) << 8) | f(b); };
-function pixTex(key, w, h, draw) {
-  if (texCache.has(key)) return texCache.get(key);
-  const c = document.createElement('canvas');
-  c.width = w; c.height = h;
-  const g = c.getContext('2d');
-  let seed = 0; for (const ch of key) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
-  const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
-  const px = (x, y, col) => { g.fillStyle = hex(col); g.fillRect(x, y, 1, 1); };
-  draw(px, rnd, g);
-  const t = new THREE.CanvasTexture(c);
-  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
-  t.colorSpace = THREE.SRGBColorSpace;
-  const m = new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 });
-  texCache.set(key, m);
-  return m;
-}
-const noisy = (px, rnd, w, h, col, y0 = 0) => { for (let y = y0; y < h; y++) for (let x = 0; x < w; x++) px(x, y, shade(col, 0.88 + rnd() * 0.2)); };
-
-function shirtMat(look) {
-  return pixTex(`shirt|${look.shirt}|${look.pants}|${look.skin}|${look.badge ? 1 : 0}`, 8, 12, (px, rnd) => {
-    noisy(px, rnd, 8, 12, look.shirt);
-    px(3, 0, look.skin); px(4, 0, look.skin); px(3, 1, shade(look.skin, 0.9)); px(4, 1, shade(look.skin, 0.9)); // collar
-    for (let y = 2; y < 10; y += 3) px(4, y, shade(look.shirt, 0.65)); // buttons
-    for (let x = 0; x < 8; x++) { px(x, 10, shade(look.pants, 0.7)); px(x, 11, look.pants); } // belt
-    px(4, 10, 0xc9a24a);
-    if (look.badge) { px(2, 3, 0xffd34a); px(2, 4, 0xe0b030); }
-  });
-}
-function armMat(look) {
-  return pixTex(`arm|${look.shirt}|${look.skin}`, 4, 12, (px, rnd) => {
-    noisy(px, rnd, 4, 9, look.shirt);
-    for (let x = 0; x < 4; x++) px(x, 8, shade(look.shirt, 0.75));
-    noisy(px, rnd, 4, 12, look.skin, 9);
-  });
-}
-function legMat(look) {
-  return pixTex(`leg|${look.pants}`, 4, 12, (px, rnd) => {
-    noisy(px, rnd, 4, 10, look.pants);
-    for (let x = 0; x < 4; x++) { px(x, 10, 0x2a2018); px(x, 11, 0x1a140e); }
-  });
-}
-function headMats(look) {
-  const hair = look.hair ?? 0x2a1d14, skin = look.skin;
-  const face = pixTex(`face|${skin}|${hair}`, 8, 8, (px, rnd) => {
-    noisy(px, rnd, 8, 8, skin);
-    for (let x = 0; x < 8; x++) px(x, 0, hair);
-    px(0, 1, hair); px(7, 1, hair);
-    px(2, 3, 0xffffff); px(5, 3, 0xffffff); px(2, 4, 0x1a1a2a); px(5, 4, 0x1a1a2a); // eyes
-    px(1, 2, shade(hair, 1.1)); px(2, 2, shade(hair, 1.1)); px(5, 2, shade(hair, 1.1)); px(6, 2, shade(hair, 1.1)); // brows
-    px(3, 5, shade(skin, 0.8)); px(4, 5, shade(skin, 0.8)); // nose
-    px(3, 6, 0x7a2a2a); px(4, 6, 0x7a2a2a); px(2, 6, shade(skin, 0.75)); px(5, 6, shade(skin, 0.75)); // mouth
-  });
-  const side = pixTex(`hside|${skin}|${hair}`, 8, 8, (px, rnd) => {
-    noisy(px, rnd, 8, 8, skin);
-    for (let y = 0; y < 3; y++) for (let x = 0; x < 8; x++) px(x, y, shade(hair, 0.9 + rnd() * 0.2));
-    for (let x = 4; x < 8; x++) px(x, 3, hair);
-    px(3, 4, shade(skin, 0.8));
-  });
-  const back = pixTex(`hback|${hair}|${skin}`, 8, 8, (px, rnd) => { noisy(px, rnd, 8, 8, hair); for (let x = 0; x < 8; x++) px(x, 7, skin); });
-  const top = pixTex(`htop|${hair}`, 8, 8, (px, rnd) => noisy(px, rnd, 8, 8, hair));
-  const bottom = pixTex(`hbot|${skin}`, 2, 2, (px, rnd) => noisy(px, rnd, 2, 2, skin));
-  // box faces: +x, -x, +y, -y, +z (front), -z
-  return [side, side, top, bottom, face, back];
-}
-
 export function buildFigure(look = randomLook()) {
-  look = { hair: HAIR[Math.floor(Math.random() * HAIR.length)], ...look };
   const root = new THREE.Group();
+  const shirt = mat(look.shirt), pants = mat(look.pants), skin = mat(look.skin);
   const parts = {};
 
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(...DIMS.torso.size), shirtMat(look));
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(...DIMS.torso.size), shirt);
   torso.position.set(...DIMS.torso.center);
   root.add(torso);
   parts.torso = torso;
 
-  const H = DIMS.head.radius * 2;
-  const head = new THREE.Mesh(new THREE.BoxGeometry(H, H, H), headMats(look));
+  const head = new THREE.Mesh(new THREE.SphereGeometry(DIMS.head.radius, 16, 12), skin);
   head.position.set(...DIMS.head.center);
+  const eyeM = new THREE.MeshBasicMaterial({ color: 0x111111 });
+  for (const x of [-0.055, 0.055]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), eyeM);
+    eye.position.set(x, 0.03, 0.135);
+    head.add(eye);
+  }
   if (look.hat) {
     const hm = mat(look.hatColor ?? 0x1b2638);
-    hm.flatShading = true;
     if (look.hat === 'cap') {
-      const crown = new THREE.Mesh(new THREE.BoxGeometry(H + 0.02, 0.08, H + 0.02), hm);
-      crown.position.y = H / 2 + 0.02;
-      const bill = new THREE.Mesh(new THREE.BoxGeometry(H * 0.8, 0.025, 0.13), hm);
-      bill.position.set(0, H / 2 - 0.01, H / 2 + 0.06);
+      const crown = new THREE.Mesh(new THREE.SphereGeometry(0.155, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), hm);
+      crown.position.y = 0.04;
+      const bill = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.025, 0.14), hm);
+      bill.position.set(0, 0.045, 0.17);
       head.add(crown, bill);
     } else if (look.hat === 'dixie') {
-      const cup = new THREE.Mesh(new THREE.BoxGeometry(H + 0.03, 0.1, H + 0.03), hm);
-      cup.position.y = H / 2 + 0.03;
+      const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.15, 0.1, 16), hm);
+      cup.position.y = 0.12;
       head.add(cup);
     } else {
-      const helm = new THREE.Mesh(new THREE.BoxGeometry(H + 0.04, 0.14, H + 0.04), hm);
-      helm.position.y = H / 2 - 0.02;
+      const helm = new THREE.Mesh(new THREE.SphereGeometry(0.165, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.6), hm);
+      helm.position.y = 0.01;
       head.add(helm);
     }
   }
   root.add(head);
   parts.head = head;
 
-  const limb = (name, size, joint, side, m) => {
+  const limb = (name, size, joint, side, m, sideMat) => {
     const pivot = new THREE.Group();
     pivot.position.set(joint[0] * side, joint[1], joint[2]);
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), m);
     mesh.position.y = -size[1] / 2;
     pivot.add(mesh);
+    if (sideMat) { // hands
+      const hand = new THREE.Mesh(new THREE.BoxGeometry(size[0] * 0.9, 0.1, size[2] * 0.9), sideMat);
+      hand.position.y = -size[1] / 2 - 0.02;
+      mesh.add(hand);
+    }
     root.add(pivot);
     parts[name] = mesh;
     parts[name + 'Pivot'] = pivot;
   };
-  const arm = armMat(look), leg = legMat(look);
-  limb('armL', DIMS.arm.size, DIMS.arm.shoulder, -1, arm);
-  limb('armR', DIMS.arm.size, DIMS.arm.shoulder, 1, arm);
-  limb('legL', DIMS.leg.size, DIMS.leg.hip, -1, leg);
-  limb('legR', DIMS.leg.size, DIMS.leg.hip, 1, leg);
+  limb('armL', DIMS.arm.size, DIMS.arm.shoulder, -1, shirt, skin);
+  limb('armR', DIMS.arm.size, DIMS.arm.shoulder, 1, shirt, skin);
+  limb('legL', DIMS.leg.size, DIMS.leg.hip, -1, pants);
+  limb('legR', DIMS.leg.size, DIMS.leg.hip, 1, pants);
 
   root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   return { root, parts, look };
