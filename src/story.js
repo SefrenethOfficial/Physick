@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import { ITEM_BY_ID } from './items.js';
 
-// The story: Eli Navarro, your oldest friend, was killed in the Verian Central bombing.
+// The story: Wren Takavic, your oldest friend, was killed in the Verian Central bombing.
 // The Ashen Hand cell did it. Work your way up to them one job at a time; every mission
 // you finish opens up intel and, eventually, a bounty on one of their heads.
 
 const KEY = 'physick.story.v1';
 
-export const FRIEND = 'Eli Navarro';
+export const FRIEND = 'Wren Takavic';
 export const FIXER = 'Vic';
 
 export const TARGETS = [
@@ -19,16 +19,16 @@ export const TARGETS = [
 ];
 
 const INTRO = [
-  `Three weeks ago a bomb went off at Verian Central. Eleven people died. One of them was <b>${FRIEND}</b>, the closest thing you ever had to a brother.`,
+  `Three weeks ago a bomb went off at Verian Central. Eleven people died. One of them was <b>${FRIEND}</b>, the closest thing you ever had to family.`,
   'The police called it an "isolated incident". It wasn\'t. A cell calling itself <b>the Ashen Hand</b> did it, and they\'re still in Verian, still walking around.',
-  `You can't touch them yet. You've got no money, no gear and no names. But Eli's cousin <b>${FIXER}</b> knows people, and people cost money.`,
+  `You can't touch them yet. You've got no money, no gear and no names. But Wren's cousin <b>${FIXER}</b> knows people, and people cost money.`,
 ];
 
 export const MISSIONS = [
   {
     id: 'm1',
     title: 'Seed Money',
-    brief: `${FIXER}: "You want names, you pay for names. Start small. The Mini Mart on the corner keeps a fat till. Take Eli's old pistol, empty the register, and don't lead the cops back to me."`,
+    brief: `${FIXER}: "You want names, you pay for names. Start small. The Mini Mart on the corner keeps a fat till. Take Wren's old pistol, empty the register, and don't lead the cops back to me."`,
     reward: 500,
     passText: `${FIXER}: "Not bad. That'll buy us a conversation with the right people. I'll be in touch about the Courier."`,
   },
@@ -85,7 +85,7 @@ export class Story {
     </div>`;
     this.state.introSeen = true;
     this.save();
-    e.open('For Eli', html, (body) => body.addEventListener('click', (ev) => {
+    e.open('For Wren', html, (body) => body.addEventListener('click', (ev) => {
       const b = ev.target.closest('button[data-a]');
       if (!b) return;
       e.close();
@@ -134,9 +134,9 @@ export class Story {
       st.angry = 0;
       if (!g.stores.clerkOK(st)) g.stores.spawnClerk(st);
       this.active = { id, m, step: 'gun', t: 0, robbed: false };
-      // Eli's old pistol, if you haven't got a gun of your own
+      // Wren's old pistol, if you haven't got a gun of your own
       const hasGun = g.held?.gun || g.economy.bag.some((x) => ITEM_BY_ID[x]?.gun);
-      if (!hasGun) { g.giveItem(ITEM_BY_ID.pistol); g.hud.toast(`${FIXER} gave you Eli's old pistol`, 0xffd166); }
+      if (!hasGun) { g.giveItem(ITEM_BY_ID.pistol); g.hud.toast(`${FIXER} gave you Wren's old pistol`, 0xffd166); }
       if ((g.economy.ammo.pistolAmmo || 0) < 24) g.economy.addAmmo('pistolAmmo', 24);
     }
     g.hud.flashBanner(m.title.toUpperCase(), '#ffd166');

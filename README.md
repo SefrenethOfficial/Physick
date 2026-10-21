@@ -4,9 +4,9 @@
 
 ## Story
 
-Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **Eli Navarro**, your closest friend. A cell called **the Ashen Hand** did it, and they're still in the city. The story opens the first time you press Play. Press `J` any time for the mission list and the bounty board.
+Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **Wren Takavic**, your closest friend. A cell called **the Ashen Hand** did it, and they're still in the city. The story opens the first time you press Play. Press `J` any time for the mission list and the bounty board.
 
-- **Mission 1 · Seed Money:** Eli's cousin Vic wants money before he'll find you names. Take Eli's old pistol, rob the Mini Mart's till (`R` at the counter with the gun out), then lose the cops and get clear of the shop. Vic pays $500 on top of the till, and the first target goes up on the bounty board.
+- **Mission 1 · Seed Money:** Wren's cousin Vic wants money before he'll find you names. Take Wren's old pistol, rob the Mini Mart's till (`R` at the counter with the gun out), then lose the cops and get clear of the shop. Vic pays $500 on top of the till, and the first target goes up on the bounty board.
 - **The bounty board** lists the five members of the Ashen Hand: the Courier, the Chemist, the Banker, the Gunner and the Architect, with bounties from $5,000 to $100,000. Each one is unlocked by a later mission (coming soon).
 - Dying or getting busted fails the mission. You can retry or replay it from `J`.
 
