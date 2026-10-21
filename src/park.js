@@ -204,9 +204,9 @@ export class Park {
     this.entrance = new THREE.Vector3(-1135, yTrail, -35);
     for (const dz of [-7, 7]) solidBox(g, sb, 0.5, 5.5, 0.5, -1124, yTrail, -35 + dz, darkWood);
     solidBox(g, sb, 0.6, 0.5, 15, -1124, yTrail + 5.4, -35, darkWood, { collide: false });
-    sign(g, 'CHERRY ESTATE NATIONAL PARK', -1123.6, yTrail + 4.3, -35, Math.PI / 2, { w: 11, h: 1.7, bg: '#3b2a1a', fg: '#f2d9a0' });
-    sign(g, 'CHERRY ESTATE NATIONAL PARK', -1124.4, yTrail + 4.3, -35, -Math.PI / 2, { w: 11, h: 1.7, bg: '#3b2a1a', fg: '#f2d9a0' });
-    sign(g, 'BRIDGE TO SALTMARSH KEY ➜', -1140, yTrail + 2, -42, Math.PI / 2, { w: 6, h: 0.8, bg: '#1f5a2a', fg: '#ffffff' });
+    sign(g, 'CHERRY ESTATE NATIONAL PARK', -1123.6, yTrail + 4.55, -35, Math.PI / 2, { w: 11, h: 1.7, bg: '#3b2a1a', fg: '#f2d9a0' });
+    sign(g, 'CHERRY ESTATE NATIONAL PARK', -1124.4, yTrail + 4.55, -35, -Math.PI / 2, { w: 11, h: 1.7, bg: '#3b2a1a', fg: '#f2d9a0' });
+    sign(g, 'BRIDGE TO SALTMARSH KEY ➜', -1140, yTrail + 2.2, -44, Math.PI / 2, { w: 6, h: 0.8, bg: '#1f5a2a', fg: '#ffffff', post: yTrail });
     clearing(-1165, -78, 12, yRanger);
     const logTex = canvasTex(64, 64, (c, cw, ch) => {
       c.fillStyle = '#7a5434'; c.fillRect(0, 0, cw, ch);

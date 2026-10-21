@@ -52,6 +52,7 @@ export class Health {
       car: 'Run down by a squad car',
       traffic: 'Hit by a car',
       gang: 'Gunned down in the Hollows',
+      clerk: 'Shot by a shopkeeper',
       drown: 'Drowned',
       carExplosion: 'Your car blew up',
       carCrash: 'Wrapped round a lamp post',

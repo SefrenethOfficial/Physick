@@ -35,6 +35,14 @@
 - **ATMs** stand on pavements around the city, outside the bank, at the marina, in Saltmarsh market and at the park's ranger station ($5 per withdrawal). Shoot or smash one open and it spills cash bundles (bag them with `B`).
 - **Robbing the bank:** hold a gun at the counter and press `R`. The silent alarm goes off at once (three stars). Get round the end of the counter into the vault and stay there to fill the bag (around $14,000), then get out — that's four stars. The vault needs about ten minutes to refill.
 
+## Shops, clerks and hostages
+
+- **Every shop, diner and front desk is staffed.** Walk up to the counter and press `E` to buy (snacks and drinks heal you), pay for what you've picked up, see the doctor at the hospital, pay off fines at the police station, or sell at the pawn shop.
+- **Shelves are stocked with what that shop sells:** groceries in the corner store, bottles in the liquor store, phones, consoles and laptops in the electronics shop, tools in the hardware store, pills and medkits in the pharmacy. Pick anything up and, if the clerk can see you, they'll tell you what you owe. Walk out without paying and it's shoplifting: the clerk gets angry, calls it in and won't serve you for a while. Some clerks (always in the liquor store and the pawn shop) keep a gun under the counter and will use it.
+- **Hold-ups:** with a gun out at the counter, press `R` to empty the till. The clerk puts their hands up and the police are on the way.
+- **Hostages:** look at a clerk or any passer-by up close and press `G` to grab them as a human shield. The police won't shoot or cuff you while you've got one; they keep their distance instead. You move slower, and `G` again lets them go (they run straight to the police).
+- **Signs** all fit their text now, and the freestanding ones stand on posts.
+
 ## The map
 
 Press `M` for the full map: every island, road, trail and landmark, the shops and dealers, ATMs, the police, and you. Scroll to zoom in on where you are.
@@ -56,7 +64,7 @@ Press `M` for the full map: every island, road, trail and landmark, the shops an
 - `F` use the held item (medkits heal, coffee perks you up)
 - `B` bag it, `Tab` open the bag
 - `E` interact: shops, the bank and ATMs, boats, cars, searching bodies, picking pockets, jets, the ship's helm and guns
-- `M` full map · `R` rob the bank (holding a gun, at the counter)
+- `M` full map · `R` rob the bank or a shop's till (holding a gun, at the counter) · `G` take or release a hostage
 - Look at a body and `LMB` to drag it; `LMB` lets go, `RMB` heaves it
 - Holding a mop: hold `LMB` to scrub blood, `RMB` to put it down
 - `Esc` pause (Settings are on the pause screen)

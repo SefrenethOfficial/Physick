@@ -73,7 +73,7 @@ export class Player {
     const pv = plat ? this.pointVelocity(plat.prop, plat.point) : null;
     const onPlat = !!pv && this.vel.y <= 0.5;
 
-    const speed = sprint ? 10 : 6;
+    const speed = (sprint ? 10 : 6) * (this.game.hostage && this === this.game.shorePlayer ? 0.55 : 1); // slow with a hostage
     const target = wish.multiplyScalar(speed);
     const onGround = this.grounded || onPlat;
     if (onGround) {

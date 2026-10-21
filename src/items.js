@@ -367,7 +367,64 @@ export const ITEMS = [
       return { mesh: g, colliders: [RAPIER.ColliderDesc.cuboid(0.23, 0.275, 0.08)], density: 120 };
     },
   },
+  // ---- store products ----
+  { id: 'soda', name: 'Can of Soda', radius: 0.05, weight: 0.3, use: 'eat', heal: 5, build: () => canMesh(0.033, 0.12, 0xc8202a) },
+  { id: 'energy', name: 'Energy Drink', radius: 0.05, weight: 0.3, use: 'eat', heal: 15, build: () => canMesh(0.03, 0.15, 0x2fbf4a) },
+  { id: 'water', name: 'Bottle of Water', radius: 0.06, weight: 0.5, use: 'eat', heal: 5, build: () => bottleMesh(0.035, 0.2, 0x8fd0ff, 0.6) },
+  { id: 'beer', name: 'Beer', radius: 0.06, weight: 0.4, use: 'eat', heal: 3, build: () => bottleMesh(0.03, 0.2, 0x3a6a2a, 0.9) },
+  { id: 'wine', name: 'Bottle of Wine', radius: 0.08, weight: 1, use: 'eat', heal: 5, build: () => bottleMesh(0.04, 0.27, 0x4a0d1a, 0.95) },
+  { id: 'whiskey', name: 'Whiskey', radius: 0.08, weight: 1, use: 'eat', heal: 5, build: () => bottleMesh(0.045, 0.24, 0x8a4a14, 0.85, true) },
+  { id: 'chips', name: 'Bag of Chips', radius: 0.12, weight: 0.2, use: 'eat', heal: 5, build: () => labelBox(0.16, 0.22, 0.06, '#e8b020', '#a01a1a', 'CRISPS') },
+  { id: 'cereal', name: 'Box of Cereal', radius: 0.15, weight: 0.5, use: 'eat', heal: 8, build: () => labelBox(0.19, 0.28, 0.07, '#3a7ad9', '#ffe066', 'OATY O') },
+  { id: 'canned', name: 'Canned Beans', radius: 0.06, weight: 0.4, use: 'eat', heal: 8, build: () => canMesh(0.037, 0.1, 0xb0b4b8, '#c8502a') },
+  { id: 'pills', name: 'Painkillers', radius: 0.05, weight: 0.1, use: 'eat', heal: 25, build: () => bottleMesh(0.025, 0.08, 0xe07a1a, 0.7) },
+  { id: 'burger', name: 'Burger', radius: 0.08, weight: 0.3, use: 'eat', heal: 30, build: () => {
+    const g = new THREE.Group();
+    const bun = std({ color: 0xc88a3a }), patty = std({ color: 0x4a2a14 }), lettuce = std({ color: 0x5ab03a });
+    [[0.055, 0.025, bun, 0], [0.058, 0.02, patty, 0.022], [0.06, 0.006, lettuce, 0.036], [0.055, 0.035, bun, 0.056]].forEach(([r, h, m, y]) => { const c = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 14), m); c.position.y = y; g.add(c); });
+    return { mesh: g, colliders: [RAPIER.ColliderDesc.cylinder(0.04, 0.058).setTranslation(0, 0.03, 0)], density: 300 };
+  } },
+  { id: 'headphones', name: 'Headphones', radius: 0.1, weight: 0.3, build: () => {
+    const g = new THREE.Group();
+    const m = std({ color: 0x1a1a1a, roughness: 0.4 });
+    const band = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.008, 6, 16, Math.PI), m);
+    g.add(band);
+    for (const s of [-1, 1]) { const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.025, 14), m); cup.rotation.z = Math.PI / 2; cup.position.set(s * 0.08, -0.005, 0); g.add(cup); }
+    return { mesh: g, colliders: [RAPIER.ColliderDesc.cuboid(0.095, 0.05, 0.035)], density: 300 };
+  } },
+  { id: 'console', name: 'Game Console', radius: 0.18, weight: 2, build: () => labelBox(0.3, 0.06, 0.24, '#151515', '#3a8aff', '') },
 ];
+
+function canMesh(r, h, color, label) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 14), std({ color, roughness: 0.3, metalness: 0.6 }));
+  g.add(body);
+  if (label) { const band = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.01, r * 1.01, h * 0.55, 14), std({ color: new THREE.Color(label), roughness: 0.6 })); g.add(band); }
+  const lid = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.9, r * 0.9, 0.004, 14), std({ color: 0xcfd3d6, metalness: 0.8 }));
+  lid.position.y = h / 2;
+  g.add(lid);
+  return { mesh: g, colliders: [RAPIER.ColliderDesc.cylinder(h / 2, r)], density: 700 };
+}
+function bottleMesh(r, h, color, opacity = 1, square = false) {
+  const g = new THREE.Group();
+  const glass = std({ color, roughness: 0.15, metalness: 0.1, transparent: opacity < 1, opacity });
+  const body = square ? new THREE.Mesh(new THREE.BoxGeometry(r * 2, h * 0.7, r * 1.4), glass) : new THREE.Mesh(new THREE.CylinderGeometry(r, r, h * 0.7, 12), glass);
+  body.position.y = -h * 0.15;
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.35, r * 0.55, h * 0.3, 10), glass);
+  neck.position.y = h * 0.35;
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.38, r * 0.38, h * 0.06, 10), std({ color: 0xd8c070, metalness: 0.6 }));
+  cap.position.y = h * 0.5;
+  const label = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.01, r * 1.01, h * 0.25, 12), std({ color: 0xeee6d0 }));
+  label.position.y = -h * 0.15;
+  label.visible = !square;
+  g.add(body, neck, cap, label);
+  return { mesh: g, colliders: [RAPIER.ColliderDesc.cylinder(h / 2, r)], density: 500 };
+}
+function labelBox(w, h, d, bg, fg, text) {
+  const face = std({ map: labelTex(bg, fg, text, 128, Math.round(128 * h / w) || 32) });
+  const side = std({ color: new THREE.Color(bg) });
+  return { ...boxItem(w, h, d, face, side), density: 120 };
+}
 
 // Simple firearm: barrel toward -Z.
 function gunMesh(len, bore, grip, color, mag = false, stock = false) {
@@ -395,6 +452,7 @@ export const VALUES = {
   wallet: 45, phone: 120, watch: 220, necklace: 380, laptop: 450, tv: 300, painting: 650, goldbar: 1200,
   radio: 60, camera: 180, handbag: 90, vase: 110, cash: 100, bat: 30,
   pistol: 250, smg: 900, shotgun: 600, grenade: 100, armor: 150,
+  soda: 2, energy: 3, water: 2, beer: 4, wine: 25, whiskey: 40, chips: 3, cereal: 5, canned: 3, pills: 15, burger: 8, headphones: 80, console: 300,
 };
 export const LOOT_COMMON = ['wallet', 'phone', 'handbag', 'radio', 'mug', 'flashlight', 'rope', 'wrench', 'camera', 'bat'];
 export const LOOT_RARE = ['watch', 'necklace', 'laptop', 'tv', 'painting', 'vase', 'cash', 'goldbar'];

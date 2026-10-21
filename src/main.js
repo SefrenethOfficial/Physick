@@ -1,3 +1,4 @@
+import { SIGNS } from "./buildkit.js";
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { Sandbox } from './sandbox.js';
@@ -31,6 +32,7 @@ import { Traffic } from './traffic.js';
 import { Park } from './park.js';
 import { Hood } from './hood.js';
 import { Gangs } from './gangs.js';
+import { Stores } from './stores.js';
 import { Bridge } from './bridge.js';
 import { Airport } from './airport.js';
 import { Bank } from './bank.js';
@@ -164,6 +166,8 @@ class Game {
     this.citizens.populate();
     this.gangs = new Gangs(this);
     this.gangs.populate();
+    this.stores = new Stores(this);
+    this.hostage = null;
     this.traffic = new Traffic(this);
     this.traffic.addNetwork('city', this.city.xs, this.city.zs, this.city.lane, 18, 11);
     this.traffic.addNetwork('town', this.saltmarsh.xs, this.saltmarsh.zs, 2.4, 5, 8);
@@ -197,6 +201,7 @@ class Game {
     this.fpsAcc = 0; this.fpsFrames = 0;
     this.renderer.setAnimationLoop(() => this.tick());
     window.physick = this;
+    this.signs = SIGNS;
   }
 
   // The walker you're controlling: aboard (ship frame) or ashore (world frame).
@@ -414,7 +419,7 @@ class Game {
     const hit = this.lookHit();
     if (hit?.prop?.def.item) {
       const def = hit.prop.def;
-      if (this.economy.stash(def)) { this.sb.remove(hit.prop); this.sfx.play(def.cash ? 'cash' : 'grab'); }
+      if (this.economy.stash(def)) { if (this.onShore) this.stores.onTake(hit.prop, 'bag'); this.sb.remove(hit.prop); this.sfx.play(def.cash ? 'cash' : 'grab'); }
     } else this.hud.toast('Nothing to bag — look at an item, or hold one');
   }
 
@@ -651,6 +656,7 @@ class Game {
     const hit = this.lookHit();
     if (!hit?.prop?.def.item) return false;
     const def = hit.prop.def;
+    if (this.onShore) this.stores.onTake(hit.prop, 'hand');
     this.sb.remove(hit.prop);
     this.held = def;
     this.viewmodel.setHeld(def.build().mesh, def.heldSize, def.heldRot, def.heldPush);
@@ -701,6 +707,12 @@ class Game {
       this.health.armor = 100;
       this.hud.toast('Armour on', 0x7fb2ff);
       this.sfx.play('freeze');
+      this.clearHand();
+    } else if (def.use === 'eat') {
+      if (this.stores?.unpaid.some((u) => u.def === def && u.held)) this.stores.ateUnpaid(def);
+      this.health.heal(def.heal || 5);
+      this.hud.toast(`${def.name} (+${def.heal || 5})`, 0x7be08a);
+      this.sfx.play('select');
       this.clearHand();
     } else if (def.use === 'coffee') {
       this.health.heal(10);
@@ -839,6 +851,11 @@ class Game {
     if (this.near(this.city.dealerCounter, 4)) return { label: 'Boat sales', run: () => this.economy.openDealer(BOAT_TYPES) };
     const dealer = this.underworld.near(pos);
     if (this.bank.nearCounter(pos)) return { label: 'Bank teller', run: () => this.bank.open(false) };
+    const st = this.stores.nearCounter(pos);
+    if (st && this.stores.clerkOK(st)) {
+      const owed = this.stores.unpaid.some((u) => u.st === st);
+      return { label: owed ? 'Pay at the counter' : st.theme === 'diner' ? 'Order food' : st.theme === 'office' ? 'Talk to reception' : st.theme === 'hospital' ? 'See the doctor' : st.theme === 'police' ? 'Front desk' : 'Talk to the clerk', run: () => this.stores.open(st) };
+    }
     const atm = this.bank.nearATM(pos);
     if (atm) return { label: 'Use the ATM', run: () => this.bank.open(true) };
     if (dealer) return { label: `Talk to ${dealer.title.split(' ')[0].replace(/[^\w']/g, '')}`, run: () => this.underworld.open(dealer) };
@@ -857,6 +874,54 @@ class Game {
     const boat = this.boats.nearbyOwned(pos);
     if (boat) return { label: `Drive the ${boat.type.name}`, run: () => { this.endDrag(false); this.clearDropHeld(); this.boats.enter(boat); } };
     return null;
+  }
+
+  // ---- hostages: a human shield the police won't shoot through ----
+  canTakeHostage(n) { return n && this.citizens.list.includes(n) && (n.role === 'civ' || n.role === 'clerk') && !this.hostage; }
+
+  toggleHostage() {
+    if (this.hostage) { this.releaseHostage(); return; }
+    if (this.vehicles.active || this.boats.active || this.flying) return;
+    const hit = this.lookHit(2.6);
+    const n = hit?.npc;
+    if (!this.canTakeHostage(n)) return;
+    this.hostage = n;
+    n.hostage = true;
+    n.collider.setEnabled(false);
+    this.endDrag(false);
+    this.sfx.play('scream');
+    const t = n.body.translation();
+    this.police.crime('kidnap', 2, new THREE.Vector3(t.x, t.y, t.z));
+    this.hud.toast('You\'ve got a hostage — the police won\'t shoot. G to let them go', 0xffd166);
+  }
+
+  releaseHostage(flee = true) {
+    const n = this.hostage;
+    if (!n) return;
+    this.hostage = null;
+    n.hostage = false;
+    if (!this.citizens.list.includes(n)) return;
+    n.collider.setEnabled(true);
+    n.store = n.store || null;
+    if (flee) {
+      this.citizens.flee(n, this.shorePlayer.body.translation(), 12);
+      const t = n.body.translation();
+      Object.assign(n, { reportT: 2, reportSev: 2, reportPos: new THREE.Vector3(t.x, t.y, t.z), reportSeen: true, reportWhy: 'kidnap' });
+      if (n.role === 'clerk') n.role = 'civ'; // they're not going back to work today
+    }
+  }
+
+  updateHostage() {
+    const n = this.hostage;
+    if (!n) return;
+    if (!this.citizens.list.includes(n) || !this.onShore || this.vehicles.active || this.boats.active || this.flying || this.health.dead) { this.releaseHostage(this.citizens.list.includes(n)); return; }
+    const p = this.shorePlayer.body.translation(), yaw = this.shorePlayer.yaw;
+    const f = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)), r = new THREE.Vector3(-f.z, 0, f.x);
+    const at = { x: p.x + f.x * 0.55 + r.x * 0.62, y: p.y - 0.02, z: p.z + f.z * 0.55 + r.z * 0.62 };
+    n.body.setTranslation(at, true);
+    n.body.setNextKinematicTranslation(at);
+    n.heading = Math.atan2(f.x, f.z);
+    n.speed = 0;
   }
 
   chopCar() {
@@ -993,6 +1058,8 @@ class Game {
       if (e.code === 'KeyF') { this.useHeld(); return; }
       if (e.code === 'KeyB') { this.stash(); return; }
       if (e.code === 'KeyR' && this.onShore && this.held?.gun && this.bank.nearCounter(this.shorePlayer.body.translation())) { this.bank.startHeist(); return; }
+      if (e.code === 'KeyR' && this.onShore && this.held?.gun) { const st = this.stores.nearCounter(this.shorePlayer.body.translation()); if (st) { this.stores.rob(st); return; } }
+      if (e.code === 'KeyG' && this.onShore) { this.toggleHostage(); return; }
       if (e.code === 'Tab') { this.endDrag(false); this.economy.openBag(); return; }
       if (this.atHelm) {
         if (e.code === 'KeyW' || e.code === 'ArrowUp') { this.ship.telegraphUp(); this.sfx.play('telegraph'); }
@@ -1033,6 +1100,11 @@ class Game {
     if (this.onShore && this.held?.gun && !this.vehicles.active && this.bank.nearCounter(this.shorePlayer.body.translation())) {
       return this.bank.canRob ? '<kbd>E</kbd> Bank teller · <kbd>R</kbd> Rob the bank' : '<kbd>E</kbd> Bank teller (vault empty)';
     }
+    if (this.hostage) return `Holding a hostage — <kbd>G</kbd> let them go${this.held?.gun ? ' · <kbd>LMB</kbd> fire' : ''}`;
+    if (this.onShore && this.held?.gun && !this.vehicles.active) {
+      const st = this.stores.nearCounter(this.shorePlayer.body.translation());
+      if (st && this.stores.canRob(st)) return '<kbd>E</kbd> Talk to the clerk · <kbd>R</kbd> Rob the till';
+    }
     if (this.pick) return `Picking pocket… ${Math.round((this.pick.t / 1.2) * 100)}%`;
     if (this.dragging) return '<kbd>LMB</kbd> Let go · <kbd>RMB</kbd> Heave';
     if (this.held?.use === 'mop') return '<kbd>LMB</kbd> (hold) Mop · <kbd>RMB</kbd> Put down · <kbd>B</kbd> Bag it';
@@ -1052,7 +1124,7 @@ class Game {
     if (hit?.prop?.def.item) return `<kbd>LMB</kbd> Pick up ${hit.prop.def.name} · <kbd>B</kbd> Bag it ($${hit.prop.def.value})`;
     const far = hit || this.lookHit(3.2);
     if (far?.prop?.ragdoll) return `<kbd>LMB</kbd> Drag ${far.prop.ragdoll.dead ? 'body' : (this.onShore ? 'them' : 'sailor')}`;
-    if (hit?.npc) return `<kbd>LMB</kbd> Punch · <kbd>RMB</kbd> Grab ${this.onShore ? '' : 'sailor'}`;
+    if (hit?.npc) return `<kbd>LMB</kbd> Punch · <kbd>RMB</kbd> Grab ${this.onShore ? '' : 'sailor'}${this.onShore && this.canTakeHostage(hit.npc) ? ' · <kbd>G</kbd> Take hostage' : ''}`;
     return null;
   }
 
@@ -1205,6 +1277,8 @@ class Game {
     this.vehicles.update(dt, alive ? k : new Set());
     this.underworld.update(dt);
     this.bank.update(dt);
+    this.stores.update(dt);
+    this.updateHostage();
     this.updateGrenades(dt);
     this.gangs.update(dt);
     this.music.update(dt, this.started && this.settings.music && !this.health.dead ? Math.max(this.police.wanted, this.gangs.war.active ? 1 : 0) : 0);

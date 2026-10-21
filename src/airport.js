@@ -113,9 +113,9 @@ export class Airport {
     chain.position.set((gate.x0 + gate.x1) / 2, Y + 1.4, F.z0 - 0.12);
     g.add(chain);
     for (const dx of [-5, 0, 5]) solidBox(g, sb, 3, 0.9, 0.7, (gate.x0 + gate.x1) / 2 + dx, Y, F.z0 - 3, std({ color: 0xc9c5bc }));
-    sign(g, 'AIRPORT CLOSED', (gate.x0 + gate.x1) / 2, Y + FH + 1.4, F.z0 - 0.2, Math.PI, { w: 8, h: 1.4, bg: '#b3261e', fg: '#ffffff' });
-    sign(g, 'VERIAN INTERNATIONAL AIRPORT', (gate.x0 + gate.x1) / 2, Y + FH + 3, F.z0 - 0.2, Math.PI, { w: 14, h: 1.4, bg: '#1f3b63', fg: '#ffffff' });
-    for (const x of [gate.x0 - 30, gate.x1 + 25, -1400, -1650]) sign(g, 'CLOSED · NO ENTRY', x, Y + 1.8, F.z0 - 0.15, Math.PI, { w: 4, h: 0.8, bg: '#b3261e', fg: '#ffffff' });
+    sign(g, 'AIRPORT CLOSED', (gate.x0 + gate.x1) / 2, Y + 1.7, F.z0 - 0.2, Math.PI, { w: 7, h: 1.2, bg: '#b3261e', fg: '#ffffff' });
+    sign(g, 'VERIAN INTERNATIONAL AIRPORT', (gate.x0 + gate.x1) / 2, Y + FH + 2.2, F.z0 - 0.5, Math.PI, { w: 14, h: 1.4, bg: '#1f3b63', fg: '#ffffff', post: Y });
+    for (const x of [gate.x0 - 30, gate.x1 + 25, -1400, -1650].filter((x) => x > F.x0 + 4 && x < F.x1 - 4)) sign(g, 'CLOSED · NO ENTRY', x, Y + 1.8, F.z0 - 0.15, Math.PI, { w: 4, h: 0.8, bg: '#b3261e', fg: '#ffffff' });
 
     // ---- landside road, terminal, tower ----
     this.flat(cx1 - cx0 - 2, 30, (cx0 + cx1) / 2, F.z0 + 15, asphalt);

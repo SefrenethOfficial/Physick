@@ -22,6 +22,7 @@ export class Hood {
     game.scene.add(this.group);
     this.lootSpots = [];
     this.parkedSpots = [];
+    this.interiors = [];
     this.xs = [-550, -450, -350, -250];
     this.zs = [-1700, -1600, -1500, -1400, -1300];
     this.build();
@@ -65,7 +66,7 @@ export class Hood {
     addPier(bx0, bx1, -1506, -1494);
     for (const s of [-1, 1]) solidBox(g, sb, bx1 - bx0, 1, 0.3, deck.position.x, Y, -1500 + s * 5.85, std({ color: 0x8e8a82 }));
     for (const s of [-1, 1]) for (let x = bx0 + 4; x < bx1; x += 12) { const p = new THREE.Mesh(new THREE.BoxGeometry(2, 9, 2.5), std({ color: 0x7a766e })); p.position.set(x, Y - 5, -1500 + s * 4); g.add(p); }
-    sign(g, 'THE HOLLOWS', isl.x0 + 8, Y + 4.5, -1507, Math.PI / 2, { w: 7, h: 1.5, bg: '#2a2622', fg: '#e8d8b0' });
+    sign(g, 'THE HOLLOWS', isl.x0 + 6, Y + 3, -1512, -Math.PI / 2, { w: 6, h: 1.3, bg: '#2a2622', fg: '#e8d8b0', post: Y });
     this.entrance = new THREE.Vector3(isl.x0 + 10, Y, -1500);
 
     // ---- blocks ----
@@ -75,6 +76,7 @@ export class Hood {
       const lot = { cx: (r.x0 + r.x1) / 2, cz: (r.z0 + r.z1) / 2, y0: Y, w: ew ? r.z1 - r.z0 : r.x1 - r.x0, d: ew ? r.x1 - r.x0 : r.z1 - r.z0, front, streets: r.streets };
       const out = cityBuilding(g, sb, lot, opts);
       for (const p of out.loot) this.lootSpots.push(p);
+      if (opts.interior) this.interiors.push({ ...out, kind: opts.interior, name: opts.name, island: 'hood' });
       this.boardUp(r, front, opts.floors);
       return out;
     };

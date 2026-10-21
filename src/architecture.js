@@ -136,6 +136,7 @@ class Kit {
     group.add(this.root);
     this.root.updateMatrixWorld(true);
     this.q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+    this.yaw = yaw;
   }
   world(x, y, z) { return this.root.localToWorld(new THREE.Vector3(x, y, z)); }
   // box standing on y (bottom at y), centred on x/z
@@ -326,10 +327,10 @@ export function cityBuilding(group, sb, lot, opts) {
     aw.rotation.x = 0.35;
   }
   if (opts.name) {
-    const p = k.world(0, GROUND - 0.6, d / 2 + 0.06);
+    const p = k.world(0, GROUND - 0.6, d / 2 + 0.14);
     sign(group, opts.name, p.x, p.y, p.z, YAW[lot.front], { w: Math.min(w - 2, Math.max(5, opts.name.length * 0.75)), h: 1.1, bg: opts.signBg || '#1b1b1b', fg: opts.signFg || '#ffe7a0', glow: true });
   } else if (!opts.interior && type === 'brick' && street('front') && Math.random() < 0.35) {
-    const p = k.world(0, GROUND - 0.25, d / 2 + 0.06);
+    const p = k.world(0, GROUND - 0.6, d / 2 + 0.14);
     sign(group, pick(SHOP_NAMES), p.x, p.y, p.z, YAW[lot.front], { w: 5, h: 0.8, bg: '#151515', fg: '#f4e2b0' });
   }
   out.height = top;
@@ -339,7 +340,7 @@ export function cityBuilding(group, sb, lot, opts) {
 // ---------------------------------------------------------------- walk-in ground floors
 function interior(k, w, d, kind, wallM, opts) {
   const T = 0.3, DOOR = 2.4, DH = 3.0;
-  const out = { loot: [] };
+  const out = { loot: [], slots: [], yaw: k.yaw };
   const lit = (c) => mat(`lit${c}`, () => std({ color: c, emissive: c, emissiveIntensity: 0.28 }));
   const litWood = mat('litWood', () => std({ map: woodTex(), emissive: 0xffffff, emissiveMap: woodTex(), emissiveIntensity: 0.25 }));
   const W = { wood: litWood, dark: lit(0x3a3c40), metal: lit(0xa0a6ac) };
@@ -388,15 +389,22 @@ function interior(k, w, d, kind, wallM, opts) {
   out.inside = k.world(0, 0, d / 2 - 2.5);
   const spot = (x, y, z) => out.loot.push(k.world(x, y, z));
   const hw = w / 2 - T, hd = d / 2 - T;
+  out.room = { center: k.world(0, 0, 0), yaw: k.yaw, hw: w / 2, hd: d / 2 };
+  const slot = (x, y, z, kind = 'shelf') => out.slots.push({ pos: k.world(x, y, z), kind });
+  const clerkAt = (x, z) => { out.clerk = k.world(x, 0, z); };
   const counter = (x, z, cw, mat_ = W.wood) => {
     k.box(cw, 1.05, 0.8, x, 0, z, mat_);
     k.box(cw + 0.1, 0.06, 0.9, x, 1.05, z, W.dark, { collide: false });
   };
   // open shelving: a centre panel, end panels and boards that things can actually sit on
-  const shelf = (x, z, sw) => {
+  const shelf = (x, z, sw, sides = [-1, 1]) => {
     k.box(0.06, 2.0, sw, x, 0, z, W.wood);
     for (const e of [-1, 1]) k.box(0.56, 2.0, 0.05, x, 0, z + e * (sw / 2 - 0.025), W.wood);
-    for (const y of [0.08, 0.6, 1.15, 1.7]) k.box(0.56, 0.05, sw - 0.1, x, y, z, W.dark);
+    for (const y of [0.08, 0.6, 1.15, 1.7]) {
+      k.box(0.56, 0.05, sw - 0.1, x, y, z, W.dark);
+      // product slots along the board, on the side(s) facing the aisle
+      for (const sd of sides) for (let zz = -sw / 2 + 0.3; zz <= sw / 2 - 0.29; zz += 0.4) slot(x + sd * 0.15, y + 0.06, z + zz);
+    }
   };
 
   if (kind === 'shop' || kind === 'pawn') {
@@ -404,36 +412,37 @@ function interior(k, w, d, kind, wallM, opts) {
     for (const s of [-1, 1]) {
       const x = s * (hw - 0.35);
       for (let z = -hd + 2.5; z < hd - 3; z += 3.2) {
-        shelf(x, z, 2.8);
-        spot(x - s * 0.15, 1.2, z - 0.7); spot(x - s * 0.15, 0.65, z + 0.6); spot(x - s * 0.15, 1.75, z + 0.3);
+        shelf(x, z, 2.8, [-s]);
       }
     }
     if (w > 12) for (const ax of [-w / 6, w / 6]) for (let z = -hd + 4.5; z < hd - 5; z += 3.4) {
       shelf(ax, z, 3);
-      spot(ax + 0.15, 1.2, z - 0.6); spot(ax - 0.15, 0.65, z + 0.6);
     }
     const cz = -hd + 2.2;
     counter(w > 12 ? -w / 4 : 0, cz, Math.min(5, w - 4), kind === 'pawn' ? lit(0x5a4030) : W.wood);
     k.box(0.5, 0.35, 0.4, (w > 12 ? -w / 4 : 0) + 1, 1.11, cz, W.dark, { collide: false }); // till
     out.counter = k.world(w > 12 ? -w / 4 : 0, 0, cz + 1.5);
+    clerkAt(w > 12 ? -w / 4 : 0, cz - 1.0);
+    for (let i = 0; i < 3; i++) slot((w > 12 ? -w / 4 : 0) - 1.6 + i * 0.5, 1.12, cz + 0.15, 'counter'); // impulse buys on the counter
     if (kind === 'pawn') {
       // guitars, tellies and a safe behind the counter
       for (let i = 0; i < 3; i++) k.box(0.9, 0.6, 0.5, -hw + 1.5 + i * 1.2, 1.7, -hd + 0.35, W.dark, { collide: false });
       k.box(1, 1.2, 0.9, hw - 1.2, 0, -hd + 0.8, W.metal);
-      spot(-w / 4 - 1.5, 1.2, cz); spot(-w / 4 + 0.2, 1.2, cz);
     }
   } else if (kind === 'diner') {
     const cz = -hd + 2;
     counter(0, cz, w - 6, lit(0xc8302b));
+    out.counter = k.world(0, 0, cz + 1.5);
+    clerkAt(0, cz - 1.0);
     for (let x = -w / 2 + 4; x <= w / 2 - 4; x += 1.6) k.cyl(0.25, 0.75, x, 0, cz + 0.9, W.metal);
-    spot(-2, 1.15, cz); spot(2, 1.15, cz);
+    slot(-2, 1.12, cz, 'counter'); slot(2, 1.12, cz, 'counter');
     const red = lit(0x9e2420);
     for (const s of [-1, 1]) for (let z = -hd + 5.5; z < hd - 3; z += 3.2) {
       const x = s * (hw - 1.4);
       k.box(1.6, 0.75, 0.9, x, 0, z, lit(0xe8e2d4));
       k.box(1.6, 0.9, 0.5, x, 0, z - 0.9, red);
       k.box(1.6, 0.9, 0.5, x, 0, z + 0.9, red);
-      if (Math.random() < 0.6) spot(x, 0.95, z);
+      slot(x - 0.4, 0.76, z, 'table'); slot(x + 0.4, 0.76, z, 'table');
     }
   } else if (kind === 'bank') {
     // marble hall: a long teller counter with glass screens (a gap at one end), the vault behind
@@ -453,6 +462,7 @@ function interior(k, w, d, kind, wallM, opts) {
       k.box(0.8, 0.08, 0.3, x, 0.98, cz + 0.55, W.dark, { collide: false }); // pass-through tray
     }
     out.counter = k.world(cx, 0, cz + 1.6);
+    clerkAt(cx - cw / 4, cz - 1.2);
     // the vault: a big round door standing open in the back wall
     const vx = -w / 4;
     const ring = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.25, 24), lit(0x8a8f96));
@@ -477,7 +487,8 @@ function interior(k, w, d, kind, wallM, opts) {
     const cz = -hd + 2.5;
     counter(0, cz, Math.min(6, w - 6), lit(0xd8d2c4));
     out.counter = k.world(0, 0, cz + 1.5);
-    spot(-1, 1.2, cz); spot(1.2, 1.2, cz);
+    clerkAt(0, cz - 1.0);
+    spot(-1.6, 1.2, cz); spot(1.6, 1.2, cz);
     // lift doors on the back wall, a couple of sofas and plants
     for (const x of [-3, 3]) k.box(1.8, 2.6, 0.06, x, 0, -hd + 0.06, W.metal, { collide: false });
     for (const s of [-1, 1]) {

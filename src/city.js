@@ -171,7 +171,7 @@ export class City {
       solidBox(g, sb, 3, 0.5, 0.7, plaza.x + dx, Y + KERB, plaza.z + dz, benchM, { rotY: r });
       this.lootSpots.push(new THREE.Vector3(plaza.x + dx, Y + KERB + 0.8, plaza.z + dz));
     }
-    sign(g, 'VERIAN CITY', plaza.x, Y + 5, plaza.z - 24, 0, { w: 12, h: 2, bg: '#1f3b63' });
+    sign(g, 'VERIAN CITY', plaza.x, Y + KERB + 3.2, plaza.z - 24, 0, { w: 10, h: 1.8, bg: '#1f3b63', post: Y + KERB });
 
     // pocket park (block 1,3)
     const park = this.block(1, 3);
@@ -209,7 +209,7 @@ export class City {
       };
       const out = cityBuilding(g, sb, lot, opts);
       for (const p of out.loot) this.lootSpots.push(p);
-      if (opts.interior) this.interiors.push({ kind: opts.interior, name: opts.name, door: out.door, inside: out.inside });
+      if (opts.interior) this.interiors.push({ ...out, kind: opts.interior, name: opts.name, island: 'city' });
       return out;
     };
     const pickFront = (r) => { const a = [...r.streets]; return a[Math.floor(Math.random() * a.length)]; };
@@ -339,11 +339,23 @@ export class City {
     solidBox(g, sb, 11, 0.4, 9, dk.x, Y + 4, dk.z, std({ color: 0x1f6fa8 }), { collide: false });
     sign(g, 'BOAT SALES', dk.x + 5.1, Y + 3.2, dk.z, Math.PI / 2, { w: 8, h: 1.6, bg: '#1f6fa8', fg: '#ffffff', glow: true });
     this.dealerCounter = new THREE.Vector3(dk.x + 7, Y, dk.z);
-    sign(g, 'MARINA', mx + 2, Y + 4, 0, Math.PI / 2, { w: 8, h: 1.6, bg: '#2c3e5e' });
+    sign(g, 'MARINA', mx - 3, Y + 3, 0, Math.PI / 2, { w: 6, h: 1.4, bg: '#2c3e5e', post: Y });
     for (const pz of [-60, 0, 60]) for (const bx of [mx + 20, mx + 50]) lamp(g, sb, bx, Y, pz + 2.6);
   }
 
+  // Same as styleBase, but walk-in shops get a trade and a name over the door.
   styleFor(centre) {
+    const o = this.styleBase(centre);
+    const pk = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    if (o.interior === 'shop') Object.assign(o, pk([
+      { name: 'MINI MART', signBg: '#1f5f3a' }, { name: 'GROCERY', signBg: '#2f6f2a' }, { name: 'HARDWARE', signBg: '#6a3a1a' },
+      { name: 'PHARMACY', signBg: '#1f6f8f', signFg: '#ffffff' }, { name: 'GADGETS', signBg: '#1f2f6f' }]));
+    if (o.interior === 'diner') Object.assign(o, pk([{ name: 'DINER', signBg: '#b0201c', signFg: '#ffffff' }, { name: 'BURGER BAR', signBg: '#d0701c', signFg: '#ffffff' }, { name: 'CAFÉ', signBg: '#3a2a1a' }]));
+    if (o.interior === 'office' || o.interior === 'lobby') o.name = o.name || pk(['OFFICES', 'VERIAN TRUST', 'CALLOWAY & SONS', 'HALCYON CORP']);
+    return o;
+  }
+
+  styleBase(centre) {
     const r = Math.random();
     const interior = Math.random() < 0.3 ? ['shop', 'diner', 'office', 'shop'][Math.floor(Math.random() * 4)] : null;
     if (centre > 0.55) {

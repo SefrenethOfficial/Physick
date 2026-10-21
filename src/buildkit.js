@@ -144,18 +144,47 @@ export function house(group, sb, x, y0, z, yaw, w = 8, d = 7, h = 3.8) {
   return new THREE.Vector3(0, 0.45, d / 2 + 0.9).applyQuaternion(q).add(new THREE.Vector3(x, y0, z));
 }
 
-export function sign(group, text, x, y, z, yaw, { w = 6, h = 1.4, bg = '#1f3b63', fg = '#ffffff', glow = false } = {}) {
-  const t = canvasTex(512, Math.round((512 * h) / w), (g, cw, ch) => {
+// A sign board. Text is fitted to the board so nothing gets cut off. post: ground height to
+// stand it on two posts (freestanding signs), with a plain back so it doesn't read mirrored.
+export const SIGNS = []; // every sign board, for tests / debugging
+export function sign(group, text, x, y, z, yaw, { w = 6, h = 1.4, bg = '#1f3b63', fg = '#ffffff', glow = false, post = null } = {}) {
+  const cw = 1024, ch = Math.max(64, Math.round((cw * h) / w));
+  const t = canvasTex(cw, ch, (g) => {
     g.fillStyle = bg; g.fillRect(0, 0, cw, ch);
+    g.strokeStyle = 'rgba(255,255,255,0.25)'; g.lineWidth = Math.max(2, ch * 0.04);
+    g.strokeRect(g.lineWidth, g.lineWidth, cw - g.lineWidth * 2, ch - g.lineWidth * 2);
     g.fillStyle = fg;
-    g.font = `bold ${Math.round(ch * 0.62)}px "Chakra Petch", Arial, sans-serif`;
     g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText(text, cw / 2, ch / 2 + 2);
+    let size = Math.round(ch * 0.6);
+    g.font = `bold ${size}px "Chakra Petch", Arial, sans-serif`;
+    const maxW = cw * 0.9;
+    const width = g.measureText(text).width;
+    if (width > maxW) { size = Math.floor(size * (maxW / width)); g.font = `bold ${size}px "Chakra Petch", Arial, sans-serif`; }
+    g.fillText(text, cw / 2, ch / 2 + size * 0.05);
   });
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: t, emissive: glow ? 0xffffff : 0x000000, emissiveMap: glow ? t : null, emissiveIntensity: 0.6, side: THREE.DoubleSide }));
+  t.anisotropy = 8;
+  const face = new THREE.MeshStandardMaterial({ map: t, emissive: glow ? 0xffffff : 0x000000, emissiveMap: glow ? t : null, emissiveIntensity: 0.6, side: post == null ? THREE.DoubleSide : THREE.FrontSide });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), face);
   m.position.set(x, y, z);
   m.rotation.y = yaw;
   group.add(m);
+  SIGNS.push({ text, mesh: m, post });
+  if (post != null) {
+    // a backing board and two posts down to the ground
+    const back = new THREE.Mesh(new THREE.BoxGeometry(w + 0.2, h + 0.2, 0.12), std({ color: 0x2a2c30, roughness: 0.6 }));
+    back.position.set(x, y, z).add(new THREE.Vector3(0, 0, -0.07).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw));
+    back.rotation.y = yaw;
+    back.castShadow = true;
+    group.add(back);
+    const pm = std({ color: 0x3a3c40, roughness: 0.5, metalness: 0.5 });
+    const len = y - h / 2 - post + 0.05;
+    for (const s of [-1, 1]) {
+      const p = new THREE.Mesh(new THREE.BoxGeometry(0.16, len + h, 0.16), pm);
+      p.position.set(x, post + (len + h) / 2, z).add(new THREE.Vector3(s * w * 0.38, 0, -0.16).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw));
+      p.castShadow = true;
+      group.add(p);
+    }
+  }
   return m;
 }
 

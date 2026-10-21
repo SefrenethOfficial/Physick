@@ -68,7 +68,7 @@ export class Saltmarsh {
       for (let n = 0; n < 2; n++) this.lootSpots.push({ pos: new THREE.Vector3(x - 1.2 + n * 2.4, Y + 1.2, z), kind: 'stall' });
     }
     tree(g, sb, mx - 38, Y, mz - 38, 1.2); tree(g, sb, mx + 38, Y, mz + 38, 1.2); tree(g, sb, mx - 38, Y, mz + 38, 1.2); tree(g, sb, mx + 38, Y, mz - 38, 1.2);
-    sign(g, 'SALTMARSH MARKET', mx, Y + 5, mz - 44, 0, { w: 14, h: 2, bg: '#7a2e2e', fg: '#ffe7a0' });
+    sign(g, 'SALTMARSH MARKET', mx, Y + 3.4, mz - 44, Math.PI, { w: 11, h: 1.6, bg: '#7a2e2e', fg: '#ffe7a0', post: Y });
 
     // houses around every other block's edges
     for (let i = 0; i < this.xs.length - 1; i++) for (let j = 0; j < 4; j++) {
@@ -119,7 +119,7 @@ export class Saltmarsh {
       void c;
       this.lootSpots.push({ pos: new THREE.Vector3(-752 + (n % 2) * 3.5, Y + 1.2, isl.z1 + 8 + n * 7), kind: 'misc' });
     }
-    sign(g, 'SALTMARSH KEY', -750, Y + 4, isl.z1 + 1, 0, { w: 10, h: 1.8, bg: '#2c3e5e' });
+    sign(g, 'SALTMARSH KEY', -742, Y + 3, isl.z1 - 3, 0, { w: 8, h: 1.5, bg: '#2c3e5e', post: Y });
   }
 
   addHouse(x, z, yaw) {

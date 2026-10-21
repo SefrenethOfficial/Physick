@@ -125,6 +125,7 @@ export class Citizens extends Npcs {
       this.game.police.crime('assault', 1, new THREE.Vector3(t.x, t.y, t.z));
       npc.stunT = 0.7; // reeling from the hit
       if (npc.role === 'civ') this.flee(npc, this.game.shorePlayer.body.translation(), 8);
+      if (npc.role === 'clerk' && npc.store) npc.store.angry = 30;
     }
   }
 
@@ -159,6 +160,7 @@ export class Citizens extends Npcs {
         return;
       }
       if (npc.role === 'cop') { g.police.report(c.severity, c.pos, true, `${c.kind}`); npc.state = 'chase'; }
+      else if (npc.role === 'clerk') { npc.handsUp = 6; npc.reportT = 2.5; npc.reportSev = Math.max(npc.reportSev || 0, c.severity); npc.reportPos = c.pos.clone(); npc.reportSeen = true; npc.reportWhy = c.kind; }
       else { this.flee(npc, c.pos, 10); npc.reportT = 2.5; npc.reportSev = Math.max(npc.reportSev || 0, c.severity); npc.reportPos = c.pos.clone(); npc.reportSeen = true; npc.reportWhy = c.kind; }
       return;
     }
@@ -201,6 +203,7 @@ export class Citizens extends Npcs {
     const wanted = g.police.wanted;
 
     for (const npc of [...this.list]) {
+      if (npc.hostage) continue; // moved by the player
       const t = npc.body.translation();
       // thrown things
       const hits = this.sb.incoming(t, HALF, RAD);
@@ -239,10 +242,35 @@ export class Citizens extends Npcs {
       let want = null, speed = 0;
       if (npc.stunT > 0) {
         npc.stunT -= dt;
+      } else if (npc.role === 'clerk') {
+        // behind the counter: keep an eye on customers; angry armed clerks shoot
+        const st = npc.store;
+        if (npc.handsUp > 0) npc.handsUp -= dt;
+        const dh = Math.hypot(npc.post.x - t.x, npc.post.z - t.z);
+        if (dh > 0.8 && !(npc.handsUp > 0)) { want = new THREE.Vector3(npc.post.x - t.x, 0, npc.post.z - t.z).normalize(); speed = 1.2; }
+        else {
+          const look = playerVisible && distP < 9 ? Math.atan2(pp.x - t.x, pp.z - t.z) : npc.faceYaw;
+          npc.heading += Math.atan2(Math.sin(look - npc.heading), Math.cos(look - npc.heading)) * Math.min(1, dt * 4);
+        }
+        npc.atkT = (npc.atkT || 0) - dt;
+        if (st?.angry > 0 && npc.armed && !(npc.handsUp > 0) && playerVisible && onFoot && distP < 30 && npc.atkT <= 0) {
+          npc.atkT = 1.3 + Math.random() * 0.6;
+          this.setMarker(npc, '!');
+          if (g.gangs.shoot(npc, pp, 0.3)) g.health.damage(11, 'clerk');
+        } else if (!(st?.angry > 0)) this.setMarker(npc, null);
       } else if (npc.role === 'gang') {
         ({ want, speed } = this.gangBrain(npc, t, dt, pp, distP, playerVisible));
       } else if (npc.role === 'cop') {
-        if (wanted > 0 && onFoot && !npc.leaving && (playerVisible || npc.state === 'chase')) {
+        if (g.hostage && wanted > 0 && onFoot && !npc.leaving && (playerVisible || npc.state === 'chase')) {
+          // hostage standoff: they keep their distance and hold fire
+          npc.state = 'chase';
+          this.setMarker(npc, 'cop');
+          if (playerVisible) npc.lastSeen = pp.clone();
+          want = new THREE.Vector3(pp.x - t.x, 0, pp.z - t.z);
+          const d = want.length();
+          if (d > 0.01) want.normalize();
+          if (d < 9) { want.multiplyScalar(-1); speed = 2.5; } else if (d > 18) speed = 4; else { npc.heading = Math.atan2(want.x, want.z); want = null; }
+        } else if (wanted > 0 && onFoot && !npc.leaving && (playerVisible || npc.state === 'chase')) {
           npc.state = 'chase';
           this.setMarker(npc, 'cop');
           if (playerVisible) npc.lastSeen = pp.clone();
@@ -487,7 +515,7 @@ export class Citizens extends Npcs {
       npc.fig.root.position.set(t.x, t.y, t.z);
       npc.fig.root.rotation.y = npc.heading;
       npc.phase += dt * (2.5 + npc.speed * 2.6);
-      if (npc.state === 'flee' && npc.role === 'civ') animatePanic(npc.fig.parts, npc.phase);
+      if ((npc.state === 'flee' && npc.role === 'civ') || npc.hostage || npc.handsUp > 0) animatePanic(npc.fig.parts, npc.phase * (npc.handsUp > 0 ? 0.15 : 1));
       else animateWalk(npc.fig.parts, npc.phase, npc.speed / 1.5);
     }
     // top islands back up (out of sight of the player)

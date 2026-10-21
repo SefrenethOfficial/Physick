@@ -208,7 +208,8 @@ export class Police {
           want = 0;
           if (Math.abs(car.speed) < 2) this.deploy(car, goal);
         }
-        if (dist < 6) want = 9; // they will run you down
+        if (dist < 6 && !g.hostage) want = 9; // they will run you down
+      if (g.hostage && dist < 28) want = 0; // not with a hostage in the way
       }
     } else {
       if (!car.to) { car.to = this.nextNode(car, goal); }
@@ -233,7 +234,7 @@ export class Police {
 
     // ramming the player on foot
     car.ramT -= dt;
-    if (target && onFoot && !chasingCar && car.ramT <= 0 && car.speed > 5 && Math.hypot(target.x - car.pos.x, target.z - car.pos.z) < 3 && Math.abs(target.y - LAND_Y - 1) < 2) {
+    if (target && onFoot && !chasingCar && !g.hostage && car.ramT <= 0 && car.speed > 5 && Math.hypot(target.x - car.pos.x, target.z - car.pos.z) < 3 && Math.abs(target.y - LAND_Y - 1) < 2) {
       car.ramT = 1.2;
       g.health.damage(car.speed * 2.2, 'car');
       g.shorePlayer.vel.addScaledVector(fwd, car.speed * 0.9).add(new THREE.Vector3(0, 5, 0));
@@ -392,7 +393,7 @@ export class Police {
       for (const n of g.citizens.list) {
         if (n.role !== 'cop') continue;
         const t = n.body.translation();
-        if (Math.hypot(t.x - pt.x, t.z - pt.z) < 1.8) { cuffs = true; break; }
+        if (!g.hostage && Math.hypot(t.x - pt.x, t.z - pt.z) < 1.8) { cuffs = true; break; }
       }
     }
     this.bustT = cuffs ? this.bustT + dt : Math.max(0, this.bustT - dt * 2);
