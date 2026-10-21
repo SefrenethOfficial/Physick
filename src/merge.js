@@ -4,12 +4,17 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 // Collapse a static group's thousands of little meshes into a few big ones (per material look
 // and per 200 m tile), so a whole city costs a few dozen draw calls instead of over a thousand.
 
-const hexOf = (c) => (c ? c.getHexString() : '-');
+// colours a few shades apart look the same; bucketing them together saves a lot of draw calls
+const q = (v) => Math.round(v * 40);
+const hexOf = (c) => (c ? `${q(c.r)},${q(c.g)},${q(c.b)}` : '-');
 function matKey(m) {
   return [m.type, hexOf(m.color), m.map?.source?.uuid ?? '-', m.map ? `${m.map.repeat.x},${m.map.repeat.y}` : '',
-    hexOf(m.emissive), m.emissiveIntensity, m.emissiveMap?.source?.uuid ?? '-', m.roughness, m.metalness,
+    hexOf(m.emissive), m.emissiveIntensity, m.emissiveMap?.source?.uuid ?? '-', Math.round(m.roughness * 10), Math.round(m.metalness * 10),
     m.transparent, m.opacity, m.flatShading, m.side].join('|');
 }
+
+// every merged chunk, so the game can skip the ones lost in the haze
+export const MERGED = [];
 
 export function mergeStatic(group, tile = 200) {
   group.updateMatrixWorld(true);
@@ -57,6 +62,8 @@ export function mergeStatic(group, tile = 200) {
     m.receiveShadow = true;
     m.matrixAutoUpdate = false;
     group.add(m);
+    merged.computeBoundingSphere();
+    if (tile < 1e5) MERGED.push(m);
   }
   return buckets.size;
 }

@@ -43,7 +43,7 @@ export class Stores {
     this.unpaid = []; // { def, st, held }
     for (const it of [...game.city.interiors, ...(game.hood?.interiors || [])]) {
       if (!it.clerk) continue;
-      const st = { it, theme: themeOf(it), island: it.island, clerk: null, stocked: false, props: [], angry: 0, robbedAt: -1e9, clerkGoneAt: 0 };
+      const st = { it, theme: themeOf(it), island: it.island, clerk: null, stocked: false, showStock: false, props: [], angry: 0, robbedAt: -1e9, clerkGoneAt: 0 };
       st.label = it.name ? it.name.split('·')[0].trim() : st.theme;
       this.list.push(st);
       this.spawnClerk(st);
@@ -101,6 +101,8 @@ export class Stores {
       const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), st.it.yaw + (Math.random() - 0.5) * 0.2);
       const prop = g.portSandbox.spawn(def, new THREE.Vector3(s.pos.x, s.pos.y + 0.16, s.pos.z), q, { noHistory: true });
       prop.store = st;
+      prop.mesh.traverse((o) => { o.castShadow = false; });
+      prop.mesh.visible = st.showStock;
       st.props.push(prop);
       n++;
     }
@@ -213,6 +215,9 @@ export class Stores {
       if (!st.stocked && d < 80) this.stock(st);
       else if (st.stocked && d > 150) this.unstock(st);
       st.angry = Math.max(0, st.angry - dt);
+      // shelf stock is only drawn when you're at or in the shop (it's a lot of little things)
+      const show = d < Math.max(st.it.room.hw, st.it.room.hd) + 14;
+      if (show !== st.showStock) { st.showStock = show; for (const p of st.props) if (p.store === st) p.mesh.visible = show; }
       // a new clerk turns up a while after the old one was killed or taken
       if (!this.clerkOK(st) && !(st.clerk && st.clerk.hostage)) {
         st.clerkGoneAt ||= g.time;

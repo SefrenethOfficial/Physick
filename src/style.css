@@ -217,6 +217,8 @@ kbd {
 #settings button.on { background: #ffd166; color: var(--ink); }
 .srow { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid rgba(255,255,255,.08); }
 .srow b { display: block; font-size: 15px; }
+.ssec { margin: 14px 0 2px; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: #ffd166; }
+.ssec:first-child { margin-top: 0; }
 .srow small { display: block; opacity: .6; font-size: 12px; }
 .srow .tog { min-width: 64px; }
 .choice { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }

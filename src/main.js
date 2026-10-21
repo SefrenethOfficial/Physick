@@ -18,6 +18,7 @@ import { Port, GANGWAY_FOOT, LAND_Y } from './port.js';
 import { Jets } from './jets.js';
 import { Blood } from './blood.js';
 import { loadSettings, bindSettingsPanel } from './settings.js';
+import { Graphics } from './graphics.js';
 import { deckHalfWidth } from './ship.js';
 import { onLand } from './port.js';
 import { City } from './city.js';
@@ -27,7 +28,7 @@ import { Boats, BOAT_TYPES } from './boats.js';
 import { Citizens } from './citizens.js';
 import { Police } from './police.js';
 import { ISLANDS, PIERS, nearestLandPoint, islandAt } from './world.js';
-import { mergeStatic } from './merge.js';
+import { mergeStatic, MERGED } from './merge.js';
 import { Traffic } from './traffic.js';
 import { Park } from './park.js';
 import { Hood } from './hood.js';
@@ -78,7 +79,7 @@ class Game {
     await RAPIER.init();
 
     // ---------- renderer / scene ----------
-    const r = (this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true }));
+    const r = (this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: !!this.settings.antialias, powerPreference: 'high-performance' }));
     r.setPixelRatio(Math.min(devicePixelRatio, 2));
     r.shadowMap.enabled = true;
     r.shadowMap.type = THREE.PCFShadowMap;
@@ -199,9 +200,12 @@ class Game {
     this.timer = new THREE.Timer();
     this.timer.connect?.(document);
     this.fpsAcc = 0; this.fpsFrames = 0;
-    this.renderer.setAnimationLoop(() => this.tick());
+    this.graphics = new Graphics(this);
+    this.graphics.apply();
+    this.renderer.setAnimationLoop((now) => { if (this.graphics.shouldRender(now)) this.tick(); });
     window.physick = this;
     this.signs = SIGNS;
+    this.THREE = THREE;
   }
 
   // The walker you're controlling: aboard (ship frame) or ashore (world frame).
@@ -217,6 +221,7 @@ class Game {
 
   applySettings() {
     if (!this.settings.blood) { this.blood.clear(); this.worldBlood.clear(); }
+    this.graphics?.apply();
   }
 
   // ---------- city life: moving about, money, the bag ----------
@@ -1132,13 +1137,20 @@ class Game {
   cullFar() {
     const c = this.camera.position;
     const near = (x, z, r) => (x - c.x) ** 2 + (z - c.z) ** 2 < r * r;
-    const R = this.flying ? 0 : 170;
+    const v = this.view || { cull: 170, ship: 900 };
+    const R = this.flying ? 0 : v.cull;
     for (const n of this.citizens.list) { const t = n.fig.root.position; n.fig.root.visible = near(t.x, t.z, R); }
     for (const car of this.vehicles.all) car.mesh.visible = near(car.pos.x, car.pos.z, R * 1.6);
-    for (const p of this.portSandbox.props) { const t = p.mesh.position; p.mesh.visible = near(t.x, t.z, R * 0.8); }
+    for (const p of this.portSandbox.props) { const t = p.mesh.position; p.mesh.visible = p.store ? p.store.showStock : near(t.x, t.z, R * 0.8); }
     // the destroyer is a lot of little meshes: skip it when it's a speck on the horizon
+    // whole chunks of scenery that are entirely inside the fog
+    const fog = this.scene.fog.far + 50;
+    for (const m of MERGED) {
+      const b = m.geometry.boundingSphere;
+      m.visible = Math.hypot(b.center.x - c.x, b.center.z - c.z) - b.radius < fog;
+    }
     const sp = this.frame.position;
-    this.frame.visible = !this.onShore || this.flying || near(sp.x, sp.z, 900);
+    this.frame.visible = !this.onShore || this.flying || near(sp.x, sp.z, v.ship);
   }
 
   placeATMs() {
@@ -1281,6 +1293,7 @@ class Game {
     this.updateHostage();
     this.updateGrenades(dt);
     this.gangs.update(dt);
+    this.graphics.update(dt);
     this.music.update(dt, this.started && this.settings.music && !this.health.dead ? Math.max(this.police.wanted, this.gangs.war.active ? 1 : 0) : 0);
     this.police.update(dt);
     this.updatePickpocket(dt);

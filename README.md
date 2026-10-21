@@ -55,6 +55,20 @@ Press `M` for the full map: every island, road, trail and landmark, the shops an
 - **Wanted level** (1–5 stars): officers on foot, then squad cars that chase you down the streets and run you over, and at sea police boats that ram your boat. From 2 stars they hit back, from 3 they shoot. Stay out of sight and the stars drain away; flying a jet loses them.
 - **Busted:** let an officer stay on you for a couple of seconds and you're arrested: fined a quarter of your cash and your bag confiscated. Die and you wake up at the hospital, minus the bill.
 
+## Graphics settings
+
+Open **Settings** from the pause screen. The **Low / Medium / High / Ultra** presets set everything at once, or adjust these yourself:
+
+- **Resolution:** 50%, 75%, 100% or Native (full sharpness on high-DPI screens). This makes the biggest difference to speed.
+- **Dynamic resolution:** drops the resolution automatically when the frame rate dips, then raises it again.
+- **Shadows:** Off, Low, High or Ultra (shadow map size and how far shadows reach).
+- **View distance:** Near, Medium or Far. Scenery hidden in the haze isn't drawn at all.
+- **Crowds and traffic:** fewer or more people and cars.
+- **Antialiasing:** applies the next time the game loads.
+- **Frame rate cap:** 30 or 60 FPS, or off. **Show FPS:** on or off.
+
+Shelf stock in the shops is only drawn when you're at the shop. Distant scenery chunks are skipped, and the warship isn't drawn when it's far off.
+
 ## Controls
 
 **On foot**
