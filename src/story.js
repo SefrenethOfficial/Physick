@@ -25,7 +25,7 @@ export const KEY_ITEMS = {
 const DOCS = ['manifest', 'blueprint'];
 
 const INTRO = [
-  `Three weeks ago a bomb went off at Verian Central. Eleven people died. One of them was <b>${FRIEND}</b>, the closest thing you ever had to family.`,
+  `Three weeks ago a bomb went off at Verian Central. Eleven people died. One of them was <b>${FRIEND}</b>, the closest thing you ever had to family. You were standing next to Wren. You lived; your right arm didn't. The robot arm the hospital gave you still doesn't feel like yours.`,
   'The police called it an "isolated incident". It wasn\'t. A cell calling itself <b>the Ashen Hand</b> did it, and they\'re still in Verian, still walking around.',
   `You can't touch them yet. You've got no money, no gear and no names. But Wren's cousin <b>${FIXER}</b> knows people, and people cost money.`,
 ];
@@ -311,7 +311,7 @@ export class Story {
     this.state.introSeen = true;
     this.save();
     if (!this.state.messages.length) this.phone.text(FIXER, MISSIONS[0].brief.replace(`${FIXER}: `, ''), true);
-    e.open('For Wren', html, (body) => body.addEventListener('click', (ev) => {
+    e.open('Verian Central', html, (body) => body.addEventListener('click', (ev) => {
       const b = ev.target.closest('button[data-a]');
       if (!b) return;
       e.close();
@@ -827,7 +827,6 @@ export class Story {
       <h1>ACT ${['', 'I', 'II', 'III'][n]}</h1><h2>complete</h2>
       <p>Verian Central Square is still standing. The bomb is at the bottom of the harbour, the Courier is dead in a truck that's now a metal pancake, and the Ashen Hand have lost their first man.</p>
       <p>They know someone is coming for them now. They don't know it's you. Not yet.</p>
-      <p class="lede">For Wren.</p>
       <div class="btns"><button data-a="ok">Continue</button></div></div>`;
     e.open('The Ashen Hand', html, (body) => body.addEventListener('click', (ev) => { if (ev.target.closest('button[data-a]')) e.close(); }));
   }

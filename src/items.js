@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 
-// Things you can pick up in your hand, carry, put on shelves, throw, and sometimes use.
+// Things you can pick up in the robot hand, carry, put on shelves, throw, and sometimes use.
 
 function labelTex(bg, fg, text, w = 256, h = 128, extra) {
   const c = document.createElement('canvas');

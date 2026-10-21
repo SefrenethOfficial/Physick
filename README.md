@@ -4,7 +4,7 @@
 
 ## Story
 
-Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **Wren Takavic**, your closest friend. A cell called **the Ashen Hand** did it, and they're still in the city. The story opens the first time you press Play.
+Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **Wren Takavic**, your closest friend. You were standing beside Wren and lost your right arm; you get around with a robotic one now. A cell called **the Ashen Hand** did it, and they're still in the city. The story opens the first time you press Play.
 
 **Your phone** (`J`) holds your jobs (start or replay a mission), texts from Vic (each new job arrives as a message) and your key items. Calls come in on it mid-mission: press `J` to answer.
 
@@ -126,7 +126,7 @@ Shelf stock in the shops is only drawn when you're at the shop. Distant scenery 
 - **Ocean:** Gerstner waves in a shader, with a matching CPU wave function so the ship heaves, pitches and rolls on the waves you see. Bow wave, Kelvin wake and churned water astern scale with speed.
 - **The ship:** a procedural destroyer: lofted hull with hull number, walkable main deck, 5-inch gun, VLS, superstructure with stairs, two funnels, boats, CIWS, hangar and flight deck, a mast with spinning radar, and an enclosed bridge with consoles, wheel and engine telegraph. She heels into turns.
 - **Interior:** doorways amidships on both sides open into a cross passage, with the crew mess forward (tables, galley, mugs and rations) and the storeroom aft (shelving racks and lockers stocked with ammo boxes, toolboxes, medkits, extinguishers, jerry cans, life jackets, rope, spare shells and more). Everything can be picked up, carried, re-shelved or thrown.
-- **Your hand:** a proper arm in a jacket sleeve, with a watch; the fingers wrap round whatever you're holding and make a fist when you punch.
+- **Your hand:** a robotic arm (you lost your own arm in the Verian Central bombing that killed Wren); whatever you pick up is shown clamped in its gripper.
 - **Gunnery:** man the 5-inch gun or either CIWS; rounds fly in world space with gravity and the ship's own speed, splash into the sea and blow up target rafts.
 - **Naval air station:** a quay with bollards and lamp posts, an apron with three hangars, a control tower, container stacks and fuel tanks, a 1.3 km runway with a parallel taxiway, and a windsock. It has its own physics world, so you can walk around it while the ship sails off.
 - **Fighter jets:** procedural twin-tail navy fighters with a physical-ish flight model (thrust, drag, lift from angle of attack, stalls), taxiing, take-off, landing (or crashing), afterburners, a nose cannon that can hit the target rafts, flight HUD with flight-path marker and STALL / PULL UP warnings. Wrecked jets are replaced after a while.

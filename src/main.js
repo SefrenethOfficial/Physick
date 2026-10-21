@@ -10,6 +10,7 @@ import { Npcs } from './npcs.js';
 import { Health } from './health.js';
 import { Ocean } from './ocean.js';
 import { Ship, HELM, DECK } from './ship.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Viewmodel } from './viewmodel.js';
 import { ITEMS, ITEM_BY_ID, LOOT_COMMON, LOOT_RARE } from './items.js';
 import { Gunnery } from './guns.js';
@@ -66,7 +67,7 @@ class Game {
     this.dragging = null; // { prop, local } a body being dragged
     this.mopping = false;
     this.heldProp = null;
-    this.held = null; // item def carried in your hand
+    this.held = null; // item def carried in the robot hand
     this.mouseDX = 0;
     this.mouseDY = 0;
     this.shake = 0;
@@ -140,7 +141,11 @@ class Game {
     mergeStatic(this.saltmarsh.group);
     this.portWorld.step();
 
-    this.viewmodel = new Viewmodel(null, FOV);
+    loadingEl.textContent = 'Loading your arm…';
+    const gltf = await new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}assets/robotic_arm.glb`, (e) => {
+      if (e.total) loadingEl.textContent = `Loading your arm… ${Math.round((e.loaded / e.total) * 100)}%`;
+    });
+    this.viewmodel = new Viewmodel(gltf.scene, FOV);
 
 
     this.shipPlayer = new Player(this, new THREE.Vector3(0, DECK + 1.3, 44));
