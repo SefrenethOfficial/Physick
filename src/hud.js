@@ -12,11 +12,12 @@ export class Hud {
       <div class="compass" id="compass"><div class="strip"></div><div class="needle"></div><b id="hdg">000°</b></div>
       <div class="crosshair"><b></b></div>
       <div class="stats" id="stats"></div>
-      <div class="money" id="money"><b>$0</b><i></i></div>
+      <div class="money" id="money"><b>$0</b><i></i><small id="bankamt"></small></div>
       <div class="bagmeter" id="bagmeter"><span>Bag</span><div><i></i></div><b>0/40</b></div>
       <div class="wanted" id="wanted"></div>
       <canvas class="minimap" id="minimap" width="200" height="200"></canvas>
       <div class="banner" id="banner"></div>
+      <div class="bigmap" id="bigmap"><canvas></canvas></div>
       <div class="boatpanel" id="boatpanel">
         <div class="row"><span>Boat</span><b id="bname">Dinghy</b></div>
         <div class="row"><span>Speed</span><b id="bspd">0 kn</b></div>
@@ -229,6 +230,12 @@ export class Hud {
     }
   }
 
+  setBank(n) {
+    const el = this.el.querySelector('#bankamt');
+    const t = n > 0 ? `bank $${n.toLocaleString()}` : '';
+    if (el.textContent !== t) el.textContent = t;
+  }
+
   setBag(w, cap) {
     this.bagEl.querySelector('i').style.width = `${Math.min(w / cap, 1) * 100}%`;
     this.bagEl.querySelector('b').textContent = `${Math.round(w)}/${cap}`;
@@ -276,6 +283,67 @@ export class Hud {
     this.bannerEl.classList.add('show');
   }
 
+  get bigMapOpen() { return this.el.querySelector('#bigmap').classList.contains('on'); }
+  toggleBigMap(on = !this.bigMapOpen) { this.el.querySelector('#bigmap').classList.toggle('on', on); this.bigZoom = this.bigZoom || 1; }
+
+  // Full map (M): every island, road and place of interest, with you and the police on it.
+  // zoom 1 shows the whole archipelago; zooming in centres on you.
+  drawBigMap(info) {
+    const wrap = this.el.querySelector('#bigmap'), cv = wrap.querySelector('canvas');
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    const Wc = innerWidth, Hc = innerHeight;
+    if (cv.width !== Wc * dpr || cv.height !== Hc * dpr) { cv.width = Wc * dpr; cv.height = Hc * dpr; cv.style.width = Wc + 'px'; cv.style.height = Hc + 'px'; }
+    const g = cv.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, Wc, Hc);
+    const b = info.bounds, zoom = this.bigZoom || 1;
+    const fit = Math.min((Wc - 80) / (b.x1 - b.x0), (Hc - 120) / (b.z1 - b.z0));
+    const s = fit * zoom;
+    const cx = zoom === 1 ? (b.x0 + b.x1) / 2 : info.x, cz = zoom === 1 ? (b.z0 + b.z1) / 2 : info.z;
+    const X = (x) => Wc / 2 + (x - cx) * s, Z = (z) => Hc / 2 + 10 + (z - cz) * s;
+    g.fillStyle = '#16405e'; g.fillRect(0, 0, Wc, Hc);
+    // waves texture-ish
+    g.strokeStyle = 'rgba(255,255,255,0.04)';
+    for (let y = 0; y < Hc; y += 18) { g.beginPath(); g.moveTo(0, y); g.lineTo(Wc, y + 6); g.stroke(); }
+    const rect = (r, col) => { g.fillStyle = col; g.fillRect(X(r.x0), Z(r.z0), Math.max((r.x1 - r.x0) * s, 1), Math.max((r.z1 - r.z0) * s, 1)); };
+    const ICOL = { city: '#9a968e', town: '#6f9a4f', park: '#2f5a2a', airport: '#6c8a55', naval: '#7d7a70' };
+    for (const isl of info.islands) { g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(X(isl.x0) + 3, Z(isl.z0) + 3, (isl.x1 - isl.x0) * s, (isl.z1 - isl.z0) * s); }
+    for (const isl of info.islands) rect(isl, ICOL[isl.id] || '#7d7a70');
+    for (const r of info.rects || []) rect(r, r.color);
+    for (const p of info.piers) rect(p, '#a07d55');
+    for (const r of info.roads) rect(r, '#55585e');
+    g.strokeStyle = '#8a6a3a'; g.lineWidth = Math.max(1, 3 * s);
+    for (const line of info.trails || []) { g.beginPath(); line.forEach(([x, z], i) => (i ? g.lineTo(X(x), Z(z)) : g.moveTo(X(x), Z(z)))); g.stroke(); }
+    // island names
+    g.textAlign = 'center';
+    for (const isl of info.islands) {
+      g.font = `bold ${Math.max(12, Math.min(22, 14 * Math.sqrt(zoom)))}px "Chakra Petch", Arial, sans-serif`;
+      g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillText(isl.name.toUpperCase(), X((isl.x0 + isl.x1) / 2) + 1, Z(isl.z0) - 7);
+      g.fillStyle = '#fff'; g.fillText(isl.name.toUpperCase(), X((isl.x0 + isl.x1) / 2), Z(isl.z0) - 8);
+    }
+    // places
+    g.font = `${zoom > 1 ? 12 : 10}px Arial`;
+    for (const m of info.pois) {
+      const px = X(m.x), pz = Z(m.z);
+      if (px < -20 || px > Wc + 20 || pz < -20 || pz > Hc + 20) continue;
+      g.fillStyle = '#000'; g.beginPath(); g.arc(px, pz, (m.r || 4) + 1.5, 0, 7); g.fill();
+      g.fillStyle = m.color; g.beginPath(); g.arc(px, pz, m.r || 4, 0, 7); g.fill();
+      if (m.label && (zoom > 1 || m.big)) { g.fillStyle = 'rgba(0,0,0,0.7)'; g.fillText(m.label, px + 1, pz - 7); g.fillStyle = '#fff'; g.fillText(m.label, px, pz - 8); }
+    }
+    for (const m of info.marks) { g.fillStyle = m.color; g.beginPath(); g.arc(X(m.x), Z(m.z), m.r || 3, 0, 7); g.fill(); }
+    // you
+    g.save(); g.translate(X(info.x), Z(info.z)); g.rotate(-info.yaw);
+    g.fillStyle = '#ffd166'; g.strokeStyle = '#000'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(0, -11); g.lineTo(7, 8); g.lineTo(0, 4); g.lineTo(-7, 8); g.closePath(); g.fill(); g.stroke();
+    g.restore();
+    // title and legend
+    g.textAlign = 'left';
+    g.font = 'bold 22px "Chakra Petch", Arial, sans-serif'; g.fillStyle = '#fff'; g.fillText('MAP', 24, 36);
+    g.font = '13px Arial'; g.fillStyle = 'rgba(255,255,255,0.75)'; g.fillText(`M close · mouse wheel zoom (${zoom}×)`, 80, 35);
+    const legend = [['#ffd166', 'You'], ['#ffd166', 'Pawn shop'], ['#2fd38a', 'Bank / ATM'], ['#7fd3ff', 'Boat sales'], ['#ff5a4a', 'Arms dealer'], ['#d48aff', 'Fence'], ['#ffb36b', 'Chop shop'], ['#ff6a6a', 'Hospital'], ['#4a7dff', 'Police'], ['#7be08a', 'Your boats / cars']];
+    legend.forEach(([c, t], i) => { const y = Hc - 24 - (legend.length - 1 - i) * 17; g.fillStyle = c; g.beginPath(); g.arc(30, y - 4, 5, 0, 7); g.fill(); g.fillStyle = '#fff'; g.fillText(t, 42, y); });
+  }
+
   // Minimap: north up, centred on you. islands, piers, boats, police, and your heading.
   drawMap(info) {
     const g = this.map, W = 200, S = info.scale; // metres per pixel
@@ -286,7 +354,7 @@ export class Hud {
     g.beginPath(); g.arc(W / 2, W / 2, W / 2 - 2, 0, Math.PI * 2); g.clip();
     g.fillStyle = '#1d4a6b'; g.fillRect(0, 0, W, W);
     for (const isl of info.islands) {
-      g.fillStyle = isl.id === 'town' ? '#5f8a45' : isl.id === 'city' ? '#8f8b84' : isl.id === 'park' ? '#2f5a2a' : '#7d7a70';
+      g.fillStyle = isl.id === 'town' ? '#5f8a45' : isl.id === 'city' ? '#8f8b84' : isl.id === 'park' ? '#2f5a2a' : isl.id === 'airport' ? '#5f7a4a' : '#7d7a70';
       g.fillRect(X(isl.x0), Z(isl.z0), (isl.x1 - isl.x0) / S, (isl.z1 - isl.z0) / S);
     }
     g.fillStyle = '#55585e';

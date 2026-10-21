@@ -29,6 +29,8 @@ import { ISLANDS, PIERS, nearestLandPoint, islandAt } from './world.js';
 import { mergeStatic } from './merge.js';
 import { Traffic } from './traffic.js';
 import { Park } from './park.js';
+import { Airport } from './airport.js';
+import { Bank } from './bank.js';
 import { Vehicles } from './vehicles.js';
 import { Car } from './carphys.js';
 import { Underworld } from './underworld.js';
@@ -112,6 +114,9 @@ class Game {
     loadingEl.textContent = 'Planting Cherry Estate…';
     this.park = new Park(this, this.portSandbox);
     mergeStatic(this.park.group);
+    loadingEl.textContent = 'Closing the airport…';
+    this.airport = new Airport(this, this.portSandbox);
+    mergeStatic(this.airport.group);
     mergeStatic(this.port.group);
     mergeStatic(this.city.group);
     mergeStatic(this.saltmarsh.group);
@@ -148,6 +153,8 @@ class Game {
     this.traffic.addNetwork('city', this.city.xs, this.city.zs, this.city.lane, 18, 11);
     this.traffic.addNetwork('town', this.saltmarsh.xs, this.saltmarsh.zs, 2.4, 5, 8);
     this.vehicles = new Vehicles(this);
+    this.bank = new Bank(this);
+    this.placeATMs();
     for (const sp of [...this.city.parkedSpots, ...this.saltmarsh.parkedSpots]) {
       this.vehicles.parked.push(new Car(this, { color: sp.color, police: !!sp.police, x: sp.x, z: sp.z, heading: sp.heading }));
     }
@@ -266,6 +273,7 @@ class Game {
       } else if (hit.prop) {
         hit.prop.body.applyImpulseAtPoint(dir.clone().multiplyScalar(G.dmg * 0.02), hit.point, true);
       } else {
+        if (this.onShore && this.bank.hitATM(hit.collider, G.dmg)) continue;
         const car = this.onShore && this.carByCollider(hit.collider);
         if (car) this.shootCar(car, G.dmg, hit.point);
         for (let i = 0; i < 3; i++) this.fx.emit(toWorld(hit.point), hit.normal.clone().multiplyScalar(2).add(new THREE.Vector3(Math.random() - 0.5, Math.random(), Math.random() - 0.5)), 0xffd27a, 0.25, 1, 0);
@@ -434,7 +442,7 @@ class Game {
     } else if (hit.prop) {
       this.sfx.play('punch');
       hit.prop.body.applyImpulseAtPoint(dir.multiplyScalar(melee ? 6 : 3), hit.point, true);
-    } else this.sfx.play('impact');
+    } else if (!(this.onShore && this.bank.hitATM(hit.collider, melee ? melee * 0.6 : 12))) this.sfx.play('impact');
   }
 
   // Search a body you're looking at (once each).
@@ -813,6 +821,9 @@ class Game {
     if (this.near(this.city.pawnCounter, 3.5)) return { label: 'Pawn shop — sell loot', run: () => this.economy.openPawn() };
     if (this.near(this.city.dealerCounter, 4)) return { label: 'Boat sales', run: () => this.economy.openDealer(BOAT_TYPES) };
     const dealer = this.underworld.near(pos);
+    if (this.bank.nearCounter(pos)) return { label: 'Bank teller', run: () => this.bank.open(false) };
+    const atm = this.bank.nearATM(pos);
+    if (atm) return { label: 'Use the ATM', run: () => this.bank.open(true) };
     if (dealer) return { label: `Talk to ${dealer.title.split(' ')[0].replace(/[^\w']/g, '')}`, run: () => this.underworld.open(dealer) };
     const car = this.vehicles.nearby(pos);
     if (car) return { label: car.kind === 'mine' ? 'Get in' : car.kind === 'police' ? 'Steal the police car' : 'Steal the car', run: () => this.vehicles.steal(car) };
@@ -927,8 +938,16 @@ class Game {
       if (e.button === 0) { this.jetTrigger = false; this.mopping = false; this.firing = false; }
     });
     addEventListener('contextmenu', (e) => e.preventDefault());
+    addEventListener('wheel', (e) => {
+      if (!this.hud.bigMapOpen) return;
+      const Z = [1, 2, 4, 8];
+      const i = Z.indexOf(this.hud.bigZoom || 1);
+      this.hud.bigZoom = Z[Math.max(0, Math.min(Z.length - 1, i + (e.deltaY < 0 ? 1 : -1)))];
+      this.bigMapT = 0;
+    }, { passive: true });
     addEventListener('keydown', (e) => {
       if (e.code === 'Space' || e.code === 'Tab') e.preventDefault();
+      if (e.code === 'KeyM' && !e.repeat && (this.locked || this.hud.bigMapOpen) && !this.panelOpen) { this.hud.toggleBigMap(); this.bigMapT = 0; return; }
       if (this.panelOpen && (e.code === 'Tab' || e.code === 'Escape' || e.code === 'KeyE')) { this.economy.close(); return; }
       if (e.repeat || !this.locked) return;
       this.keys.add(e.code);
@@ -956,6 +975,7 @@ class Game {
       if (this.gunnery.active || this.boats.active || this.vehicles.active) return;
       if (e.code === 'KeyF') { this.useHeld(); return; }
       if (e.code === 'KeyB') { this.stash(); return; }
+      if (e.code === 'KeyR' && this.onShore && this.held?.gun && this.bank.nearCounter(this.shorePlayer.body.translation())) { this.bank.startHeist(); return; }
       if (e.code === 'Tab') { this.endDrag(false); this.economy.openBag(); return; }
       if (this.atHelm) {
         if (e.code === 'KeyW' || e.code === 'ArrowUp') { this.ship.telegraphUp(); this.sfx.play('telegraph'); }
@@ -988,6 +1008,13 @@ class Game {
       const v = this.vehicles.active;
       if (this.underworld.chopZone(v.pos)) return `<kbd>E</kbd> Sell to the chop shop ($${this.underworld.carPrice(v)})`;
       return Math.abs(v.speed) < 5 ? '<kbd>E</kbd> Get out · <kbd>Space</kbd> Handbrake · <kbd>H</kbd> Horn' : null;
+    }
+    if (this.onShore && this.bank.heist) {
+      const bp = this.bank.prompt(this.shorePlayer.body.translation());
+      if (bp) return bp;
+    }
+    if (this.onShore && this.held?.gun && !this.vehicles.active && this.bank.nearCounter(this.shorePlayer.body.translation())) {
+      return this.bank.canRob ? '<kbd>E</kbd> Bank teller · <kbd>R</kbd> Rob the bank' : '<kbd>E</kbd> Bank teller (vault empty)';
     }
     if (this.pick) return `Picking pocket… ${Math.round((this.pick.t / 1.2) * 100)}%`;
     if (this.dragging) return '<kbd>LMB</kbd> Let go · <kbd>RMB</kbd> Heave';
@@ -1023,6 +1050,58 @@ class Game {
     // the destroyer is a lot of little meshes: skip it when it's a speck on the horizon
     const sp = this.frame.position;
     this.frame.visible = !this.onShore || this.flying || near(sp.x, sp.z, 900);
+  }
+
+  placeATMs() {
+    const c = this.city, Y = LAND_Y;
+    // on the pavement at the middle of a block's north side, facing the street
+    for (const [i, j] of [[2, 1], [3, 2], [1, 2], [3, 4], [0, 0], [4, 3], [1, 4], [4, 0]]) {
+      const b = c.block(i, j);
+      this.bank.addATM((b.x0 + b.x1) / 2 + 4, Y + 0.15, b.z0 + 1.0, Math.PI);
+    }
+    const bk = c.bank.door;
+    this.bank.addATM(bk.x + 6, Y + 0.15, bk.z - 0.6, Math.PI); // outside the bank
+    this.bank.addATM(c.isl.x1 - 8, Y, 40, Math.PI / 2); // marina
+    const m = this.saltmarsh.market;
+    this.bank.addATM(m.x + 30, Y, m.z + 44, 0); // Saltmarsh market
+    this.bank.addATM(-1175, Y, -70.5, 0); // ranger station
+  }
+
+  drawBigMap(yaw) {
+    const pos = this.vehicles.active?.pos || this.boats.active?.pos || this.camera.position;
+    const pois = [];
+    const P = (p, color, label, big = false, r = 4.5) => pois.push({ x: p.x, z: p.z, color, label, big, r });
+    const c = this.city;
+    P(c.pawnCounter, '#ffd166', 'Pawn shop');
+    P(c.bank.counter, '#2fd38a', 'Bank', true, 5.5);
+    for (const a of this.bank.atms) P(a.pos, a.broken ? '#666' : '#2fd38a', 'ATM', false, 3);
+    P(c.dealerCounter, '#7fd3ff', 'Boat sales', true);
+    P(c.hospital, '#ff6a6a', 'Hospital');
+    P(c.policeStation, '#4a7dff', 'Police station');
+    P(c.plaza, '#e8e2d4', 'Plaza');
+    for (const d of this.underworld.dealers) P(d.pos, d.color, d.title.split('—')[0].replace(/"/g, '').trim());
+    P(this.saltmarsh.market, '#ffb36b', 'Market');
+    P(this.saltmarsh.dock, '#a07d55', 'Fishing dock');
+    P(this.park.entrance, '#7be08a', 'Trailhead');
+    P({ x: -1165, z: -80 }, '#c9a26a', 'Ranger station');
+    for (const [x, z] of [[-1380, -262], [-1420, 240], [-1605, -62]]) P({ x, z }, '#ff9a3a', 'Campsite', false, 3.5);
+    P({ x: -1650, z: 330 }, '#c9a26a', 'Lookout');
+    P({ x: -1215, z: 475 }, '#b3261e', 'Airport (closed)', true);
+    const sp = this.ship.root.position;
+    P(sp, '#c9ced4', 'Destroyer', true);
+    P({ x: 420, z: 0 }, '#c9ced4', 'Air base', true);
+    const marks = [];
+    for (const b of this.boats.list) if (b.alive && (b.owned || b.police)) marks.push({ x: b.pos.x, z: b.pos.z, color: b.police ? '#4a7dff' : '#7be08a', r: 3.5 });
+    for (const v of this.vehicles.list) if (!v.wreck) marks.push({ x: v.pos.x, z: v.pos.z, color: '#7be08a', r: 3 });
+    for (const car of this.police.cars) marks.push({ x: car.pos.x, z: car.pos.z, color: '#ff3030', r: 3.5 });
+    for (const n of this.citizens.list) {
+      if (n.role !== 'cop' || !(this.police.wanted > 0 || this.economy.perks.scanner)) continue;
+      const t = n.body.translation();
+      marks.push({ x: t.x, z: t.z, color: '#9ec5ff', r: 2.5 });
+    }
+    const bounds = { x0: Infinity, x1: -Infinity, z0: Infinity, z1: -Infinity };
+    for (const i of ISLANDS) { bounds.x0 = Math.min(bounds.x0, i.x0 - 60); bounds.x1 = Math.max(bounds.x1, i.x1 + 60); bounds.z0 = Math.min(bounds.z0, i.z0 - 80); bounds.z1 = Math.max(bounds.z1, i.z1 + 60); }
+    this.hud.drawBigMap({ bounds, x: pos.x, z: pos.z, yaw, islands: ISLANDS, piers: PIERS, roads: this.roadsCache || [], trails: this.park.trails, rects: this.airport.mapRects, pois, marks });
   }
 
   drawMinimap(yaw) {
@@ -1103,6 +1182,7 @@ class Game {
     this.boats.update(dt, alive ? k : new Set());
     this.vehicles.update(dt, alive ? k : new Set());
     this.underworld.update(dt);
+    this.bank.update(dt);
     this.updateGrenades(dt);
     this.music.update(dt, this.started && this.settings.music && !this.health.dead ? this.police.wanted : 0);
     this.police.update(dt);
@@ -1189,6 +1269,7 @@ class Game {
     if (this.cullT <= 0) { this.cullT = 0.4; this.cullFar(); }
     this.mapT = (this.mapT || 0) - dt;
     if (this.mapT <= 0) { this.mapT = 0.1; this.drawMinimap(viewYaw); }
+    if (this.hud.bigMapOpen) { this.bigMapT = (this.bigMapT || 0) - dt; if (this.bigMapT <= 0) { this.bigMapT = 0.15; this.drawBigMap(viewYaw); } }
 
     const r = this.renderer;
     r.autoClear = true;

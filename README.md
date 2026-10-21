@@ -5,6 +5,7 @@
 ## The world
 
 - **Verian City** (where you start): a compact 5 × 5 block downtown with kerbed pavements, brick walk-ups with shopfronts and fire escapes, apartment blocks with balconies and glass towers on stone podiums. Plenty of ground floors are walk-in: shops with shelves of stuff, diners, office and police/hospital lobbies, and the **pawn shop** (sell anything at its counter with `E`). Cars drive the streets (they queue, turn, stop for people and honk at you) and pedestrians walk the pavements and cross at the corners. There's a plaza with a fountain, a pocket park, the **boat dealer** at the marina, a police station and a hospital.
+- **Verian International Airport** (south-west of the city, over a causeway): closed. The gate's chained shut, the runway is coned off and marked with big yellow crosses, and three airliners sit parked on the apron.
 - **Cherry Estate National Park** (behind Verian City, to the west): thousands of pines, dirt trails that loop through the forest, a ranger station at the trailhead, three campsites with tents and picnic tables (and stuff to steal), boulders, fallen logs, and a lookout tower you can climb. Hikers and a ranger wander the trails.
 - **Saltmarsh Key** (north of the city): a small town of painted houses, a market square full of stalls, a church, a lighthouse, a general store and a fishing dock. Lots of stuff lying around on porches and stalls, and townspeople with cash in their pockets.
 - **NAS Halyard** (east): the naval air station with the destroyer moored alongside and fighter jets on the apron.
@@ -27,6 +28,16 @@
 - **Guns:** hold one and `LMB` fires (hold for the SMG); `RMB` throws it. Ammo is per weapon type and shown next to the gun. Gunfire sends everyone running and counts as a crime if anyone sees. **Grenades:** `RMB` to throw, then run. **Armour:** hold it and press `F` to put it on; it soaks up most damage until it's shot through.
 - **Chase music:** *Chase on Foot* plays at one or two stars, *Starvation Pursuer* takes over at three or more (toggle in Settings).
 
+## The bank
+
+- **Verian National Bank** faces the plaza from the south. Talk to a teller (`E`) to deposit or withdraw. Money in the bank is safe; money in your pocket is what you lose when you die (10%) or get busted (25%).
+- **ATMs** stand on pavements around the city, outside the bank, at the marina, in Saltmarsh market and at the park's ranger station ($5 per withdrawal). Shoot or smash one open and it spills cash bundles (bag them with `B`).
+- **Robbing the bank:** hold a gun at the counter and press `R`. The silent alarm goes off at once (three stars). Get round the end of the counter into the vault and stay there to fill the bag (around $14,000), then get out — that's four stars. The vault needs about ten minutes to refill.
+
+## The map
+
+Press `M` for the full map: every island, road, trail and landmark, the shops and dealers, ATMs, the police, and you. Scroll to zoom in on where you are.
+
 ## Crime and the police
 
 - **Punch** (`LMB` with an empty hand) or swing a bat; **grab** someone (`RMB`) to knock them out. Kill someone and you can **search the body** (`E`) for cash and valuables.
@@ -43,7 +54,8 @@
 - `RMB` throw the held item; empty-handed, `RMB` grabs a person (knocking them out) and drags them
 - `F` use the held item (medkits heal, coffee perks you up)
 - `B` bag it, `Tab` open the bag
-- `E` interact: shops, boats, searching bodies, picking pockets, jets, the ship's helm and guns
+- `E` interact: shops, the bank and ATMs, boats, cars, searching bodies, picking pockets, jets, the ship's helm and guns
+- `M` full map · `R` rob the bank (holding a gun, at the counter)
 - Look at a body and `LMB` to drag it; `LMB` lets go, `RMB` heaves it
 - Holding a mop: hold `LMB` to scrub blood, `RMB` to put it down
 - `Esc` pause (Settings are on the pause screen)
@@ -111,6 +123,8 @@ src/
   architecture.js city buildings (brick, apartment, office, civic) and walk-in interiors
   traffic.js   cars driving the street grids
   park.js      Cherry Estate National Park
+  airport.js   Verian International Airport (closed)
+  bank.js      the bank, ATMs and the bank job
   vehicles.js  stealing and driving cars
   carphys.js   physical cars: driving model, crashes, dents, fire
   underworld.js alleys, the arms dealer, the fence and the chop shop

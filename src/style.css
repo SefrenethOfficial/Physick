@@ -284,3 +284,8 @@ kbd {
 .armor { position: absolute; top: 121px; left: 14px; width: 190px; height: 5px; background: rgba(0,0,0,.45); border-radius: 2px; overflow: hidden; display: none; }
 .armor.on { display: block; }
 .armor i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #7fb2ff, #3f74d8); transition: width .2s; }
+.money small { display: block; font-size: 12px; color: #c8e6c9; opacity: .85; margin-top: -2px; }
+.bagmeter { top: 172px; }
+.bigmap { position: fixed; inset: 0; display: none; z-index: 3; }
+.bigmap.on { display: block; }
+.bigmap canvas { display: block; }

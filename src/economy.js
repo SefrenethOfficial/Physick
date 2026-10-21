@@ -9,6 +9,7 @@ export class Economy {
   constructor(game) {
     this.game = game;
     this.money = 150;
+    this.bank = 0; // safe in Verian National
     this.bag = []; // item ids
     this.ownedBoats = ['dinghy'];
     this.ammo = { pistolAmmo: 0, smgAmmo: 0, shells: 0 };
@@ -26,6 +27,7 @@ export class Economy {
       const s = JSON.parse(localStorage.getItem(KEY) || 'null');
       if (s) {
         this.money = s.money ?? this.money;
+        this.bank = s.bank ?? 0;
         this.bag = (s.bag || []).filter((id) => ITEM_BY_ID[id]);
         this.ownedBoats = s.ownedBoats?.length ? s.ownedBoats : this.ownedBoats;
         Object.assign(this.ammo, s.ammo || {});
@@ -35,7 +37,8 @@ export class Economy {
   }
 
   save() {
-    try { localStorage.setItem(KEY, JSON.stringify({ money: this.money, bag: this.bag, ownedBoats: this.ownedBoats, ammo: this.ammo, perks: this.perks })); } catch { /* storage unavailable */ }
+    this.game.hud?.setBank?.(this.bank);
+    try { localStorage.setItem(KEY, JSON.stringify({ bank: this.bank, money: this.money, bag: this.bag, ownedBoats: this.ownedBoats, ammo: this.ammo, perks: this.perks })); } catch { /* storage unavailable */ }
   }
 
   get weight() { return this.bag.reduce((w, id) => w + (ITEM_BY_ID[id].weight ?? 1), 0); }
@@ -43,6 +46,7 @@ export class Economy {
   addMoney(n, why) {
     this.money = Math.max(0, Math.round(this.money + n));
     this.game.hud.setMoney(this.money, n);
+    this.game.hud.setBank?.(this.bank);
     if (why) this.game.hud.toast(`${n >= 0 ? '+' : '-'}$${Math.abs(Math.round(n))} ${why}`, n >= 0 ? 0x7be08a : 0xff8a6a);
     this.save();
   }
@@ -105,7 +109,7 @@ export class Economy {
   }
 
   header() {
-    return `<div class="econ-head"><span>Cash <b>$${this.money}</b></span><span>Bag <b>${this.weight.toFixed(1)} / ${BAG_CAPACITY}</b></span></div>`;
+    return `<div class="econ-head"><span>Cash <b>$${this.money}</b></span><span>Bank <b>$${this.bank.toLocaleString()}</b></span><span>Bag <b>${this.weight.toFixed(1)} / ${BAG_CAPACITY}</b></span></div>`;
   }
 
   openBag() {

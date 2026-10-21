@@ -345,7 +345,7 @@ function interior(k, w, d, kind, wallM, opts) {
   const W = { wood: litWood, dark: lit(0x3a3c40), metal: lit(0xa0a6ac) };
   // interiors are lit by their ceiling panels: surfaces glow a little so rooms don't read as caves
   const floorM = mat(`floor|${kind}`, () => {
-    const map = kind === 'diner' ? tileTex('#e9e4da', '#2f2f33') : kind === 'office' || kind === 'lobby' ? tileTex('#d6d1c8', '#bfb9af') : woodTex();
+    const map = kind === 'diner' ? tileTex('#e9e4da', '#2f2f33') : kind === 'bank' ? tileTex('#efe9dd', '#d9cfbd') : kind === 'office' || kind === 'lobby' ? tileTex('#d6d1c8', '#bfb9af') : woodTex();
     return std({ map, roughness: 0.55, emissive: 0xffffff, emissiveMap: map, emissiveIntensity: 0.22 });
   });
   const ic = kind === 'diner' ? 0xf2e4c6 : kind === 'pawn' ? 0xd6c9a8 : 0xece7dd;
@@ -435,6 +435,44 @@ function interior(k, w, d, kind, wallM, opts) {
       k.box(1.6, 0.9, 0.5, x, 0, z + 0.9, red);
       if (Math.random() < 0.6) spot(x, 0.95, z);
     }
+  } else if (kind === 'bank') {
+    // marble hall: a long teller counter with glass screens (a gap at one end), the vault behind
+    const cz = -hd + 5;
+    const gap = 1.6;
+    const cw = w - 2 * T - gap;
+    const cx = -w / 2 + T + cw / 2;
+    const marble = lit(0xe2dccf);
+    k.box(cw, 1.1, 0.9, cx, 0, cz, marble);
+    k.box(cw + 0.1, 0.06, 1, cx, 1.1, cz, lit(0x6a5a48), { collide: false });
+    const glassScreen = k.box(cw, 1.1, 0.04, cx, 1.16, cz, M.glass(), { cast: false, collide: false });
+    glassScreen.userData.noMerge = true;
+    k.collider(cw, 1.1, 0.1, cx, 1.16, cz);
+    for (let i = 0; i < 3; i++) {
+      const x = cx - cw / 2 + (i + 0.5) * (cw / 3);
+      k.box(0.5, 0.35, 0.08, x, 1.13, cz - 0.3, W.dark, { collide: false }); // teller screens
+      k.box(0.8, 0.08, 0.3, x, 0.98, cz + 0.55, W.dark, { collide: false }); // pass-through tray
+    }
+    out.counter = k.world(cx, 0, cz + 1.6);
+    // the vault: a big round door standing open in the back wall
+    const vx = -w / 4;
+    const ring = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.25, 24), lit(0x8a8f96));
+    ring.rotation.x = Math.PI / 2;
+    ring.position.set(vx, 1.6, -hd + 0.1);
+    k.root.add(ring);
+    const hole = new THREE.Mesh(new THREE.CircleGeometry(1.15, 24), std({ color: 0x0c0c0e }));
+    hole.position.set(vx, 1.6, -hd + 0.24);
+    k.root.add(hole);
+    const door = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.25, 0.4, 24), lit(0xa8adb4));
+    door.rotation.set(Math.PI / 2, 0, 0);
+    door.position.set(vx + 1.9, 1.6, -hd + 1.1);
+    door.rotation.y = 1.2;
+    k.root.add(door);
+    for (let i = 0; i < 4; i++) k.box(0.45, 0.3, 0.3, vx - 1.5 + i * 0.5, 0, -hd + 1.4, lit(0x2f5a3a), { collide: false }); // cash bags
+    out.vault = k.world(vx, 0, -hd + 2);
+    // velvet rope queue and plants
+    for (let i = 0; i < 4; i++) k.cyl(0.05, 1, -2 + i * 1.6, 0, cz + 3.2, lit(0xc9a24a));
+    k.box(4.8, 0.08, 0.06, -2 + 2.4, 0.85, cz + 3.2, lit(0x8a1c2a), { collide: false });
+    for (const s of [-1, 1]) k.cyl(0.35, 0.6, s * (hw - 0.8), 0, hd - 1.5, W.dark);
   } else if (kind === 'office' || kind === 'lobby') {
     const cz = -hd + 2.5;
     counter(0, cz, Math.min(6, w - 6), lit(0xd8d2c4));

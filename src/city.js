@@ -127,7 +127,7 @@ export class City {
     const plaza = bc(2, 2);
     this.plaza = plaza;
     this.spawn = plaza.clone().add(new THREE.Vector3(0, 1.1, 14));
-    const special = new Set(['2,2', '1,1', '3,3', '1,3']);
+    const special = new Set(['2,2', '1,1', '3,3', '1,3', '2,3']);
     const ALLEYS = ['0,2', '4,1', '2,4']; // blocks cut through by a service alley
     this.alleys = [];
 
@@ -238,6 +238,22 @@ export class City {
     void pd;
     for (let k = -1; k <= 1; k++) {
       this.parkedSpots.push({ x: this.policeStation.x + k * 7, z: this.zs[2] - PARK, heading: Math.PI / 2, police: true });
+    }
+
+    // the bank (block 2,3), across the street from the plaza
+    const bank = place(whole(2, 3), 'n', { type: 'civic', floors: 4, interior: 'bank', name: 'VERIAN NATIONAL BANK', signBg: '#1f3b2e', signFg: '#f2e6c0', color: '#d8d0bc' });
+    this.bank = { counter: bank.counter, vault: bank.vault, door: bank.door, inside: bank.inside };
+    {
+      // columns across the front
+      const bb = this.block(2, 3), fz = bb.z0 + WALK - 0.8;
+      const colM = std({ color: 0xe8e2d4 });
+      for (const dx of [-14, -9.5, 9.5, 14]) {
+        const c = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.65, 6, 12), colM);
+        c.position.set((bb.x0 + bb.x1) / 2 + dx, Y + KERB + 3, fz);
+        c.castShadow = true;
+        g.add(c);
+        sb.addStaticCollider(RAPIER.ColliderDesc.cylinder(3, 0.6).setTranslation(c.position.x, c.position.y, c.position.z));
+      }
     }
 
     // hospital (block 3,3)

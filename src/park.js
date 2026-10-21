@@ -9,7 +9,7 @@ import { std, sign, solidBox, canvasTex } from './buildkit.js';
 
 const Y = LAND_Y;
 const loader = new THREE.TextureLoader();
-function photoTex(url, rx, ry) {
+export function photoTex(url, rx, ry) {
   const t = loader.load(url);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.repeat.set(rx, ry);
