@@ -26,8 +26,8 @@ function markerTex(ch, color) {
 export class Citizens extends Npcs {
   constructor(game) {
     super(game);
-    this.quota = { city: 36, town: 24, park: 9 };
-    this.copQuota = { city: 2, town: 1, park: 1 };
+    this.quota = { city: 36, town: 24, park: 9, hood: 10 };
+    this.copQuota = { city: 2, town: 1, park: 1, hood: 0 };
     this.marks = { '?': markerTex('?', '#ffd166'), '!': markerTex('!', '#ff4a3a'), cop: markerTex('★', '#7fb2ff') };
     this.respawnT = 3;
   }
@@ -58,16 +58,16 @@ export class Citizens extends Npcs {
   }
 
   populate() {
-    for (const id of ['city', 'town', 'park']) {
+    for (const id of ['city', 'town', 'park', 'hood']) {
       for (let k = 0; k < this.quota[id]; k++) this.spawnCitizen(id);
       for (let k = 0; k < this.copQuota[id]; k++) this.spawnCitizen(id, 'cop');
     }
   }
 
-  spawnCitizen(island, role = 'civ', at = null) {
-    this._look = role === 'cop'
+  spawnCitizen(island, role = 'civ', at = null, opts = {}) {
+    this._look = opts.look || (role === 'cop'
       ? { shirt: 0x1c2f6e, pants: 0x111a33, skin: SKIN[Math.floor(Math.random() * SKIN.length)], hat: 'cap', hatColor: 0x111a33, badge: true }
-      : null;
+      : null);
     const p = at || this.randomPointOn(island);
     if (!p) return null;
     const npc = this.spawn(p);
@@ -114,6 +114,7 @@ export class Citizens extends Npcs {
 
   damage(npc, amount, dir, point) {
     npc.hp -= amount;
+    if (npc.role === 'gang') this.game.gangs.provoke(npc.gang, 'you hit one of theirs');
     const t = npc.body.translation();
     if (npc.hp <= 0) {
       const v = dir.clone().multiplyScalar(6); v.y += 1.5;
@@ -153,11 +154,15 @@ export class Citizens extends Npcs {
       if (now - c.t > 2500 || c.witnessed?.has(npc)) continue;
       if (Math.hypot(c.pos.x - t.x, c.pos.z - t.z) > 45 || !this.canSee(npc, { x: c.pos.x, y: c.pos.y + 0.5, z: c.pos.z }, 45)) continue;
       (c.witnessed ||= new Set()).add(npc);
+      if (npc.role === 'gang') { // trouble on their turf: they don't call the police, they come for you
+        if (Math.hypot(c.pos.x - npc.post.x, c.pos.z - npc.post.z) < 120) g.gangs.provoke(npc.gang, c.kind === 'shooting' ? 'you started shooting round here' : 'you started trouble on their block');
+        return;
+      }
       if (npc.role === 'cop') { g.police.report(c.severity, c.pos, true, `${c.kind}`); npc.state = 'chase'; }
       else { this.flee(npc, c.pos, 10); npc.reportT = 2.5; npc.reportSev = Math.max(npc.reportSev || 0, c.severity); npc.reportPos = c.pos.clone(); npc.reportSeen = true; npc.reportWhy = c.kind; }
       return;
     }
-    if (npc.role === 'cop') return;
+    if (npc.role === 'cop' || npc.role === 'gang') return;
     // someone dragging a body around in plain sight
     if (playerVisible && g.dragging && Math.hypot(pp.x - t.x, pp.z - t.z) < 30) {
       this.flee(npc, pp, 10); npc.reportT = 2; npc.reportSev = 2; npc.reportPos = new THREE.Vector3(pp.x, pp.y, pp.z); npc.reportSeen = true; npc.reportWhy = 'body';
@@ -234,6 +239,8 @@ export class Citizens extends Npcs {
       let want = null, speed = 0;
       if (npc.stunT > 0) {
         npc.stunT -= dt;
+      } else if (npc.role === 'gang') {
+        ({ want, speed } = this.gangBrain(npc, t, dt, pp, distP, playerVisible));
       } else if (npc.role === 'cop') {
         if (wanted > 0 && onFoot && !npc.leaving && (playerVisible || npc.state === 'chase')) {
           npc.state = 'chase';
@@ -338,6 +345,94 @@ export class Citizens extends Npcs {
     return { want: new THREE.Vector3(tgt.x - t.x, 0, tgt.z - t.z).normalize(), speed: pace * npc.pace };
   }
 
+  // ---- gang members ----
+  gangBrain(npc, t, dt, pp, distP, seen) {
+    const g = this.game, G = g.gangs, crew = G.crews[npc.gang];
+    const driving = g.vehicles.active;
+    const exposed = g.onShore && !g.flying && !g.boats.active && !g.health.dead;
+    if (seen) npc.lastSeen = pp.clone();
+    // sizing you up
+    if (!crew.hostile) {
+      let rate = -0.5, why = '';
+      if (exposed && seen && distP < 5.5) { rate = 1.1; why = 'you got in their face'; }
+      if (exposed && seen && distP < 28 && g.held?.gun && !driving) { rate = 3; why = 'you came round waving a gun'; }
+      if (driving && seen && distP < 14 && Math.abs(driving.speed) > 9) { rate = 2.5; why = 'you nearly ran them down'; }
+      if (exposed && seen && g.dragging && distP < 30) { rate = 4; why = 'you were dragging a body past them'; }
+      npc.susp = THREE.MathUtils.clamp((npc.susp || 0) + rate * dt, 0, 10);
+      if (rate > 0) npc.why = why;
+      this.setMarker(npc, npc.susp > 1.5 ? '?' : null);
+      if (npc.susp >= 6) G.provoke(npc.gang, npc.why);
+    }
+    let want = null, speed = 0;
+    npc.atkT -= dt;
+    // in a war they go after the other crew as well
+    let rival = npc.rivalTarget && this.list.includes(npc.rivalTarget) ? npc.rivalTarget : null;
+    if (G.war.active && !rival && Math.random() < dt * 2) {
+      let bd = 45;
+      for (const o of this.list) {
+        if (o.role !== 'gang' || o.gang === npc.gang) continue;
+        const q = o.body.translation(), d = Math.hypot(q.x - t.x, q.z - t.z);
+        if (d < bd && this.canSee(npc, { x: q.x, y: q.y + 0.6, z: q.z }, 45)) { bd = d; rival = o; }
+      }
+      npc.rivalTarget = rival;
+    }
+    if (!G.war.active) npc.rivalTarget = rival = null;
+    const huntingYou = crew.hostile && npc.lastSeen && exposed;
+    if (huntingYou || rival) {
+      this.setMarker(npc, '!');
+      const youFirst = huntingYou && (distP < 40 || !rival);
+      const goal = youFirst ? (seen ? pp : npc.lastSeen) : rival.body.translation();
+      const gd = Math.hypot(goal.x - t.x, goal.z - t.z);
+      want = new THREE.Vector3(goal.x - t.x, 0, goal.z - t.z);
+      if (want.lengthSq() > 0.01) want.normalize();
+      speed = gd > 14 ? 4.8 : gd < 7 ? 0 : 1.5;
+      if (speed === 0 && want.lengthSq() > 0.5) npc.heading = Math.atan2(want.x, want.z);
+      if (npc.atkT <= 0) {
+        if (youFirst && seen && distP < 38) {
+          npc.atkT = 1.1 + Math.random() * 0.8;
+          if (G.shoot(npc, pp, driving ? 0.2 : 0.22)) { if (driving) driving.damage(6); else g.health.damage(8, 'gang'); }
+        } else if (!youFirst && rival && gd < 42) {
+          npc.atkT = 1.2 + Math.random();
+          const q = rival.body.translation();
+          if (G.shoot(npc, q, 0.4)) this.gangHit(rival, npc, 45);
+        }
+      }
+      if (youFirst && !seen && npc.lastSeen && Math.hypot(npc.lastSeen.x - t.x, npc.lastSeen.z - t.z) < 2) npc.lastSeen = null;
+    } else {
+      // in a war, half of each crew pushes into the other side's turf
+      const raid = G.war.active && npc.raider;
+      if (!raid) npc.raidPath = null;
+      if (raid && !npc.raidPath) npc.raidPath = this.raidRoute(t, G.crews[G.rival(npc.gang)].post);
+      while (raid && npc.raidPath.length > 1 && Math.hypot(npc.raidPath[0].x - t.x, npc.raidPath[0].z - t.z) < 4) npc.raidPath.shift();
+      const home = raid ? npc.raidPath[0] : npc.post;
+      const dh = Math.hypot(home.x - t.x, home.z - t.z);
+      if (dh > (raid ? (npc.raidPath.length > 1 ? 0 : 15) : 4)) { want = new THREE.Vector3(home.x - t.x, 0, home.z - t.z).normalize(); speed = raid ? 4.2 : 1.6; }
+      else if (seen && distP < 14) {
+        const h = Math.atan2(pp.x - t.x, pp.z - t.z);
+        npc.heading += Math.atan2(Math.sin(h - npc.heading), Math.cos(h - npc.heading)) * Math.min(1, dt * 4);
+      } else if (Math.random() < dt * 0.15) npc.heading += (Math.random() - 0.5) * 2;
+    }
+    return { want, speed };
+  }
+
+  // Through the streets (not through fences): nearest junction, along to the junction by the target, then in.
+  raidRoute(from, to) {
+    const H = this.game.hood;
+    const near = (p) => ({ i: H.xs.reduce((bi, x, i) => (Math.abs(x - p.x) < Math.abs(H.xs[bi] - p.x) ? i : bi), 0), j: H.zs.reduce((bj, z, j) => (Math.abs(z - p.z) < Math.abs(H.zs[bj] - p.z) ? j : bj), 0) });
+    const a = near(from), b = near(to);
+    const P = (i, j) => new THREE.Vector3(H.xs[i], 0, H.zs[j]);
+    return [P(a.i, a.j), P(b.i, a.j), P(b.i, b.j), to.clone()];
+  }
+
+  // one gang member shot by another (not your crime)
+  gangHit(victim, shooter, dmg) {
+    victim.hp -= dmg;
+    const t = victim.body.translation(), s = shooter.body.translation();
+    const dir = new THREE.Vector3(t.x - s.x, 0, t.z - s.z).normalize();
+    if (victim.hp <= 0) this.knockOver(victim, dir.clone().multiplyScalar(5).setY(1.5), 3, { killed: true, point: new THREE.Vector3(t.x, t.y, t.z), dir });
+    else { victim.stunT = 0.4; this.game.sfx.play('ouch'); }
+  }
+
   wander(npc, t, dt, pace) {
     if (npc.island === 'city' && this.game.city) return this.pavementWander(npc, t, dt, pace);
     let want = null, speed = 0;
@@ -354,6 +449,11 @@ export class Citizens extends Npcs {
   }
 
   move(npc, t, want, speed, dt) {
+    if (want && npc.sidestepT > 0) { // walked into something: step round it
+      npc.sidestepT -= dt;
+      want = want.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), npc.sideSign * Math.PI / 2);
+      speed = Math.max(speed, 1.5);
+    }
     if (want) {
       // stay on the island
       const ahead = t.x + want.x * 3, aheadZ = t.z + want.z * 3;
@@ -368,7 +468,7 @@ export class Citizens extends Npcs {
     npc.stuckT += dt;
     if (npc.stuckT > 1.5) {
       const moved = Math.hypot(t.x - npc.lastPos.x, t.z - npc.lastPos.z);
-      if (npc.speed > 0.5 && moved < 0.4) { npc.target = null; npc.heading += Math.PI * (0.5 + Math.random()); }
+      if (npc.speed > 0.5 && moved < 0.4) { npc.target = null; npc.heading += Math.PI * (0.5 + Math.random()); npc.sidestepT = 1.2; npc.sideSign = Math.random() < 0.5 ? -1 : 1; }
       npc.lastPos.set(t.x, 0, t.z);
       npc.stuckT = 0;
     }
@@ -395,7 +495,7 @@ export class Citizens extends Npcs {
       this.respawnT -= dt;
       if (this.respawnT <= 0) {
         this.respawnT = 4;
-        for (const id of ['city', 'town', 'park']) {
+        for (const id of ['city', 'town', 'park', 'hood']) {
           const civs = this.list.filter((n) => n.island === id && n.role === 'civ').length;
           if (civs < this.quota[id]) { const p = this.randomPointOn(id, null, 0, 60); if (p) this.spawnCitizen(id, 'civ', p); }
           const cops = this.list.filter((n) => n.island === id && n.role === 'cop' && !n.dispatched).length;

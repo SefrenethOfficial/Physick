@@ -33,7 +33,7 @@ export class Saltmarsh {
     islandSlab(g, sb, isl, grass, 0x9a8a6a);
 
     // cobbled lanes
-    this.xs = [-1000, -900, -800, -700, -600, -500];
+    this.xs = [-1000, -900, -800, -700];
     this.zs = [-1700, -1600, -1500, -1400, -1300];
     const cobble = (len) => canvasTex(64, 128, (c, w, h) => {
       c.fillStyle = '#8f8576'; c.fillRect(0, 0, w, h);
@@ -42,9 +42,9 @@ export class Saltmarsh {
         c.fillRect(x + 1, y + 1, 10, 8);
       }
     }, [1, len / 10]);
-    const zLen = 520, xLen = 560;
+    const zLen = 520, xLen = this.xs.at(-1) - this.xs[0] + 10;
     for (const x of this.xs) flat(g, 10, zLen, x, (isl.z0 + isl.z1) / 2, std({ map: cobble(zLen) }), Y + 0.03);
-    for (const z of this.zs) flat(g, 10, xLen, (isl.x0 + isl.x1) / 2, z, std({ map: cobble(xLen) }), Y + 0.035, Math.PI / 2);
+    for (const z of this.zs) flat(g, 10, xLen, (this.xs[0] + this.xs.at(-1)) / 2, z, std({ map: cobble(xLen) }), Y + 0.035, Math.PI / 2);
 
     // market square (block between xs[2..3], zs[2..3])
     const mx = -750, mz = -1450;
@@ -71,7 +71,7 @@ export class Saltmarsh {
     sign(g, 'SALTMARSH MARKET', mx, Y + 5, mz - 44, 0, { w: 14, h: 2, bg: '#7a2e2e', fg: '#ffe7a0' });
 
     // houses around every other block's edges
-    for (let i = 0; i < 5; i++) for (let j = 0; j < 4; j++) {
+    for (let i = 0; i < this.xs.length - 1; i++) for (let j = 0; j < 4; j++) {
       const x0 = this.xs[i], x1 = this.xs[i + 1], z0 = this.zs[j], z1 = this.zs[j + 1];
       const bx = (x0 + x1) / 2, bz = (z0 + z1) / 2;
       if (Math.abs(bx - mx) < 10 && Math.abs(bz - mz) < 10) continue;
@@ -87,25 +87,25 @@ export class Saltmarsh {
     for (const x of this.xs) for (const z of this.zs) if (Math.random() < 0.5) lamp(g, sb, x + 6, Y, z + 6);
 
     // church + lighthouse landmarks
-    solidBox(g, sb, 14, 10, 22, -560, Y, -1650, std({ color: 0xece6da }));
+    solidBox(g, sb, 14, 10, 22, -667, Y, -1650, std({ color: 0xece6da }));
     const steeple = new THREE.Mesh(new THREE.ConeGeometry(3.5, 12, 4), std({ color: 0x4b5563 }));
-    steeple.position.set(-560, Y + 22, -1662);
-    solidBox(g, sb, 6, 12, 6, -560, Y + 4, -1662, std({ color: 0xece6da }), { collide: false });
+    steeple.position.set(-667, Y + 22, -1662);
+    solidBox(g, sb, 6, 12, 6, -667, Y + 4, -1662, std({ color: 0xece6da }), { collide: false });
     g.add(steeple);
     const lh = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 3, 22, 16), std({ map: canvasTex(64, 64, (c, w, h) => { for (let i = 0; i < 4; i++) { c.fillStyle = i % 2 ? '#c62828' : '#f2f2ee'; c.fillRect(0, (i * h) / 4, w, h / 4); } }) }));
-    lh.position.set(-470, Y + 11, -1215);
+    lh.position.set(-655, Y + 11, -1215);
     const lamphouse = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, 2.5, 12), std({ color: 0xfff6d8, emissive: 0xfff1c4, emissiveIntensity: 1 }));
-    lamphouse.position.set(-470, Y + 23.3, -1215);
+    lamphouse.position.set(-655, Y + 23.3, -1215);
     g.add(lh, lamphouse);
-    sb.addStaticCollider(RAPIER.ColliderDesc.cylinder(11, 3).setTranslation(-470, Y + 11, -1215));
+    sb.addStaticCollider(RAPIER.ColliderDesc.cylinder(11, 3).setTranslation(-655, Y + 11, -1215));
 
     // general store + parked cars
-    solidBox(g, sb, 20, 6, 14, -650, Y, -1350, std({ color: 0xd9c08a }));
-    sign(g, 'GENERAL STORE', -650, Y + 5, -1342.9, 0, { w: 10, h: 1.6, bg: '#2f4f2f', fg: '#ffe7a0' });
-    for (let n = 0; n < 4; n++) this.lootSpots.push({ pos: new THREE.Vector3(-656 + n * 4, Y + 0.3, -1340), kind: 'porch' });
+    solidBox(g, sb, 14, 6, 20, -667, Y, -1350, std({ color: 0xd9c08a }));
+    sign(g, 'GENERAL STORE', -674.1, Y + 5, -1350, -Math.PI / 2, { w: 10, h: 1.6, bg: '#2f4f2f', fg: '#ffe7a0' });
+    for (let n = 0; n < 4; n++) this.lootSpots.push({ pos: new THREE.Vector3(-676, Y + 0.3, -1356 + n * 4), kind: 'porch' });
     for (let n = 0; n < 8; n++) {
       const z = this.zs[Math.floor(Math.random() * this.zs.length)];
-      const x = -1000 + 60 + Math.random() * 440;
+      const x = -1000 + 60 + Math.random() * 230;
       this.parkedSpots.push({ x, z: z + 6.5, heading: Math.PI / 2, color: [0xc23b2a, 0x2f7fd8, 0xe0e0e0, 0x3aa760][n % 4] });
     }
 

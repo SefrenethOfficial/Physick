@@ -125,7 +125,7 @@ export class Bridge {
 
     // ---- main cables: anchored at both ends, over both towers, sagging across the main span ----
     const [ta, tb] = this.towers;
-    const anchorA = 0, anchorB = this.length - this.descent + 10;
+    const anchorA = 0, anchorB = this.length - this.descent;
     const cableY = (t) => {
       if (t <= ta) return this.deckY + 3 + (TOP + 2 - this.deckY - 3) * Math.pow(t / ta, 1.6);
       if (t >= tb) return this.deckY + 3 + (TOP + 2 - this.deckY - 3) * Math.pow((anchorB - t) / (anchorB - tb), 1.6);
@@ -152,8 +152,6 @@ export class Bridge {
     const sl = new THREE.LineSegments(lines, new THREE.LineBasicMaterial({ color: ORANGE }));
     sl.userData.noMerge = true;
     this.group.add(sl);
-    // anchorage blocks at the far end
-    this.box(DECK_W + 10, 10, 18, anchorB + 4, 0, this.deckAt(anchorB) - 3, concrete, { collide: false });
 
     // lamp posts along the deck
     const lampM = std({ color: 0xfff6d8, emissive: 0xfff1c4, emissiveIntensity: 0.8 });

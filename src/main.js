@@ -29,6 +29,8 @@ import { ISLANDS, PIERS, nearestLandPoint, islandAt } from './world.js';
 import { mergeStatic } from './merge.js';
 import { Traffic } from './traffic.js';
 import { Park } from './park.js';
+import { Hood } from './hood.js';
+import { Gangs } from './gangs.js';
 import { Bridge } from './bridge.js';
 import { Airport } from './airport.js';
 import { Bank } from './bank.js';
@@ -112,6 +114,9 @@ class Game {
     loadingEl.textContent = 'Building Verian City…';
     this.city = new City(this, this.portSandbox);
     this.saltmarsh = new Saltmarsh(this, this.portSandbox);
+    loadingEl.textContent = 'Running down the Hollows…';
+    this.hood = new Hood(this, this.portSandbox);
+    mergeStatic(this.hood.group);
     loadingEl.textContent = 'Planting Cherry Estate…';
     this.park = new Park(this, this.portSandbox);
     mergeStatic(this.park.group);
@@ -157,13 +162,16 @@ class Game {
     this.police = new Police(this);
     this.citizens = new Citizens(this);
     this.citizens.populate();
+    this.gangs = new Gangs(this);
+    this.gangs.populate();
     this.traffic = new Traffic(this);
     this.traffic.addNetwork('city', this.city.xs, this.city.zs, this.city.lane, 18, 11);
     this.traffic.addNetwork('town', this.saltmarsh.xs, this.saltmarsh.zs, 2.4, 5, 8);
+    this.traffic.addNetwork('hood', this.hood.xs, this.hood.zs, 2.4, 4, 7);
     this.vehicles = new Vehicles(this);
     this.bank = new Bank(this);
     this.placeATMs();
-    for (const sp of [...this.city.parkedSpots, ...this.saltmarsh.parkedSpots]) {
+    for (const sp of [...this.city.parkedSpots, ...this.saltmarsh.parkedSpots, ...this.hood.parkedSpots]) {
       this.vehicles.parked.push(new Car(this, { color: sp.color, police: !!sp.police, x: sp.x, z: sp.z, heading: sp.heading }));
     }
     this.underworld = new Underworld(this);
@@ -418,6 +426,7 @@ class Game {
       sb.spawn(def, new THREE.Vector3(p.x, p.y + 0.25, p.z), q, { noHistory: true });
     };
     for (const p of this.city.lootSpots) if (Math.random() < 0.6) place(pick(Math.random() < 0.1 ? LOOT_RARE : LOOT_COMMON), p);
+    for (const p of this.hood.lootSpots) place(pick(Math.random() < 0.12 ? LOOT_RARE : LOOT_COMMON), p);
     for (const p of this.park.lootSpots) place(pick(Math.random() < 0.15 ? LOOT_RARE : LOOT_COMMON), p);
     for (const s of this.saltmarsh.lootSpots) {
       const rare = s.kind === 'porch' ? 0.3 : s.kind === 'stall' ? 0.2 : 0.08;
@@ -1090,6 +1099,9 @@ class Game {
     for (const d of this.underworld.dealers) P(d.pos, d.color, d.title.split('—')[0].replace(/"/g, '').trim());
     P(this.saltmarsh.market, '#ffb36b', 'Market');
     P(this.saltmarsh.dock, '#a07d55', 'Fishing dock');
+    P(this.hood.kingsPost, this.gangs.crews.kings.color, 'Eastside Kings', true);
+    P(this.hood.hollowPost, this.gangs.crews.hollow.color, 'Hollow Boys', true);
+    P(this.hood.entrance, '#bbb3a0', 'Bridge to the Hollows');
     P(this.park.entrance, '#7be08a', 'Trailhead');
     P({ x: -1165, z: -80 }, '#c9a26a', 'Ranger station');
     for (const [x, z] of [[-1380, -262], [-1420, 240], [-1605, -62]]) P({ x, z }, '#ff9a3a', 'Campsite', false, 3.5);
@@ -1140,7 +1152,7 @@ class Game {
     for (const car of this.traffic.cars) marks.push({ x: car.pos.x, z: car.pos.z, color: '#d8d8d8', r: 1.8 });
     if (!this.roadsCache) {
       this.roadsCache = [];
-      for (const R of [this.city, this.saltmarsh]) {
+      for (const R of [this.city, this.saltmarsh, this.hood]) {
         const w = R === this.city ? 16 : 10;
         for (const x of R.xs) this.roadsCache.push({ x0: x - w / 2, x1: x + w / 2, z0: R.zs[0] - w / 2, z1: R.zs.at(-1) + w / 2 });
         for (const z of R.zs) this.roadsCache.push({ x0: R.xs[0] - w / 2, x1: R.xs.at(-1) + w / 2, z0: z - w / 2, z1: z + w / 2 });
@@ -1194,7 +1206,8 @@ class Game {
     this.underworld.update(dt);
     this.bank.update(dt);
     this.updateGrenades(dt);
-    this.music.update(dt, this.started && this.settings.music && !this.health.dead ? this.police.wanted : 0);
+    this.gangs.update(dt);
+    this.music.update(dt, this.started && this.settings.music && !this.health.dead ? Math.max(this.police.wanted, this.gangs.war.active ? 1 : 0) : 0);
     this.police.update(dt);
     this.updatePickpocket(dt);
     this.blood.update(dt);

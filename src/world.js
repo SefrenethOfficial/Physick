@@ -8,7 +8,8 @@ export const ISLANDS = [
   { id: 'city', name: 'Verian City', x0: -1115, x1: -700, z0: -212, z1: 212, color: '#8d8f93' },
   { id: 'park', name: 'Cherry Estate', x0: -1715, x1: -1115, z0: -420, z1: 420, color: '#3f6b35' },
   { id: 'airport', name: 'Verian International (closed)', x0: -2000, x1: -1060, z0: 420, z1: 800, color: '#6f6f68' },
-  { id: 'town', name: 'Saltmarsh Key', x0: -1050, x1: -450, z0: -1750, z1: -1200, color: '#7a9a55' },
+  { id: 'hood', name: 'The Hollows', x0: -580, x1: -180, z0: -1750, z1: -1250, color: '#5a5550' },
+  { id: 'town', name: 'Saltmarsh Key', x0: -1050, x1: -640, z0: -1750, z1: -1200, color: '#7a9a55' },
 ];
 
 // Piers and jetties (rectangles that stick out into the water).

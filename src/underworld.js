@@ -10,7 +10,7 @@ import { ITEM_BY_ID } from './items.js';
 
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
-function graffitiTex() {
+export function graffitiTex() {
   const tags = ['VEX', 'KR8Z', 'NO COPS', 'SKUL', 'DRIP', 'R.I.P. JAY', 'VERIAN KINGS', 'ZOMB', '187', 'WAKE UP', 'LOOP'];
   return canvasTex(256, 128, (g, w, h) => {
     g.clearRect(0, 0, w, h);
