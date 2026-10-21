@@ -10,7 +10,6 @@ import { Npcs } from './npcs.js';
 import { Health } from './health.js';
 import { Ocean } from './ocean.js';
 import { Ship, HELM, DECK } from './ship.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Viewmodel } from './viewmodel.js';
 import { ITEMS, ITEM_BY_ID, LOOT_COMMON, LOOT_RARE } from './items.js';
 import { Gunnery } from './guns.js';
@@ -67,7 +66,7 @@ class Game {
     this.dragging = null; // { prop, local } a body being dragged
     this.mopping = false;
     this.heldProp = null;
-    this.held = null; // item def carried in the robot arm
+    this.held = null; // item def carried in your hand
     this.mouseDX = 0;
     this.mouseDY = 0;
     this.shake = 0;
@@ -141,12 +140,8 @@ class Game {
     mergeStatic(this.saltmarsh.group);
     this.portWorld.step();
 
-    loadingEl.textContent = 'Loading robot arm…';
-    const gltf = await new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}assets/robotic_arm.glb`, (e) => {
-      if (e.total) loadingEl.textContent = `Loading robot arm… ${Math.round((e.loaded / e.total) * 100)}%`;
-    });
-    this.viewmodel = new Viewmodel(gltf.scene, FOV);
-    this.viewmodel.setColor(0x7fd3ff);
+    this.viewmodel = new Viewmodel(null, FOV);
+
 
     this.shipPlayer = new Player(this, new THREE.Vector3(0, DECK + 1.3, 44));
     this.shorePlayer = new Player(this, this.city.spawn.clone(), { world: this.portWorld, sandbox: this.portSandbox });
@@ -209,6 +204,7 @@ class Game {
     this.renderer.setAnimationLoop((now) => { if (this.graphics.shouldRender(now)) this.tick(); });
     window.physick = this;
     this.signs = SIGNS;
+    this.itemDefs = ITEM_BY_ID;
     this.THREE = THREE;
   }
 
@@ -634,7 +630,7 @@ class Game {
     this.hud.setMode('deck');
   }
 
-  // ---------- stores & the robot arm ----------
+  // ---------- stores & your hand ----------
   stockStores() {
     const sb = this.sandbox;
     const pick = (a) => a[Math.floor(Math.random() * a.length)];
