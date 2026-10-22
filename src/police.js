@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { GROUPS } from './groups.js';
-import { Car, runOver } from './carphys.js';
+import { Car, runOver, clearSpot } from './carphys.js';
 import { LAND_Y, islandAt, blocked, onLand } from './world.js';
 
 // Wanted level, witnesses' calls, and the police response: officers on foot, squad cars that
@@ -146,8 +146,10 @@ export class Police {
       const d = Math.hypot(R.xs[i] - target.x, R.zs[j] - target.z);
       if (d > 110 && d < 300) nodes.push({ i, j, d });
     }
-    if (!nodes.length) return null;
-    const n = nodes[Math.floor(Math.random() * nodes.length)];
+    // a junction with room for the car (never inside a building)
+    nodes.sort(() => Math.random() - 0.5);
+    const n = nodes.find((m) => clearSpot(this.game, R.xs[m.i], R.zs[m.j], 0));
+    if (!n) return null;
     const toward = Math.atan2(-(target.x - R.xs[n.i]), -(target.z - R.zs[n.j]));
     const car = new Car(this.game, { police: true, x: R.xs[n.i], z: R.zs[n.j], heading: Math.round(toward / (Math.PI / 2)) * (Math.PI / 2) });
     Object.assign(car, { R, island, at: { i: n.i, j: n.j }, from: null, to: null, deployed: 0, ramT: 0, leaving: false, life: 0, stuckT: 0, reverseT: 0 });

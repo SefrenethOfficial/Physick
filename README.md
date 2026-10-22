@@ -35,6 +35,7 @@ Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **
 
 ## Cars, guns and the back alleys
 
+- **Smash the scenery:** trees and street lamps snap off and go flying when a car hits them at speed. Your car loses some speed and takes a little damage (El Monstruo barely notices). They're quietly put back a few minutes later when you're well away. Cars never spawn inside buildings, walls, trees or lamps.
 - **Bailing out:** press `E` in a moving car to dive out: you go flying as a ragdoll in third person (the car keeps rolling) and take damage at high speed. Once you stop tumbling, press `Space` to get up. **Dying** on land works the same way: you crumple as a ragdoll in third person until you come round at the hospital. Move the mouse to look around your body.
 - **Grand theft auto:** walk up to any car in traffic and press `E` to drag the driver out and take it, or smash your way into a parked one (police cars included). `W` / `S` drive and reverse, `A` / `D` steer, `Space` handbrake, `H` horn, `E` to get out. The driver runs off and calls the police; a cop car is a much bigger deal. Cars are physical: they shove each other, spin out, bounce off walls and push loose stuff around. Hits dent the bodywork and smash the glass; a beaten-up car smokes, then catches fire, then blows up. Drive off the edge and it sinks. You can run people over (that's murder if anyone sees).
 - **The alleys:** three blocks have a grimy service alley through the middle, and each has someone in it:

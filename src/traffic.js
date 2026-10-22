@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { LAND_Y, islandAt } from './world.js';
-import { Car, runOver } from './carphys.js';
+import { Car, runOver, clearSpot } from './carphys.js';
 
 // Everyday traffic: cars that drive their lane round the street grid, turn at junctions,
 // queue behind each other, stop for people in the road (and honk at you), and knock down
@@ -41,6 +41,7 @@ export class Traffic {
       const t = 0.25 + Math.random() * 0.5;
       const pos = A.clone().lerp(B, t).addScaledVector(right(dir), net.lane);
       if (this.cars.some((c) => c.pos.distanceTo(pos) < 12)) continue;
+      if (!clearSpot(g, pos.x, pos.z, Math.atan2(-dir.x, -dir.z))) continue;
       const pt = g.shorePlayer?.body.translation();
       if (pt && Math.hypot(pt.x - pos.x, pt.z - pos.z) < minDist) continue;
       const car = new Car(g, { color: COLORS[Math.floor(Math.random() * COLORS.length)], x: pos.x, z: pos.z, heading: Math.atan2(-dir.x, -dir.z) });

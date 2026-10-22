@@ -278,6 +278,20 @@ export class Car {
   }
 }
 
+// Is there room for a car here? (nothing solid above kerb height: no building, wall, tree or lamp)
+export function clearSpot(game, x, z, heading, half = HALF, y = LAND_Y) {
+  const sb = game.portSandbox, w = game.portWorld;
+  const hit = w.castRay(new RAPIER.Ray({ x, y: y + 3, z }, { x: 0, y: -1, z: 0 }), 8, true, undefined, undefined, undefined, undefined, (c) => sb.staticColliders.has(c.handle));
+  if (!hit) return false; // nothing to stand on
+  const ground = y + 3 - hit.timeOfImpact;
+  if (ground > y + 1.2) return false; // a floor or a roof, not the road
+  let blocked = false;
+  const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), heading);
+  w.intersectionsWithShape({ x, y: ground + 1.1, z }, { x: q.x, y: q.y, z: q.z, w: q.w }, new RAPIER.Cuboid(half.x + 0.3, 0.65, half.z + 0.4),
+    (c) => { if (sb.staticColliders.has(c.handle) && c.isEnabled()) { blocked = true; return false; } return true; });
+  return !blocked;
+}
+
 // Anyone in front of a moving car gets hit: the player (hurt and thrown) and townspeople (killed
 // at speed). byPlayer: you're driving, so it's your crime.
 export function runOver(g, car, byPlayer) {

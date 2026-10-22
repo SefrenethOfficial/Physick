@@ -22,6 +22,7 @@ import { loadSettings, bindSettingsPanel } from './settings.js';
 import { Graphics } from './graphics.js';
 import { Story } from './story.js';
 import { CargoShip } from './cargo.js';
+import { Breakables } from './breakables.js';
 import { deckHalfWidth } from './ship.js';
 import { onLand } from './port.js';
 import { City } from './city.js';
@@ -41,7 +42,7 @@ import { Bridge } from './bridge.js';
 import { Airport } from './airport.js';
 import { Bank } from './bank.js';
 import { Vehicles } from './vehicles.js';
-import { Car } from './carphys.js';
+import { Car, clearSpot } from './carphys.js';
 import { Underworld } from './underworld.js';
 import { ChaseMusic } from './music.js';
 
@@ -140,6 +141,7 @@ class Game {
     mergeStatic(this.port.group);
     mergeStatic(this.city.group);
     mergeStatic(this.saltmarsh.group);
+    this.breakables = new Breakables(this); // every tree and lamp, now the world's built
     this.portWorld.step();
 
     loadingEl.textContent = 'Loading your arm…';
@@ -181,6 +183,7 @@ class Game {
     this.bank = new Bank(this);
     this.placeATMs();
     for (const sp of [...this.city.parkedSpots, ...this.saltmarsh.parkedSpots, ...this.hood.parkedSpots]) {
+      if (!clearSpot(this, sp.x, sp.z, sp.heading)) continue; // no room (a tree, a wall): leave the space empty
       this.vehicles.parked.push(new Car(this, { color: sp.color, police: !!sp.police, x: sp.x, z: sp.z, heading: sp.heading }));
     }
     this.underworld = new Underworld(this);
@@ -1357,6 +1360,7 @@ class Game {
     this.checkTransfer();
     this.boats.update(dt, alive ? k : new Set());
     this.vehicles.update(dt, alive ? k : new Set());
+    this.breakables.update(dt);
     this.pragdoll.update(dt);
     this.underworld.update(dt);
     this.bank.update(dt);

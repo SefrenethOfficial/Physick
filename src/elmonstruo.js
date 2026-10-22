@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { LAND_Y, addPier, islandAt } from './world.js';
 import { canvasTex, speckle, std, sign, solidBox, carMesh, worldBox } from './buildkit.js';
-import { Car } from './carphys.js';
+import { Car, clearSpot } from './carphys.js';
 import { buildFigure, poseSeated } from './figure.js';
 import { Heli } from './cargo.js';
 
@@ -233,7 +233,9 @@ export class ElMonstruo {
     // prefer spots ahead of or beside the truck so they come at you
     const f = t.forward;
     c.sort((a, b) => ((b.x - t.pos.x) * f.x + (b.z - t.pos.z) * f.z) - ((a.x - t.pos.x) * f.x + (a.z - t.pos.z) * f.z) + (Math.random() - 0.5) * 120);
-    const p = c[0];
+    // never inside a building, a wall or a tree
+    const p = c.find((q) => clearSpot(g, q.x, q.z, Math.atan2(-(t.pos.x - q.x), -(t.pos.z - q.z)), undefined, q.y));
+    if (!p) return null;
     const heading = Math.atan2(-(t.pos.x - p.x), -(t.pos.z - p.z));
     // one in four is an armoured SUV that takes a couple of good hits
     const armoured = Math.random() < 0.28;

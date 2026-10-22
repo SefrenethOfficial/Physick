@@ -188,24 +188,18 @@ export function sign(group, text, x, y, z, yaw, { w = 6, h = 1.4, bg = '#1f3b63'
   return m;
 }
 
+// Street lamps and trees can be knocked down by cars (see breakables.js), so they aren't built
+// as ordinary meshes here: each one is registered and drawn later as part of an instanced set.
+export const BREAKABLES = [];
+
 export function lamp(group, sb, x, y0, z) {
-  const iron = std({ color: 0x2a2c30, roughness: 0.5, metalness: 0.5 });
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 7, 8), iron);
-  pole.position.set(x, y0 + 3.5, z);
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.2, 0.4), std({ color: 0xfff6d8, emissive: 0xfff1c4, emissiveIntensity: 0.7 }));
-  head.position.set(x, y0 + 7, z);
-  group.add(pole, head);
-  sb.addStaticCollider(RAPIER.ColliderDesc.cylinder(3.5, 0.14).setTranslation(x, y0 + 3.5, z));
+  const col = sb.addStaticCollider(RAPIER.ColliderDesc.cylinder(3.5, 0.14).setTranslation(x, y0 + 3.5, z));
+  BREAKABLES.push({ type: 'lamp', x, y0, z, s: 1, col, sb });
 }
 
 export function tree(group, sb, x, y0, z, s = 1) {
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22 * s, 0.32 * s, 3 * s, 7), std({ color: 0x6b4a2f }));
-  trunk.position.set(x, y0 + 1.5 * s, z);
-  const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(2.1 * s, 0), std({ color: [0x3f7d3a, 0x4f8f3f, 0x2f6b34][Math.floor(Math.random() * 3)], flatShading: true }));
-  crown.position.set(x, y0 + 4.1 * s, z);
-  trunk.castShadow = crown.castShadow = true;
-  group.add(trunk, crown);
-  sb.addStaticCollider(RAPIER.ColliderDesc.cylinder(1.5 * s, 0.32 * s).setTranslation(x, y0 + 1.5 * s, z));
+  const col = sb.addStaticCollider(RAPIER.ColliderDesc.cylinder(1.5 * s, 0.32 * s).setTranslation(x, y0 + 1.5 * s, z));
+  BREAKABLES.push({ type: 'tree', x, y0, z, s, col, sb, color: [0x3f7d3a, 0x4f8f3f, 0x2f6b34][Math.floor(Math.random() * 3)] });
 }
 
 // ---- low-poly pixel cars ----
