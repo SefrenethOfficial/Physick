@@ -1243,6 +1243,7 @@ class Game {
     const pois = [];
     const P = (p, color, label, big = false, r = 4.5) => pois.push({ x: p.x, z: p.z, color, label, big, r });
     if (this.story.waypoint) P(this.story.waypoint, "#ffd166", "★ Objective", true, 7);
+    for (const c of this.story.extraCars) if (!c.wreck && !c.sinking) P(c.pos, '#ff2a1a', 'Ashen Hand', false, 5);
     const c = this.city;
     P(c.pawnCounter, '#ffd166', 'Pawn shop');
     P(c.bank.counter, '#2fd38a', 'Bank', true, 5.5);
@@ -1299,6 +1300,8 @@ class Game {
       marks.push({ x: t.x, z: t.z, color: '#9ec5ff', r: 2.5 });
     }
     const wp = this.story.waypoint;
+    for (const c of this.story.extraCars) if (!c.wreck && !c.sinking) marks.push({ x: c.pos.x, z: c.pos.z, color: '#ff2a1a', r: 4.5 });
+    for (const ch of this.story.monstruo.choppers) if (!ch.falling) marks.push({ x: ch.pos.x, z: ch.pos.z, color: '#ff8a1a', r: 4 });
     if (this.story.active?.id === 'm4') for (const p of this.portSandbox.props) if (p.def.bombPart) { const t = p.body.translation(); marks.push({ x: t.x, z: t.z, color: '#ff3030', r: 3.5 }); }
     if (wp) marks.push({ x: wp.x, z: wp.z, color: '#ffd166', r: 5.5, label: '★' });
     marks.push({ x: this.city.pawnCounter.x, z: this.city.pawnCounter.z, color: '#ffd166', r: 4, label: '$' });

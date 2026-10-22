@@ -18,6 +18,18 @@ export const DUMP = { x0: -700, x1: -630, z0: -200, z1: -150, bay: { x: -648, z:
 const CARS_TOTAL = 14;
 const MAX_ALIVE = 6;
 
+// a red downward chevron for Ashen Hand cars
+let _marker = null;
+function markerTex() {
+  if (_marker) return _marker;
+  _marker = canvasTex(64, 64, (c, w, h) => {
+    c.clearRect(0, 0, w, h);
+    c.fillStyle = '#ff2a1a'; c.strokeStyle = '#000'; c.lineWidth = 4;
+    c.beginPath(); c.moveTo(8, 10); c.lineTo(56, 10); c.lineTo(32, 54); c.closePath(); c.fill(); c.stroke();
+  });
+  return _marker;
+}
+
 // ---------------------------------------------------------------- the truck
 export function monsterTruckMesh() {
   const g = new THREE.Group();
@@ -242,6 +254,11 @@ export class ElMonstruo {
     const car = new Car(g, { color: armoured ? 0x2a2f24 : 0x15171a, x: p.x, z: p.z, heading, hp: armoured ? 170 : 95, maxSpeed: 37 });
     car.ashen = true;
     car.armoured = armoured;
+    // a red marker floating over it, visible from anywhere
+    const mk = new THREE.Sprite(new THREE.SpriteMaterial({ map: markerTex(), depthTest: false, transparent: true }));
+    mk.renderOrder = 10;
+    g.scene.add(mk);
+    car.marker = mk;
     car.shootT = 2 + Math.random() * 2;
     this.cars.push(car);
     this.spawned++;
@@ -280,7 +297,13 @@ export class ElMonstruo {
     if (!t) return;
     // cars: chase and ram, shoot out of the windows
     for (const c of [...this.cars]) {
+      if (c.marker && !c.wreck && !c.sinking) {
+        const d = c.pos.distanceTo(g.camera.position);
+        c.marker.position.copy(c.pos).add(new THREE.Vector3(0, 3.4 + Math.sin(g.time * 4) * 0.2, 0));
+        c.marker.scale.setScalar(THREE.MathUtils.clamp(d * 0.045, 1.3, 9));
+      }
       if (c.wreck || c.sinking) {
+        if (c.marker) { c.marker.removeFromParent(); c.marker = null; }
         if (!c.counted) { c.counted = true; a.destroyed++; g.hud.toast(`Ashen Hand car wrecked (${a.destroyed}/${CARS_TOTAL})`, 0x7be08a); }
         c.coast(dt);
         if ((c.wreckT || 0) > 25) { c.dispose(); this.cars.splice(this.cars.indexOf(c), 1); }
@@ -350,7 +373,7 @@ export class ElMonstruo {
   }
 
   clearEnemies() {
-    for (const c of this.cars) c.dispose();
+    for (const c of this.cars) { c.marker?.removeFromParent(); c.dispose(); }
     this.cars = [];
     for (const c of this.choppers) c.h.root.removeFromParent();
     this.choppers = [];
