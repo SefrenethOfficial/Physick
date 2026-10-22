@@ -333,6 +333,7 @@ class Game {
 
   // Shooting a car: your own takes damage; a driver under fire bails out and runs.
   shootCar(car, dmg, hitPoint = null) {
+    if (car.monster && hitPoint) { this.fx.flash(hitPoint, 0xffe0a0, 0.6, 0.05); return; } // bulletproof: it just sparks
     car.damage(dmg * 0.45);
     if (hitPoint) { // a little dent where the round went in
       const local = hitPoint.clone().sub(car.pos).setY(0).normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), -car.heading);

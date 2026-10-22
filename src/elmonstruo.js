@@ -270,7 +270,8 @@ export class ElMonstruo {
     g.police.tracer(from, to);
     g.fx.flash(from, 0xffc060, 0.8, 0.06);
     g.sfx.play('smg');
-    if (hit && g.vehicles.active === t) { g.health.damage(4, 'goon'); t.damage(11); }
+    // El Monstruo is bulletproof: the rounds just spark off the plating and the armoured glass
+    if (hit) g.fx.flash(to, 0xffe0a0, 0.7, 0.05);
   }
 
   // ---------------------------------------------------------------- per frame

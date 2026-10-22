@@ -20,6 +20,9 @@ export class Health {
 
   damage(amount, kind = '') {
     if (this.dead || this.god || amount <= 0.5) return;
+    // El Monstruo is bulletproof: rounds spark off the armoured glass
+    const v = this.game.vehicles?.active;
+    if (v?.monster && ['goon', 'police', 'gang', 'clerk'].includes(kind)) return;
     if (this.armor > 0) { // armour takes 70% of the hit until it's shot through
       const soak = Math.min(this.armor, amount * 0.7);
       this.armor -= soak;
