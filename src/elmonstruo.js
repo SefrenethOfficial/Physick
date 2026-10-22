@@ -15,8 +15,8 @@ import { Heli } from './cargo.js';
 const Y = LAND_Y;
 export const GARAGE = { x: -800, z: -1240 };
 export const DUMP = { x0: -700, x1: -630, z0: -200, z1: -150, bay: { x: -648, z: -175 } };
-const CARS_TOTAL = 10;
-const MAX_ALIVE = 4;
+const CARS_TOTAL = 14;
+const MAX_ALIVE = 6;
 
 // ---------------------------------------------------------------- the truck
 export function monsterTruckMesh() {
@@ -159,7 +159,7 @@ export class ElMonstruo {
     this.removeTruck();
     const mesh = monsterTruckMesh();
     const s = this.truckSpot;
-    const t = new Car(g, { mesh, x: s.x, z: s.z, heading: s.heading, hp: 2600, half: { x: 1.45, y: 1.05, z: 3.45 }, density: 420, wheelbase: 4.5, maxSpeed: 31, ride: 1.0 });
+    const t = new Car(g, { mesh, x: s.x, z: s.z, heading: s.heading, hp: 1700, half: { x: 1.45, y: 1.05, z: 3.45 }, density: 420, wheelbase: 4.5, maxSpeed: 31, ride: 1.0 });
     t.monster = true;
     t.type = { name: 'El Monstruo', hp: t.maxHp, car: true };
     t.base = 0;
@@ -235,8 +235,11 @@ export class ElMonstruo {
     c.sort((a, b) => ((b.x - t.pos.x) * f.x + (b.z - t.pos.z) * f.z) - ((a.x - t.pos.x) * f.x + (a.z - t.pos.z) * f.z) + (Math.random() - 0.5) * 120);
     const p = c[0];
     const heading = Math.atan2(-(t.pos.x - p.x), -(t.pos.z - p.z));
-    const car = new Car(g, { color: 0x15171a, x: p.x, z: p.z, heading, hp: 70, maxSpeed: 34 });
+    // one in four is an armoured SUV that takes a couple of good hits
+    const armoured = Math.random() < 0.28;
+    const car = new Car(g, { color: armoured ? 0x2a2f24 : 0x15171a, x: p.x, z: p.z, heading, hp: armoured ? 170 : 95, maxSpeed: 37 });
     car.ashen = true;
+    car.armoured = armoured;
     car.shootT = 2 + Math.random() * 2;
     this.cars.push(car);
     this.spawned++;
@@ -265,7 +268,7 @@ export class ElMonstruo {
     g.police.tracer(from, to);
     g.fx.flash(from, 0xffc060, 0.8, 0.06);
     g.sfx.play('smg');
-    if (hit && g.vehicles.active === t) { g.health.damage(3, 'goon'); t.damage(6); }
+    if (hit && g.vehicles.active === t) { g.health.damage(4, 'goon'); t.damage(11); }
   }
 
   // ---------------------------------------------------------------- per frame
@@ -282,7 +285,7 @@ export class ElMonstruo {
       }
       const lead = t.pos.clone().addScaledVector(t.vel, 0.5);
       const d = c.pos.distanceTo(t.pos);
-      c.driveTo(dt, d > 30 ? 34 : 28, lead, { maxSpeed: 34, accel: 13, grip: 12 });
+      c.driveTo(dt, d > 30 ? 37 : 32, lead, { maxSpeed: 37, accel: 16, grip: 13 });
       // El Monstruo flattens anything it hits
       c.truckT = (c.truckT || 0) - dt;
       const rel = c.vel.clone().sub(t.vel).length();
@@ -294,10 +297,11 @@ export class ElMonstruo {
         c.dent(new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5).normalize(), 0.3);
         g.sfx.play('crash');
         g.shake = Math.max(g.shake || 0, 0.6);
-        t.damage(4);
+        t.damage(c.armoured ? 22 : 12);
+        if (g.vehicles.active === t) g.health.damage(c.armoured ? 5 : 2, 'carCrash');
       }
       c.shootT -= dt;
-      if (c.shootT <= 0 && d < 45) { c.shootT = 1.8 + Math.random() * 1.6; this.shootAt(c.pos.clone().add(new THREE.Vector3(0, 1.6, 0)), d < 20 ? 0.3 : 0.15); }
+      if (c.shootT <= 0 && d < 45) { c.shootT = 1.1 + Math.random() * 1.2; this.shootAt(c.pos.clone().add(new THREE.Vector3(0, 1.6, 0)), d < 20 ? 0.38 : 0.2); }
     }
     // choppers: circle and shoot, then swoop low across your path (ram them!)
     for (const c of [...this.choppers]) {
@@ -329,7 +333,7 @@ export class ElMonstruo {
       h.rotor.rotation.y = c.t * 25; h.tail.rotation.x = c.t * 40;
       if (a.carsDone && c.pos.y > t.pos.y + 45) { h.root.removeFromParent(); this.choppers.splice(this.choppers.indexOf(c), 1); continue; }
       c.shootT -= dt;
-      if (c.shootT <= 0 && c.swoopT > 0 && !a.carsDone) { c.shootT = 1.4 + Math.random(); this.shootAt(c.pos.clone().add(new THREE.Vector3(0, -1, 0)), 0.3); }
+      if (c.shootT <= 0 && c.swoopT > 0 && !a.carsDone) { c.shootT = 0.9 + Math.random() * 0.8; this.shootAt(c.pos.clone().add(new THREE.Vector3(0, -1, 0)), 0.36); }
       // rammed: the truck's up to the chopper's height and moving
       const dh = Math.hypot(c.pos.x - t.pos.x, c.pos.z - t.pos.z);
       if (dh < 5.5 && c.pos.y - t.pos.y < 5 && Math.abs(t.speed) > 4) {

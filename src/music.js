@@ -32,9 +32,12 @@ export class ChaseMusic {
 
   // stars: current wanted level (0 = no music)
   // lab: you're down in the lab under Cherry Estate (its own music, nothing else)
-  update(dt, stars, lab = false) {
-    this.low.update(dt, !lab && stars >= 1 && stars <= 2);
-    this.high.update(dt, !lab && stars >= 3);
+  // force: a mission's own track ('low' = Chase on Foot, 'high' = Pursuer), whatever the stars
+  update(dt, stars, lab = false, force = null) {
+    const low = force ? force === 'low' : stars >= 1 && stars <= 2;
+    const high = force ? force === 'high' : stars >= 3;
+    this.low.update(dt, !lab && low);
+    this.high.update(dt, !lab && high);
     this.lab.update(dt, lab);
   }
 

@@ -121,6 +121,9 @@ export class Story {
 
   unlocked(m) { return !m.locked && (!m.requires || this.passed(m.requires)); }
 
+  // missions with their own soundtrack
+  get musicTrack() { return { m4: 'low', m5: 'high' }[this.active?.id] || null; }
+
   get underground() { return this.mansion.built && this.mansion.inside(this.game.shorePlayer.body.translation()); }
 
   // Nobody's calling the police from in here.
@@ -392,6 +395,7 @@ export class Story {
       M.plate.position.y = LAND_Y + 8.2;
     }
     if (a.id === 'm4') {
+      for (const nd of a.nades || []) nd.m.removeFromParent();
       for (const p of [...g.portSandbox.props]) if (p.def.bombPart) g.portSandbox.remove(p);
       if (g.held?.bombPart) g.clearHand?.();
       this.heli.hide();
@@ -586,11 +590,28 @@ export class Story {
   }
 
   // ---------------------------------------------------------------- mission 4: the MV Halvard
-  spawnGoon(a, at) {
+  // kind: 'rifle' (the usual), 'smg' (fast and sloppy), 'heavy' (armoured, shotgun, pushes in),
+  // 'grenadier' (lobs grenades at you from a distance)
+  spawnGoon(a, at, kind = 'rifle') {
     const g = this.game;
-    const n = g.citizens.spawnCitizen('town', 'goon', at.clone(), { look: { shirt: 0x1d1f22, pants: 0x2a2c30, skin: 0x1a1a1a, hat: 'cap', hatColor: 0x111111 } });
+    const looks = {
+      rifle: { shirt: 0x1d1f22, pants: 0x2a2c30, skin: 0x1a1a1a, hat: 'cap', hatColor: 0x111111 },
+      smg: { shirt: 0x2a2620, pants: 0x1d1f22, skin: 0x1a1a1a, hat: 'cap', hatColor: 0x3a2a1a },
+      heavy: { shirt: 0x3a3f36, pants: 0x1d1f22, skin: 0x1a1a1a, hat: 'cranial', hatColor: 0x2a2c30 },
+      grenadier: { shirt: 0x4a1f1a, pants: 0x1d1f22, skin: 0x1a1a1a, hat: 'cap', hatColor: 0x6a1a14 },
+    };
+    const n = g.citizens.spawnCitizen('town', 'goon', at.clone(), { look: looks[kind] });
     if (!n) return null;
-    n.hp = 90;
+    n.kind = kind;
+    n.weapon = {
+      rifle: { rate: [0.9, 0.9], dmg: 6, acc: 0.8 },
+      smg: { rate: [0.25, 0.3], dmg: 3, acc: 0.6 },
+      heavy: { rate: [1.4, 0.6], dmg: 11, acc: 1.2, shotgun: true },
+      grenadier: { rate: [1.6, 1.0], dmg: 5, acc: 0.6 },
+    }[kind];
+    if (kind === 'heavy') n.fig.root.scale.setScalar(1.15);
+    n.nadeT = 3 + Math.random() * 3;
+    n.hp = kind === 'heavy' ? 240 : 90;
     n.cash = 30 + Math.floor(Math.random() * 90);
     n.items = Math.random() < 0.3 ? ['pistol'] : [];
     n.heading = Math.random() * Math.PI * 2;
@@ -665,20 +686,57 @@ export class Story {
           `<b>${FIXER}:</b> Good. Now the bad news: they know. Every one of them in Verian is heading for that ship.`,
           `<b>${FIXER}:</b> I've got a friend with a helicopter. Three minutes. Stay alive for three minutes.`,
           `<b>${FIXER}:</b> When you hear the rotors, get to the pad on the bow.`,
-        ], () => { if (this.active === a) { a.stage = 'hold'; a.holdT = 180; a.reinfT = 4; g.hud.flashBanner('HOLD OUT', '#ffd166'); } }), 1500);
+        ], () => {
+          if (this.active !== a) return;
+          a.stage = 'hold'; a.holdT = 180; a.reinfT = 6;
+          g.hud.flashBanner('HOLD OUT', '#ffd166');
+          // they come straight away, from two directions
+          for (const [at, kind] of [[cg.doorPos, 'rifle'], [cg.doorPos, 'smg'], [cg.ladderTop, 'rifle'], [cg.ladderTop, 'smg']]) {
+            const n = this.spawnGoon(a, at.clone().add(new THREE.Vector3((Math.random() - 0.5) * 3, 0, (Math.random() - 0.5) * 3)), kind);
+            if (n) n.alerted = true;
+          }
+          // Vic's friend dropped you something on the foredeck
+          g.portSandbox.spawn(ITEM_BY_ID.armor, cg.padPos.clone().add(new THREE.Vector3(2, 0.6, -6)), new THREE.Quaternion(), { noHistory: true });
+          g.economy.addAmmo('smgAmmo', 60); g.economy.addAmmo('pistolAmmo', 24);
+          g.hud.toast('Body armour on the foredeck by the pad. Use it.', 0xffd166);
+        }), 1500);
       }
       return;
     }
     if (a.stage === 'call') { a.text = 'Your phone is ringing: press <kbd>J</kbd> to answer'; a.wp = null; return; }
     if (a.stage === 'hold' || a.stage === 'extract') {
-      // reinforcements up from below decks
+      // the longer you hold, the harder they push: more of them, more often, from more places,
+      // shooting straighter
+      const p01 = a.stage === 'hold' ? THREE.MathUtils.clamp(1 - a.holdT / 180, 0, 1) : 1;
+      a.sharp = 1 + p01 * 0.4;
       a.reinfT -= dt;
-      if (a.stage === 'hold' && a.reinfT <= 0 && a.goons.length < 8) {
-        a.reinfT = 14 + Math.random() * 6;
-        const k = 2 + Math.floor(Math.random() * 2);
-        for (let i = 0; i < k; i++) this.spawnGoon(a, cg.doorPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 3, 0, Math.random() * 2)));
-        g.hud.toast('More of them coming up from below!', 0xff8a6a);
+      const cap = Math.round(7 + p01 * 5);
+      if (a.reinfT <= 0 && a.goons.length < cap) {
+        a.reinfT = THREE.MathUtils.lerp(11, 4.5, p01) + Math.random() * 2;
+        const entries = [
+          { at: cg.doorPos, msg: 'More of them coming up from below!' },
+          { at: cg.ladderTop, msg: 'They\'re climbing up the side from the pier!' },
+          { at: cg.w(-9, cg.padPos.y, 38), msg: 'A launch at the bow: more of them coming over the rail!' },
+          { at: cg.w(9, cg.padPos.y, -44), msg: 'Boarders coming over the stern rail!' },
+        ];
+        const e = entries[Math.floor(Math.random() * (p01 < 0.25 ? 2 : entries.length))];
+        const k = 2 + Math.floor(Math.random() * (p01 > 0.5 ? 3 : 2));
+        for (let i = 0; i < k; i++) {
+          const r = Math.random();
+          const kind = r < 0.06 + p01 * 0.14 ? 'heavy' : r < 0.3 + p01 * 0.2 ? 'grenadier' : r < 0.6 ? 'smg' : 'rifle';
+          const n = this.spawnGoon(a, e.at.clone().add(new THREE.Vector3((Math.random() - 0.5) * 3, 0, (Math.random() - 0.5) * 3)), kind);
+          if (n) { n.alerted = true; n.lastSeen = new THREE.Vector3(p.x, p.y, p.z); }
+        }
+        g.hud.toast(e.msg, 0xff8a6a);
       }
+      // the final push
+      if (a.stage === 'hold' && a.holdT < 40 && !a.finalPush) {
+        a.finalPush = true;
+        g.hud.flashBanner('FINAL PUSH', '#ff6a5a');
+        this.spawnGoon(a, cg.doorPos.clone().add(new THREE.Vector3(0, 0, 1)), 'heavy');
+        for (let i = 0; i < 2; i++) this.spawnGoon(a, cg.ladderTop.clone().add(new THREE.Vector3(0, 0, i * 2 - 1)), 'grenadier');
+      }
+      this.updateNades(a, dt, p);
       const hover = cg.padPos.clone().add(new THREE.Vector3(0, 5.2, 0));
       const from = new THREE.Vector3(-1000, 80, -400);
       if (a.stage === 'hold') {
@@ -786,7 +844,7 @@ export class Story {
         M.spawnCar();
       }
       a.chopT -= dt;
-      if (a.chopT <= 0 && a.chopSpawned < 4 && M.choppers.filter((c) => !c.falling).length < 2 && !a.carsDone) { a.chopT = 18; a.chopSpawned++; M.spawnChopper(); g.hud.toast('Chopper inbound!', 0xff8a6a); }
+      if (a.chopT <= 0 && a.chopSpawned < 7 && M.choppers.filter((c) => !c.falling).length < 3 && !a.carsDone) { a.chopT = 11; a.chopSpawned++; M.spawnChopper(); g.hud.toast('Chopper inbound!', 0xff8a6a); }
       M.updateEnemies(dt, a);
       a.carsDone = M.spawned >= CARS_TOTAL && alive === 0;
       const left = CARS_TOTAL - a.destroyed;
@@ -831,5 +889,36 @@ export class Story {
       <div class="btns"><button data-a="ok">Continue</button></div></div>`;
     e.open('The Ashen Hand', html, (body) => body.addEventListener('click', (ev) => { if (ev.target.closest('button[data-a]')) e.close(); }));
   }
-}
 
+  // Grenadiers lob grenades at where you're standing; get out from under them.
+  updateNades(a, dt, p) {
+    const g = this.game;
+    a.nades ||= [];
+    for (const n of a.goons) {
+      if (n.kind !== 'grenadier' || !n.playerVisible) continue;
+      n.nadeT -= dt;
+      const t = n.body.translation();
+      const d = Math.hypot(t.x - p.x, t.z - p.z);
+      if (n.nadeT > 0 || d < 7 || d > 28) continue;
+      n.nadeT = 5 + Math.random() * 3;
+      const from = new THREE.Vector3(t.x, t.y + 0.9, t.z);
+      const to = new THREE.Vector3(p.x + (Math.random() - 0.5) * 2.5, p.y - 0.8, p.z + (Math.random() - 0.5) * 2.5);
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), new THREE.MeshStandardMaterial({ color: 0x3a4a2a, emissive: 0xff3010, emissiveIntensity: 0.6 }));
+      m.position.copy(from);
+      g.scene.add(m);
+      a.nades.push({ m, from, to, t: 0, T: 0.9 + d * 0.04, fuse: 0.9 });
+      g.sfx.play('switch');
+    }
+    for (const nd of [...a.nades]) {
+      nd.t += dt;
+      const k = Math.min(1, nd.t / nd.T);
+      nd.m.position.lerpVectors(nd.from, nd.to, k);
+      nd.m.position.y += Math.sin(k * Math.PI) * (2 + nd.from.distanceTo(nd.to) * 0.15);
+      if (k >= 1) {
+        nd.fuse -= dt;
+        nd.m.material.emissiveIntensity = (nd.fuse * 10) % 1 < 0.5 ? 2 : 0.2; // blinking
+        if (nd.fuse <= 0) { g.blast(nd.m.position.clone(), 5, 32, false); nd.m.removeFromParent(); a.nades.splice(a.nades.indexOf(nd), 1); }
+      }
+    }
+  }
+}

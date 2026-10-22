@@ -403,10 +403,14 @@ export class Citizens extends Npcs {
     }
     npc.heading = Math.atan2(to.x, to.z);
     this.setMarker(npc, '!');
+    const w = npc.weapon || { rate: [0.9, 0.9], dmg: 7, acc: 1, range: 17 };
+    const sharp = npc.mission?.sharp ?? 1; // they get better as the fight goes on
     if (npc.atkT <= 0) {
-      npc.atkT = 0.9 + Math.random() * 0.9;
-      if (g.gangs.shoot(npc, pp, distP < 9 ? 0.32 : 0.2)) g.health.damage(7, 'goon');
+      npc.atkT = w.rate[0] + Math.random() * w.rate[1];
+      if (w.shotgun && distP > 12) npc.atkT = 0.3; // close the distance first
+      else if (g.gangs.shoot(npc, pp, Math.min(0.75, (distP < 9 ? 0.32 : 0.2) * w.acc * sharp))) g.health.damage(w.dmg, 'goon');
     }
+    if (w.shotgun && distP > 7) return { want: to.normalize(), speed: 2.6 }; // heavies push in
     if (distP < 5) return { want: to.normalize().multiplyScalar(-1), speed: 2.2 };
     return { want: null, speed: 0 };
   }
