@@ -1,6 +1,6 @@
 // Chase music: one track for a low wanted level (1-2 stars), another when they're really
 // after you (3+). Tracks crossfade as the level changes and fade out when you lose the police.
-class Track {
+export class Track {
   constructor(url, max) {
     this.el = new Audio(url);
     this.el.loop = true;

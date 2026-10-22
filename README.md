@@ -2,6 +2,10 @@
 
 **Physick** is an open-world island game built with [three.js](https://threejs.org) and [Rapier](https://rapier.rs). You start in the city of Verian City with $150 and a dinghy at the marina. Take what isn't nailed down, sell it at the pawn shop, buy faster boats, and try not to get seen doing it. Further out there's a navy destroyer and a fighter base.
 
+## Title screen
+
+You stand on the Verian waterfront by the marina while the city goes to pieces behind you: a getaway car with a squad car on its tail tearing up the street, robbers sprinting down the promenade with a cop chasing them, a burning wreck, cars going up in fireballs, a shootout down a side street, and a police chopper circling overhead. The menu music plays once you click anywhere (browsers won't play sound before you've clicked); **Click to play** starts the game.
+
 ## Story
 
 Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **Wren Takavic**, your closest friend. You were standing beside Wren and lost your right arm; you get around with a robotic one now. A cell called **the Ashen Hand** did it, and they're still in the city. The story opens the first time you press Play.

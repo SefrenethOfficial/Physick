@@ -15,7 +15,7 @@ export class Vehicles {
   }
 
   // Every car in the world (traffic, police, parked, stolen).
-  get all() { return [...this.game.traffic.cars, ...this.game.police.cars, ...this.parked, ...this.list, ...(this.game.story?.extraCars || [])]; }
+  get all() { return [...this.game.traffic.cars, ...this.game.police.cars, ...this.parked, ...this.list, ...(this.game.story?.extraCars || []), ...(this.game.title?.cars || [])]; }
 
   // A car you could get into from where you're standing.
   nearby(pos) {

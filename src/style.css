@@ -374,3 +374,11 @@ h3.kih { margin: 16px 0 4px; font-size: 13px; letter-spacing: .12em; text-transf
 .story.act h2 { margin: 0 0 14px; font-size: 18px; letter-spacing: .4em; text-transform: uppercase; opacity: .8; }
 .story.act .lede { font-style: italic; font-size: 18px; color: #ffd166; }
 .story.act .btns { justify-content: center; }
+
+/* title screen: the scene shows through on the right, the menu sits on the left */
+#overlay.title { place-items: center start; padding-left: 5vw; background: linear-gradient(90deg, rgba(8,9,10,.82) 0%, rgba(8,9,10,.55) 38%, rgba(8,9,10,0) 62%); }
+#overlay.title .card { max-width: 520px; }
+#overlay .sound-hint { display: none; font-size: 13px; opacity: .75; padding: 4px 10px; border: 1px solid rgba(255,255,255,.25); border-radius: 12px; }
+#overlay.title .sound-hint { display: block; }
+#overlay.title.sound .sound-hint { display: none; }
+@media (max-width: 700px) { #overlay.title { place-items: center; padding-left: 16px; background: rgba(8,9,10,.6); } }

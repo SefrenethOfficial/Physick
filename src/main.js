@@ -23,6 +23,7 @@ import { Graphics } from './graphics.js';
 import { Story } from './story.js';
 import { CargoShip } from './cargo.js';
 import { Breakables } from './breakables.js';
+import { TitleScene } from './title.js';
 import { deckHalfWidth } from './ship.js';
 import { onLand } from './port.js';
 import { City } from './city.js';
@@ -203,6 +204,9 @@ class Game {
     loadingEl.textContent = '';
     document.querySelector('#overlay .play').disabled = false;
     this.hud.showOverlay(true, true);
+    this.title = new TitleScene(this);
+    this.title.start();
+    document.getElementById('overlay').classList.add('title');
 
     this.timer = new THREE.Timer();
     this.timer.connect?.(document);
@@ -1031,8 +1035,16 @@ class Game {
   }
 
   bindInput() {
-    document.getElementById('overlay').addEventListener('click', () => {
+    document.getElementById('overlay').addEventListener('click', (e) => {
       if (document.querySelector('#overlay .play').disabled) return;
+      // on the title screen, only the Play button starts; anywhere else just turns the sound on
+      if (!this.started && this.title?.active && !e.target.closest('.play')) {
+        this.sfx.unlock();
+        this.title.music.el.play().catch(() => {});
+        document.getElementById('overlay').classList.add('sound');
+        return;
+      }
+      if (this.title?.active) { this.title.stop(); document.getElementById('overlay').classList.remove('title'); }
       this.started = true;
       this.lock();
       if (!this.story.state.introSeen) setTimeout(() => this.story.showIntro(), 400);
@@ -1365,6 +1377,7 @@ class Game {
     this.boats.update(dt, alive ? k : new Set());
     this.vehicles.update(dt, alive ? k : new Set());
     this.breakables.update(dt);
+    this.title?.update(dt);
     this.pragdoll.update(dt);
     this.underworld.update(dt);
     this.bank.update(dt);
@@ -1408,7 +1421,9 @@ class Game {
       }
     }
 
-    if (this.pragdoll.active) {
+    if (this.title?.active) {
+      this.title.cameraPose(this.camera);
+    } else if (this.pragdoll.active) {
       this.pragdoll.cameraPose(this.camera, dt);
     } else if (this.flying) {
       this.jets.cameraPose(this.camera, dt);
@@ -1475,7 +1490,7 @@ class Game {
     const r = this.renderer;
     r.autoClear = true;
     r.render(this.scene, this.camera);
-    const showArm = !this.atHelm && !this.gunnery.active && !this.health.dead && !this.flying && !this.boats.active && !this.vehicles.active && !this.pragdoll.active;
+    const showArm = !this.title?.active && !this.atHelm && !this.gunnery.active && !this.health.dead && !this.flying && !this.boats.active && !this.vehicles.active && !this.pragdoll.active;
     this.viewmodel.update(dt, this.player, this.mouseDX, this.mouseDY, false);
     this.mouseDX = this.mouseDY = 0;
     if (showArm) {
