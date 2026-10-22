@@ -28,7 +28,8 @@ export class Phone {
     this.ringEl.className = 'ph-ring';
     document.getElementById('hud').appendChild(this.ringEl);
     addEventListener('keydown', (e) => {
-      if (!this.isOpen) return;
+      // (ignore the very key press that opened it, which reaches this listener too)
+      if (!this.isOpen || e.repeat || e === this.openEvent || performance.now() - this.openedAt < 250) return;
       if (e.code === 'KeyJ' || e.code === 'Escape') { e.preventDefault(); this.close(); }
     });
   }
@@ -37,6 +38,7 @@ export class Phone {
 
   open(screen = this.call?.state === 'ringing' ? 'call' : 'home') {
     this.screen = screen;
+    this.openedAt = performance.now();
     this.el.classList.remove('hidden');
     this.game.panelOpen = true;
     if (document.pointerLockElement) document.exitPointerLock();
