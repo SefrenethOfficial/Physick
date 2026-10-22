@@ -472,7 +472,7 @@ export class Story {
       g.cullFar();
       if (this.active?.id === 'm3' && this.active.stage === 'bunker') {
         this.active.stage = 'search';
-        g.hud.toast('Stairs. A lot of stairs. And at the bottom… wallpaper?', 0xffd166);
+        g.hud.toast('Stairs. A lot of stairs. At the bottom, a dark lab that smells of bleach and something worse. There\'s blood on the floor.', 0xffd166);
       }
     });
   }
@@ -492,6 +492,7 @@ export class Story {
     const g = this.game;
     if (this.keyMesh?.visible) this.keyMesh.rotation.y += dt * 1.5;
     this.phone.update(dt);
+    if (this.mansion.built && this.underground) this.mansion.update(this.game.time);
     if (!a) { this.beacon.visible = false; return; }
     a.t += dt;
     if (g.health.dead) { this.end(false, 'You died'); return; }
@@ -576,7 +577,7 @@ export class Story {
     }
     a.wp = null;
     if (a.found.length < DOCS.length) {
-      a.text = this.underground ? `Search the house for papers: look for lit desks (${a.found.length}/${DOCS.length})` : 'Go back down the bunker';
+      a.text = this.underground ? `Search the lab for papers: follow the blood (${a.found.length}/${DOCS.length})` : 'Go back down the bunker';
       if (!this.underground) a.wp = bk.door.clone();
       return;
     }

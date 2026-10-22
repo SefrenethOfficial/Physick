@@ -1,4 +1,7 @@
 // Tiny synthesized sound kit, no audio files needed.
+// Sounds that come from the world around you rather than from you.
+const OUTSIDE = new Set(['honk', 'scream', 'crash', 'explosion', 'star', 'shipHorn', 'splash', 'splashFar', 'alarm', 'engineStart', 'telegraph', 'bigGun', 'ciws', 'cannon']);
+
 export class Sfx {
   constructor() {
     this.ctx = null;
@@ -47,6 +50,7 @@ export class Sfx {
 
   play(name) {
     if (!this.ctx) return;
+    if (this.muffled && OUTSIDE.has(name)) return; // underground: you can't hear the world up there
     switch (name) {
       case 'shoot': this.noise(0.09, 0.5, 2600, 0.7); this.tone('square', 220, 60, 0.08, 0.18); break;
       case 'cannon': this.noise(0.35, 0.7, 500, 0.6); this.tone('sine', 120, 35, 0.35, 0.6); break;

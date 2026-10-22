@@ -27,13 +27,16 @@ export class ChaseMusic {
   constructor(base) {
     this.low = new Track(`${base}assets/music/chase-on-foot.mp3`, 0.5);
     this.high = new Track(`${base}assets/music/starvation-pursuer.mp3`, 0.6);
+    this.lab = new Track(`${base}assets/music/true-lab.mp3`, 0.6);
   }
 
   // stars: current wanted level (0 = no music)
-  update(dt, stars) {
-    this.low.update(dt, stars >= 1 && stars <= 2);
-    this.high.update(dt, stars >= 3);
+  // lab: you're down in the lab under Cherry Estate (its own music, nothing else)
+  update(dt, stars, lab = false) {
+    this.low.update(dt, !lab && stars >= 1 && stars <= 2);
+    this.high.update(dt, !lab && stars >= 3);
+    this.lab.update(dt, lab);
   }
 
-  get vol() { return Math.max(this.low.vol, this.high.vol); }
+  get vol() { return Math.max(this.low.vol, this.high.vol, this.lab.vol); }
 }

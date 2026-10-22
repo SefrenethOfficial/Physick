@@ -577,6 +577,39 @@ class Game {
     this.pragdoll.start(pos, this.shorePlayer.yaw, vel, { dead: true, spin: 2 });
   }
 
+  // Down in the lab: pitch dark but for its own lights, and silent apart from you (and the music).
+  setUnderground(on) {
+    if (on === !!this.underMode) return;
+    this.underMode = on;
+    const f = this.scene.fog;
+    if (on) {
+      this.overworld = { fogColor: f.color.clone(), near: f.near, far: f.far, hemi: this.hemi.intensity, sun: this.sun.intensity, exp: this.renderer.toneMappingExposure };
+      f.color.set(0x020403); f.near = 3; f.far = 30;
+      this.hemi.intensity = 0.09;
+      this.sun.intensity = 0;
+      this.sky.visible = false;
+      this.ocean.near.visible = this.ocean.far.visible = false;
+      this.renderer.setClearColor(0x000000);
+      // your torch: the only real light down here
+      if (!this.torch) {
+        this.torch = new THREE.SpotLight(0xfff1dc, 38, 30, 0.42, 0.55, 1.3);
+        this.torch.target = new THREE.Object3D();
+      }
+      this.scene.add(this.torch, this.torch.target);
+    } else if (this.overworld) {
+      const o = this.overworld;
+      f.color.copy(o.fogColor); f.near = this.view?.fogNear ?? o.near; f.far = this.view?.fogFar ?? o.far;
+      this.hemi.intensity = o.hemi;
+      this.sun.intensity = o.sun;
+      this.renderer.toneMappingExposure = o.exp;
+      this.sky.visible = true;
+      this.ocean.near.visible = this.ocean.far.visible = true;
+      if (this.torch) { this.torch.removeFromParent(); this.torch.target.removeFromParent(); }
+    }
+    this.sfx.muffled = on;
+    if (on) this.sfx.setEngine(false);
+  }
+
   respawnPlayer() {
     // patched up at the hospital in Verian City; the bill comes out of your pocket
     if (this.pragdoll.active) this.pragdoll.clear();
@@ -616,7 +649,8 @@ class Game {
     this.sky = sky;
     this.scene.add(sky);
 
-    this.scene.add(new THREE.HemisphereLight(0xd6e6ff, 0x2a4a5e, 1.4));
+    this.hemi = new THREE.HemisphereLight(0xd6e6ff, 0x2a4a5e, 1.4);
+    this.scene.add(this.hemi);
     const sun = (this.sun = new THREE.DirectionalLight(0xfff1dc, 2.8));
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -1332,7 +1366,9 @@ class Game {
     this.updateGrenades(dt);
     this.gangs.update(dt);
     this.graphics.update(dt);
-    this.music.update(dt, this.started && this.settings.music && !this.health.dead ? Math.max(this.police.wanted, this.gangs.war.active ? 1 : 0) : 0);
+    const under = this.story.underground;
+    this.music.update(dt, this.started && this.settings.music && !this.health.dead ? Math.max(this.police.wanted, this.gangs.war.active ? 1 : 0) : 0, this.started && under);
+    this.setUnderground(under);
     this.police.update(dt);
     this.updatePickpocket(dt);
     this.blood.update(dt);
@@ -1394,6 +1430,12 @@ class Game {
     this.camera.updateMatrixWorld();
 
     this.sky.position.copy(this.camera.position);
+    if (this.underMode && this.torch) {
+      // held at chest height, pointing where you look
+      const cp = this.camera.position, fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+      this.torch.position.set(cp.x, cp.y - 0.25, cp.z).addScaledVector(new THREE.Vector3(fwd.z, 0, -fwd.x).normalize(), -0.2);
+      this.torch.target.position.copy(cp).addScaledVector(fwd, 10);
+    }
     this.ocean.update(dt, this.camera, this.ship);
     const cp = this.camera.position;
     this.sun.position.set(cp.x + SUN.x * 100, cp.y + SUN.y * 100, cp.z + SUN.z * 100);
@@ -1414,7 +1456,8 @@ class Game {
     this.hud.setPrompt(this.promptText());
     if (!this.boats.active && !this.vehicles.active) this.sfx.setEngine(this.started && !this.onShore, 0.15 + Math.abs(this.ship.speed) / 22);
     const inTown = this.onShore && !this.flying && !this.boats.active && islandAt(pt.x, pt.z, -60)?.id !== 'naval';
-    this.sfx.setOcean(this.started, inTown ? 0.25 : 0.6 + Math.abs(this.ship.speed) / 20);
+    this.sfx.setOcean(this.started && !this.story.underground, inTown ? 0.25 : 0.6 + Math.abs(this.ship.speed) / 20);
+    if (this.story.underground) this.sfx.setSiren(0);
     this.cullT = (this.cullT || 0) - dt;
     if (this.cullT <= 0) { this.cullT = 0.4; this.cullFar(); }
     this.mapT = (this.mapT || 0) - dt;
