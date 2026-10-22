@@ -14,12 +14,21 @@
     <canvas id="game"></canvas>
     <div id="hud"></div>
 
-    <div id="overlay">
+    <div id="splash">
+      <img class="logo" src="./assets/physick-logo.svg" alt="Physick" />
+      <div class="go">Click to start</div>
+      <small>Sound on</small>
+    </div>
+
+    <div id="loadpop" class="hidden">
+      <i class="spin"></i>
+      <div><b>Loading Verian</b><span id="loading">…</span><div class="bar"><i></i></div></div>
+    </div>
+
+    <div id="overlay" class="title">
       <div class="card">
         <img class="logo" src="./assets/physick-logo.svg" alt="Physick" />
-        <div class="loading" id="loading">Loading…</div>
         <button class="play" disabled>Click to play</button>
-        <div class="sound-hint">🔊 Click anywhere for sound</div>
         <button class="settings-btn" id="btn-settings">Settings</button>
         <div class="controls">
           <div><kbd>W A S D</kbd> walk / drive · <kbd>Space</kbd> jump · <kbd>Shift</kbd> run</div>

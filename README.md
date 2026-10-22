@@ -4,7 +4,15 @@
 
 ## Title screen
 
-You stand on the Verian waterfront by the marina while the city goes to pieces behind you: a getaway car with a squad car on its tail tearing up the street, robbers sprinting down the promenade with a cop chasing them, a burning wreck, cars going up in fireballs, a shootout down a side street, and a police chopper circling overhead. The menu music plays once you click anywhere (browsers won't play sound before you've clicked); **Click to play** starts the game.
+Nothing loads until you click **Click to start**. That click also lets the browser play sound, so the menu music starts straight away while the city builds behind the title screen; a small loading popup in the corner shows progress and removes itself when it's done.
+
+You stand on the Verian waterfront by the marina while the city goes to pieces behind you: a getaway car with a squad car on its tail, robbers sprinting down the promenade with a cop chasing them, a burning wreck, a side-street shootout and a police chopper circling. On a loop:
+1. Two airliners on a collision course meet overhead in a fireball. Burning debris rains down on the city, and a flaming section of fuselage slams into the ground a few metres from you.
+2. El Monstruo comes roaring down the waterfront and shoves the wreckage out of the way.
+3. A swarm of police cars comes down the street, straight into El Monstruo coming the other way, which smashes every one of them.
+4. Killer clown vans turn up and do burnouts in clouds of tyre smoke.
+
+**Click to play** starts the game.
 
 ## Story
 

@@ -24,6 +24,7 @@ import { Story } from './story.js';
 import { CargoShip } from './cargo.js';
 import { Breakables } from './breakables.js';
 import { TitleScene } from './title.js';
+import { Track } from './music.js';
 import { deckHalfWidth } from './ship.js';
 import { onLand } from './port.js';
 import { City } from './city.js';
@@ -80,7 +81,7 @@ class Game {
 
   async init() {
     const loadingEl = document.getElementById('loading');
-    loadingEl.textContent = 'Starting physics…';
+    await this.loadStep('Starting physics…', 3);
     await RAPIER.init();
 
     // ---------- renderer / scene ----------
@@ -107,7 +108,7 @@ class Game {
     this.effects = new Effects(this.frame);
     this.sfx = new Sfx();
 
-    loadingEl.textContent = 'Building the ship…';
+    await this.loadStep('Building the ship…', 10);
     this.ocean = new Ocean(this.scene, {
       sun: SUN, skyTop: SKY_TOP, skyHorizon: HORIZON, fogColor: HORIZON, fogNear: FOG_NEAR, fogFar: FOG_FAR,
     });
@@ -115,28 +116,28 @@ class Game {
     this.world.step(); // scene queries only see new colliders after a step
 
     // The naval air station has its own physics world in world coordinates.
-    loadingEl.textContent = 'Building the air station…';
+    await this.loadStep('Building the air station…', 20);
     this.portWorld = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
     this.portSandbox = new Sandbox(this, { world: this.portWorld, scene: this.scene });
     this.port = new Port(this, this.portSandbox);
-    loadingEl.textContent = 'Building Verian City…';
+    await this.loadStep('Building Verian City…', 32);
     this.city = new City(this, this.portSandbox);
     this.saltmarsh = new Saltmarsh(this, this.portSandbox);
     this.cargo = new CargoShip(this, this.portSandbox);
-    loadingEl.textContent = 'Running down the Hollows…';
+    await this.loadStep('Running down the Hollows…', 48);
     this.hood = new Hood(this, this.portSandbox);
     mergeStatic(this.hood.group);
-    loadingEl.textContent = 'Planting Cherry Estate…';
+    await this.loadStep('Planting Cherry Estate…', 58);
     this.park = new Park(this, this.portSandbox);
     mergeStatic(this.park.group);
-    loadingEl.textContent = 'Stringing the bridge…';
+    await this.loadStep('Stringing the bridge…', 70);
     this.bridge = new Bridge(this, this.portSandbox, this.park.bridge.start, this.park.bridge.end);
     {
       const e = this.bridge.at(this.bridge.length + 12);
       this.bridge.groundRoad([[e.x, e.z], [-1010, -1262], [-1000, -1300]]);
     }
     mergeStatic(this.bridge.group);
-    loadingEl.textContent = 'Closing the airport…';
+    await this.loadStep('Closing the airport…', 80);
     this.airport = new Airport(this, this.portSandbox);
     mergeStatic(this.airport.group);
     mergeStatic(this.port.group);
@@ -145,7 +146,7 @@ class Game {
     this.breakables = new Breakables(this); // every tree and lamp, now the world's built
     this.portWorld.step();
 
-    loadingEl.textContent = 'Loading your arm…';
+    await this.loadStep('Loading your arm…', 88);
     const gltf = await new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}assets/robotic_arm.glb`, (e) => {
       if (e.total) loadingEl.textContent = `Loading your arm… ${Math.round((e.loaded / e.total) * 100)}%`;
     });
@@ -201,12 +202,13 @@ class Game {
     this.resize();
     addEventListener('resize', () => this.resize());
 
-    loadingEl.textContent = '';
+    await this.loadStep('Ready', 100);
+    this.loadDone();
     document.querySelector('#overlay .play').disabled = false;
     this.hud.showOverlay(true, true);
+    this.sfx.unlock(); // (you've already clicked, so the browser allows it)
     this.title = new TitleScene(this);
     this.title.start();
-    document.getElementById('overlay').classList.add('title');
 
     this.timer = new THREE.Timer();
     this.timer.connect?.(document);
@@ -220,6 +222,19 @@ class Game {
     this.signs = SIGNS;
     this.itemDefs = ITEM_BY_ID;
     this.THREE = THREE;
+  }
+
+  // Loading popup on the title screen
+  async loadStep(text, pct) {
+    document.getElementById('loading').textContent = text;
+    document.querySelector('#loadpop .bar i').style.width = `${pct}%`;
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  }
+
+  loadDone() {
+    const p = document.getElementById('loadpop');
+    p.classList.add('done');
+    setTimeout(() => p.remove(), 700);
   }
 
   // The walker you're controlling: aboard (ship frame) or ashore (world frame).
@@ -1038,12 +1053,7 @@ class Game {
     document.getElementById('overlay').addEventListener('click', (e) => {
       if (document.querySelector('#overlay .play').disabled) return;
       // on the title screen, only the Play button starts; anywhere else just turns the sound on
-      if (!this.started && this.title?.active && !e.target.closest('.play')) {
-        this.sfx.unlock();
-        this.title.music.el.play().catch(() => {});
-        document.getElementById('overlay').classList.add('sound');
-        return;
-      }
+      if (!this.started && this.title?.active && !e.target.closest('.play')) return; // only the Play button starts
       if (this.title?.active) { this.title.stop(); document.getElementById('overlay').classList.remove('title'); }
       this.started = true;
       this.lock();
@@ -1507,8 +1517,22 @@ class Game {
   }
 }
 
-new Game().init().catch((err) => {
-  console.error(err);
-  const el = document.getElementById('loading');
-  if (el) el.textContent = `Failed to start: ${err.message}`;
-});
+// Nothing loads until you click: that click also lets the browser play sound, so the menu
+// music can start straight away while the city builds behind the title screen.
+const splash = document.getElementById('splash');
+splash.addEventListener('click', () => {
+  splash.classList.add('gone');
+  setTimeout(() => splash.remove(), 600);
+  document.getElementById('loadpop').classList.remove('hidden');
+  const menu = new Track(`${import.meta.env.BASE_URL}assets/music/main-menu.mp3`, 0.6);
+  menu.el.currentTime = 0;
+  menu.vol = 0.6; menu.el.volume = 0.6;
+  menu.el.play().catch(() => {});
+  const game = new Game();
+  game.menuTrack = menu;
+  game.init().catch((err) => {
+    console.error(err);
+    const el = document.getElementById('loading');
+    if (el) el.textContent = `Failed to start: ${err.message}`;
+  });
+}, { once: true });
