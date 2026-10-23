@@ -316,7 +316,7 @@ export class Fleet {
       g.economy.addMoney(price, 'for the towed car');
       g.sfx.play('cash');
       g.hud.toast('Dimitri\'s boys take it off the hook', 0xffb36b);
-      g.jobs?.towed?.(c);
+      g.activities?.onChop(c);
     }
   }
 

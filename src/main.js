@@ -50,6 +50,8 @@ import { News } from './news.js';
 import { Radio } from './radio.js';
 import { Ambient } from './ambient.js';
 import { Fleet } from './fleet.js';
+import { Activities } from './activities.js';
+import { Stunts } from './stunts.js';
 import { Airport } from './airport.js';
 import { Bank } from './bank.js';
 import { Vehicles } from './vehicles.js';
@@ -225,6 +227,8 @@ class Game {
     this.daynight = new DayNight(this);
     this.radio = new Radio(this, import.meta.env.BASE_URL);
     this.ambient = new Ambient(this);
+    this.activities = new Activities(this);
+    this.stunts = new Stunts(this);
     this.title = new TitleScene(this);
     this.title.start();
 
@@ -1057,6 +1061,7 @@ class Game {
     const v = this.vehicles.active;
     const price = this.underworld.carPrice(v);
     this.vehicles.exit();
+    this.activities?.onChop(v);
     this.vehicles.remove(v);
     this.economy.addMoney(price, `for the ${v.police ? 'cop car' : 'car'}`);
     this.sfx.play('cash');
@@ -1176,6 +1181,7 @@ class Game {
         if (this.flying) { this.jets.exit(); return; }
         if (this.boats.active) { this.boats.exit(); return; }
         if (this.vehicles.active?.isHeli) { this.vehicles.active.exit(); return; }
+        { const ra = this.vehicles.active && this.activities?.carAction(this.vehicles.active); if (ra) { ra.run(); return; } }
         if (this.vehicles.active && this.garage.inBay()) { this.garage.open(this.vehicles.active); return; }
         if (this.vehicles.active) {
           const chop = this.underworld.chopZone(this.vehicles.active.pos);
@@ -1196,6 +1202,7 @@ class Game {
       if (e.code === 'KeyG' && this.story.onKeyG()) return; // (works from the driver's seat)
       if (e.code === 'KeyR' && this.vehicles.active && this.radio) { this.radio.next(); return; }
       if (e.code === 'KeyT' && this.vehicles.active && this.fleet?.toggleTow()) return;
+      if (e.code === 'KeyY' && this.vehicles.active && this.activities?.keyY()) return;
       if (this.gunnery.active || this.boats.active || this.vehicles.active) return;
       if (e.code === 'KeyF') { this.useHeld(); return; }
       if (e.code === 'KeyB') { this.stash(); return; }
@@ -1236,7 +1243,11 @@ class Game {
       if (v.isHeli) return v.altitude < 2.5 ? '<kbd>E</kbd> Get out · <kbd>Space</kbd> Climb' : '<kbd>Space</kbd> Climb · <kbd>Shift</kbd> Descend · <kbd>W</kbd>/<kbd>S</kbd> Tilt';
       if (this.underworld.chopZone(v.pos) && !v.ownedUid) return `<kbd>E</kbd> Sell to the chop shop ($${this.underworld.carPrice(v)})`;
       if (this.garage.inBay()) return '<kbd>E</kbd> Underpass Customs: upgrades, repairs, paint';
-      const tow = v.tow ? (this.fleet?.tow ? ' · <kbd>T</kbd> Drop the car' : ' · <kbd>T</kbd> Hook a car') : '';
+      const ra = this.activities?.carAction(v);
+      if (ra) return `<kbd>E</kbd> ${ra.label}`;
+      const vj = this.activities?.vjobs.kindOf(v);
+      const job = vj ? ` · <kbd>Y</kbd> ${this.activities.cur?.vjob ? 'Clock off' : { taxi: 'Taxi job', ambulance: 'Paramedic job', fire: 'Firefighter job' }[vj]}${vj === 'fire' ? ' · <kbd>F</kbd> Spray' : ''}` : '';
+      const tow = job + (v.tow ? (this.fleet?.tow ? ' · <kbd>T</kbd> Drop the car' : ' · <kbd>T</kbd> Hook a car') : '');
       const nos = tow + (v.nitro ? ` · <kbd>Shift</kbd> Nitro ${Math.round((v.nitroTank ?? 1) * 100)}%` : '');
       return (Math.abs(v.speed) < 5 ? '<kbd>E</kbd> Get out · <kbd>Space</kbd> Handbrake · <kbd>H</kbd> Horn' : '<kbd>E</kbd> Bail out') + nos + ' · <kbd>R</kbd> Radio';
     }
@@ -1315,6 +1326,7 @@ class Game {
     const pois = [];
     const P = (p, color, label, big = false, r = 4.5) => pois.push({ x: p.x, z: p.z, color, label, big, r });
     if (this.story.waypoint) P(this.story.waypoint, "#ffd166", "★ Objective", true, 7);
+    for (const m of this.activities?.marks() || []) P(m, m.color, m.label === '🏁' ? '🏁 Street race' : m.label === '◆' ? '◆ Job' : '', m.label !== undefined, 5);
     for (const c of this.story.extraCars) if (!c.wreck && !c.sinking) P(c.pos, '#ff2a1a', 'Ashen Hand', false, 5);
     const c = this.city;
     P(c.pawnCounter, '#ffd166', 'Pawn shop');
@@ -1378,6 +1390,7 @@ class Game {
     for (const ch of this.story.monstruo.choppers) if (!ch.falling) marks.push({ x: ch.pos.x, z: ch.pos.z, color: '#ff8a1a', r: 4 });
     if (this.story.active?.id === 'm4') for (const p of this.portSandbox.props) if (p.def.bombPart) { const t = p.body.translation(); marks.push({ x: t.x, z: t.z, color: '#ff3030', r: 3.5 }); }
     if (wp) marks.push({ x: wp.x, z: wp.z, color: '#ffd166', r: 5.5, label: '★' });
+    for (const m of this.activities?.marks() || []) marks.push(m);
     marks.push({ x: this.city.pawnCounter.x, z: this.city.pawnCounter.z, color: '#ffd166', r: 4, label: '$' });
     marks.push({ x: this.city.dealerCounter.x, z: this.city.dealerCounter.z, color: '#7fd3ff', r: 4, label: 'Boats' });
     marks.push({ x: this.city.hospital.x, z: this.city.hospital.z, color: '#ff6a6a', r: 3, label: '+' });
@@ -1400,7 +1413,7 @@ class Game {
   // ---------- loop ----------
   tick() {
     this.timer.update();
-    const dt = Math.min(this.timer.getDelta(), 0.1);
+    const dt = Math.min(this.timer.getDelta(), 0.1) * (this.timeScale ?? 1); // (slowed right down mid-stunt)
     this.time += dt;
     const k = this.keys;
     const steer = this.atHelm ? (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0) : 0;
@@ -1447,6 +1460,8 @@ class Game {
     this.radio?.update(dt);
     this.ambient?.update(dt);
     this.fleet?.update(dt);
+    this.activities?.update(dt);
+    this.stunts?.update(dt);
     this.title?.update(dt);
     this.pragdoll.update(dt);
     this.underworld.update(dt);

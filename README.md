@@ -37,6 +37,18 @@ Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **
 - **Saltmarsh Key** (north of the city): a leafy suburb. Asphalt streets with kerbs, grass verges, footpaths, street trees and corner street lights, lined with family homes: one- and two-storey houses in lap siding with pitched shingle roofs, porches, shuttered windows, attached garages, driveways (some with a car in them), mailboxes, hedges and fenced back yards. In the middle is a market square full of stalls, with a church, a lighthouse, a general store and a fishing dock round the edge. Lots of stuff lying around on porches and stalls, and townspeople with cash in their pockets. A strip of **beach** runs down the whole west shore, with umbrellas, towels, a lifeguard tower and a volleyball net, sloping gently into the shallows. The container ship **MV Halvard** is tied up off its west pier.
 - **NAS Halyard** (east): the naval air station with the destroyer moored alongside and fighter jets on the apron.
 
+## Things to do
+
+- **Street races:** chequered flags mark three starts: **City Sprint** (2 laps round downtown, starting by Verian Motors), **Bridge Run** (point to point over the Saltmarsh Gate Bridge) and **Hollows Dash** (2 laps). Stop in any car on the start and press `E`: $500 to enter, and you can **bet on yourself** to win ($500 / $2,000 / $10,000 at 3 to 1). A countdown, then four other drivers and a string of checkpoints (the blue beacon is the next one). Prizes for the top three; your best times are kept.
+- **Vehicle jobs:** press `Y` in a **taxi** (three in city traffic, one at the plaza rank), the **ambulance** or the **fire engine** (both outside the hospital) to go on duty, and `Y` again to clock off.
+  - Taxi: pick up the fare waving at the kerb (stop next to them), drive them to where they're going. Faster pays more.
+  - Paramedic: get to the patient on the pavement, then back to the hospital's front door.
+  - Firefighter: get to the burning dumpster and hold `F` to spray the water cannon until it's out (it'll knock people over, too).
+  Each job gets a time limit; keep going for bigger pay.
+- **Odd jobs** on your phone (`J` → *Odd jobs*): a **drop-off** for Vic (a package across town against the clock), a **repo** for Dimitri (take the marked car to his chop shop: drive it in or tow it in), a **tail** for Rosa (follow the purple car for 90 seconds: not too close, don't lose it) and a **hot car** for Dimitri (a yellow Stiletto to the docks scrapyard; every scratch comes off your cut).
+- **Stunt jumps:** ten yellow-and-black ramps: four on the closed airport, and off the ends of streets in the city, the Hollows, Saltmarsh and the fishing dock. Hit one fast and the game drops into slow motion while you fly; land far enough for a stunt bonus ($500 the first time each, $10,000 for all ten).
+- **Hidden packages:** thirty glowing green parcels hidden all over: kerb corners, alleys, piers, campsites, the airport, under the bridge. $100 each, and $5,000, $15,000 and $50,000 when you reach 10, 20 and all 30. Saved.
+
 ## Day, night, weather and radio
 
 - **Day and night:** a full day takes 24 minutes (one game hour per minute; the clock's under the compass). Pink-orange sunrises and sunsets, moonlit nights full of stars, street lamps throwing pools of light, and every car with its headlights and tail lights on after dark.
@@ -239,6 +251,8 @@ src/
   news.js      the news feed (radio, TV)
   ambient.js   buskers, fishermen, dog walkers, joggers
   fleet.js     motorbikes, buses and stops, the tow truck, the ferry
+  activities.js street races and betting, taxi/ambulance/fire jobs, odd jobs
+  stunts.js    stunt ramps (slow-motion jumps) and hidden packages
   hood.js      the Hollows
   gangs.js     the two crews and gang wars
   airport.js   Verian International Airport (closed)

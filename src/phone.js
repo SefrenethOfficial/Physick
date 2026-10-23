@@ -8,6 +8,7 @@ export class Phone {
     this.screen = 'home';
     this.call = null; // { from, lines, i, state: 'ringing' | 'live' | 'done', onEnd }
     this.unread = 0;
+    this.apps = []; // extra apps: { id, icon, name, render(head), act(cmd, data) }
     const el = (this.el = document.createElement('div'));
     el.id = 'phone';
     el.className = 'hidden';
@@ -33,6 +34,8 @@ export class Phone {
       if (e.code === 'KeyJ' || e.code === 'Escape') { e.preventDefault(); this.close(); }
     });
   }
+
+  addApp(app) { this.apps.push(app); }
 
   get isOpen() { return !this.el.classList.contains('hidden'); }
 
@@ -80,12 +83,13 @@ export class Phone {
       if (c.t <= 0) { c.t = 1.8; this.game.sfx.play('telegraph'); setTimeout(() => this.game.sfx.play('telegraph'), 180); }
     }
     const t = this.el.querySelector('.ph-time');
-    if (t && this.isOpen) { const d = new Date(); t.textContent = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`; }
+    if (t && this.isOpen) t.textContent = this.game.daynight?.timeText || '';
   }
 
   act(a, data) {
     const s = this.game.story;
     if (a === 'home') { if (this.call?.state !== 'live') { this.screen = 'home'; this.render(); } return; }
+    if (a === 'app-act') { this.apps.find((x) => x.id === data.app)?.act(data.cmd, data); if (this.isOpen) this.render(); return; }
     if (a === 'app') { this.screen = data.app; if (data.app === 'messages') this.unread = 0; this.render(); return; }
     if (a === 'start') { this.close(); s.start(data.id); return; }
     if (a === 'abandon') { s.end(false, 'Mission abandoned'); this.render(); return; }
@@ -125,6 +129,8 @@ export class Phone {
         <div><b>${m.n}. ${esc(m.title)}</b><small>${m.state === 'locked' ? esc(m.lockText) : m.state === 'passed' ? 'Done' : m.state === 'active' ? 'In progress' : 'Ready'}</small></div>
         ${m.canStart ? `<button data-a="start" data-id="${m.id}">${m.state === 'passed' ? 'Replay' : 'Start'}</button>` : ''}</div>`).join('') + '</div>';
       if (s.active) h += '<div class="ph-foot"><button data-a="abandon">Abandon current job</button></div>';
+    } else if (this.apps.some((x) => x.id === sc)) {
+      h = this.apps.find((x) => x.id === sc).render(head);
     } else if (sc === 'messages') {
       const msgs = s.state.messages || [];
       h = head('Vic') + '<div class="ph-thread">' + (msgs.length ? msgs.map((m) => `<p class="${m.from === 'You' ? 'me' : ''}">${m.text}</p>`).join('') : '<small class="ph-empty">No messages yet.</small>') + '</div>';
@@ -133,11 +139,12 @@ export class Phone {
       h = head('Key items') + '<div class="ph-list">' + (ids.length ? ids.map((id) => `<div class="ph-item"><div><b>${esc(s.keyItem(id).name)}</b><small>${esc(s.keyItem(id).desc)}</small></div></div>`).join('') : '<small class="ph-empty">Nothing yet.</small>') + '</div>';
     } else {
       const obj = s.active ? `<div class="ph-widget"><small>Current job</small><b>${esc(s.active.m.title)}</b><span>${s.active.text || ''}</span></div>` : '';
-      h = `<div class="ph-home"><div class="ph-clock">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>${obj}
+      h = `<div class="ph-home"><div class="ph-clock">${this.game.daynight?.timeText || ''}</div>${obj}
         <div class="ph-apps">
           <button data-a="app" data-app="missions"><i>📋</i>Jobs</button>
           <button data-a="app" data-app="messages"><i>💬</i>Messages${this.unread ? `<em>${this.unread}</em>` : ''}</button>
           <button data-a="app" data-app="keys"><i>🔑</i>Key items</button>
+          ${this.apps.map((x) => `<button data-a="app" data-app="${x.id}"><i>${x.icon}</i>${x.name}</button>`).join('')}
           ${this.call?.state === 'ringing' ? '<button data-a="app" data-app="call"><i>📞</i>Call</button>' : ''}
         </div><small class="ph-hint">J or Esc to put it away</small></div>`;
     }

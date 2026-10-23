@@ -190,6 +190,8 @@ export class Car {
 
   // Keep the car on the road surface (we have no gravity; kerbs pass under the body).
   hover(dt) {
+    if (this.air && !this.air.landed) return this.flight(dt);
+    if (this.air?.landed && this.game.vehicles?.active !== this) this.air = null;
     if (this.sinking || (!blocked(this.pos.x, this.pos.z, 1) && !this.overDeck())) return this.sinkInto(dt);
     this.groundT -= dt;
     if (this.groundT <= 0) {
@@ -202,6 +204,24 @@ export class Car {
         this.groundAt(this.pos.x - f.x * lead, this.pos.z - f.z * lead));
     }
     return THREE.MathUtils.clamp((this.groundY - this.pos.y) * 14, -8, 10);
+  }
+
+  // Launched off a ramp: a proper ballistic arc until the wheels find the ground again.
+  flight(dt) {
+    const a = this.air, sb = this.game.portSandbox;
+    a.vy -= 16 * dt;
+    const hit = sb.world.castRay(new RAPIER.Ray({ x: this.pos.x, y: this.pos.y + 1, z: this.pos.z }, { x: 0, y: -1, z: 0 }), 80, true, undefined, undefined, undefined, undefined, (col) => sb.staticColliders.has(col.handle));
+    const ground = hit ? this.pos.y + 1 - hit.timeOfImpact : -50;
+    if (a.vy < 0 && this.pos.y <= ground + 0.1) {
+      a.landed = true;
+      this.groundY = ground; this.groundT = 0;
+      const g = this.game;
+      if (g.vehicles?.active === this) { g.shake = Math.max(g.shake || 0, Math.min(1, -a.vy / 14)); g.sfx.play('thud'); }
+      if (a.vy < -16) this.damage((-a.vy - 16) * 2);
+      return 0;
+    }
+    if (ground < LAND_Y - 3 && this.pos.y < LAND_Y - 1) { this.air = null; return this.sinkInto(dt); } // into the sea
+    return a.vy;
   }
 
   // Is there something solid under us (a bridge deck) even though we're over water?
@@ -252,6 +272,7 @@ export class Car {
     const want = THREE.MathUtils.clamp(targetSpeed, -9, maxSpeed);
     const slowing = Math.abs(want) < Math.abs(vf) || Math.sign(want) !== Math.sign(vf);
     vf += THREE.MathUtils.clamp(want - vf, -(slowing ? brake : accel) * dt, (slowing ? brake : accel) * dt);
+    if (this.air && !this.air.landed) { vf = v.x * f.x + v.z * f.z; vr = v.x * r.x + v.z * r.z; steerAngle = 0; grip = 0; } // no traction in the air
     vr *= Math.max(0, 1 - grip * dt);
     const vy = this.hover(dt);
     const nv = { x: f.x * vf + r.x * vr, y: vy, z: f.z * vf + r.z * vr };
