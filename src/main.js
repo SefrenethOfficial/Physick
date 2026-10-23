@@ -607,36 +607,47 @@ class Game {
   }
 
   // Down in the lab: pitch dark but for its own lights, and silent apart from you (and the music).
-  setUnderground(on) {
-    if (on === !!this.underMode) return;
-    this.underMode = on;
+  // Inside a home: no sun or sky, just the lamps, and the street noise shut out.
+  setUnderground(mode) {
+    mode = mode || false;
+    if (mode === (this.underMode || false)) return;
     const f = this.scene.fog;
-    if (on) {
-      this.overworld = { fogColor: f.color.clone(), near: f.near, far: f.far, hemi: this.hemi.intensity, sun: this.sun.intensity, exp: this.renderer.toneMappingExposure };
-      f.color.set(0x020403); f.near = 3; f.far = 30;
-      this.hemi.intensity = 0.09;
-      this.sun.intensity = 0;
-      this.sky.visible = false;
-      this.ocean.near.visible = this.ocean.far.visible = false;
-      this.renderer.setClearColor(0x000000);
-      // your torch: the only real light down here
-      if (!this.torch) {
-        this.torch = new THREE.SpotLight(0xfff1dc, 38, 30, 0.42, 0.55, 1.3);
-        this.torch.target = new THREE.Object3D();
-      }
-      this.scene.add(this.torch, this.torch.target);
-    } else if (this.overworld) {
+    if (this.underMode && this.overworld) { // back to normal first
       const o = this.overworld;
       f.color.copy(o.fogColor); f.near = this.view?.fogNear ?? o.near; f.far = this.view?.fogFar ?? o.far;
       this.hemi.intensity = o.hemi;
+      this.hemi.color.copy(o.hemiSky); this.hemi.groundColor.copy(o.hemiGround);
       this.sun.intensity = o.sun;
       this.renderer.toneMappingExposure = o.exp;
       this.sky.visible = true;
       this.ocean.near.visible = this.ocean.far.visible = true;
       if (this.torch) { this.torch.removeFromParent(); this.torch.target.removeFromParent(); }
     }
-    this.sfx.muffled = on;
-    if (on) this.sfx.setEngine(false);
+    this.underMode = mode;
+    if (mode) {
+      this.overworld = { fogColor: f.color.clone(), near: f.near, far: f.far, hemi: this.hemi.intensity, hemiSky: this.hemi.color.clone(), hemiGround: this.hemi.groundColor.clone(), sun: this.sun.intensity, exp: this.renderer.toneMappingExposure };
+      this.sun.intensity = 0;
+      this.sky.visible = false;
+      this.ocean.near.visible = this.ocean.far.visible = false;
+      this.renderer.setClearColor(0x000000);
+    }
+    if (mode === 'lab') {
+      f.color.set(0x020403); f.near = 3; f.far = 30;
+      this.hemi.intensity = 0.09;
+      // your torch: the only real light down here
+      if (!this.torch) {
+        this.torch = new THREE.SpotLight(0xfff1dc, 38, 30, 0.42, 0.55, 1.3);
+        this.torch.target = new THREE.Object3D();
+      }
+      this.scene.add(this.torch, this.torch.target);
+    }
+    if (mode === 'home') {
+      f.color.set(0x2a2420); f.near = 40; f.far = 90;
+      this.hemi.intensity = 1.1;
+      this.hemi.color.set(0xfff4e4); this.hemi.groundColor.set(0x8a7a6a);
+    }
+    this.sfx.muffled = !!mode;
+    if (mode) this.sfx.setEngine(false);
   }
 
   respawnPlayer() {
@@ -645,8 +656,7 @@ class Game {
     this.sinkingBoat = null;
     this.clearHand();
     this.police.clearWanted();
-    const home = this.homes?.spawnHome;
-    if (home) { this.placeOnShore(home.spawn.clone(), home.yaw); this.hud.toast(`You come round at home: ${home.name}`, 0x7be08a); return; }
+    if (this.homes?.wakeAtHome()) { this.hud.toast(`You come round at home: ${this.homes.inside.name}`, 0x7be08a); return; }
     this.placeOnShore(this.city.hospital.clone(), 0);
     const bill = Math.round(this.economy.money * 0.1);
     if (bill) this.economy.addMoney(-bill, 'hospital bill');
@@ -1065,7 +1075,7 @@ class Game {
       // on the title screen, only the Play button starts; anywhere else just turns the sound on
       if (!this.started && this.title?.active && !e.target.closest('.play')) return; // only the Play button starts
       if (this.title?.active) { this.title.stop(); document.getElementById('overlay').classList.remove('title'); }
-      if (!this.started && this.homes?.spawnHome) { const h = this.homes.spawnHome; this.placeOnShore(h.spawn.clone(), h.yaw); }
+      if (!this.started) this.homes?.wakeAtHome();
       this.started = true;
       this.lock();
       if (!this.story.state.introSeen) setTimeout(() => this.story.showIntro(), 400);
@@ -1288,7 +1298,7 @@ class Game {
     for (const a of this.bank.atms) P(a.pos, a.broken ? '#666' : '#2fd38a', 'ATM', false, 3);
     P(c.dealerCounter, '#7fd3ff', 'Boat sales', true);
     P(c.hospital, '#ff6a6a', 'Hospital');
-    for (const h of this.homes?.list || []) P(h.door, this.homes.owns(h.id) ? '#7be08a' : '#f2d23a', this.homes.owns(h.id) ? `⌂ ${h.name}` : `⌂ For sale ${h.price >= 1e6 ? '$' + h.price / 1e6 + 'M' : '$' + Math.round(h.price / 1000) + 'k'}`, h.id === 'mansion', 4);
+    for (const h of this.homes?.list || []) P(h.door, this.homes.owns(h.id) ? '#7be08a' : '#f2d23a', this.homes.owns(h.id) ? `⌂ ${h.name}` : `⌂ For sale ${h.price >= 1e6 ? '$' + h.price / 1e6 + 'M' : '$' + Math.round(h.price / 1000) + 'k'}`, false, 4);
     P(c.policeStation, '#4a7dff', 'Police station');
     P(c.plaza, '#e8e2d4', 'Plaza');
     for (const d of this.underworld.dealers) P(d.pos, d.color, d.title.split('—')[0].replace(/"/g, '').trim());
@@ -1419,7 +1429,7 @@ class Game {
     this.graphics.update(dt);
     const under = this.story.underground;
     this.music.update(dt, this.started && this.settings.music && !this.health.dead ? Math.max(this.police.wanted, this.gangs.war.active ? 1 : 0) : 0, this.started && under, this.started && this.settings.music && !this.health.dead ? this.story.musicTrack : null);
-    this.setUnderground(under);
+    this.setUnderground(under ? 'lab' : this.homes?.inside ? 'home' : false);
     this.police.update(dt);
     this.updatePickpocket(dt);
     this.blood.update(dt);
@@ -1441,7 +1451,7 @@ class Game {
     const pt = this.player.body.translation();
     if (!this.health.dead && !this.flying) {
       if (!this.onShore && pt.y < DECK - 3.5) this.overboard();
-      if (this.onShore && !this.boats.active && !this.vehicles.active && pt.y < LAND_Y - 3 && !this.story.underground) {
+      if (this.onShore && !this.boats.active && !this.vehicles.active && pt.y < LAND_Y - 3 && !this.story.underground && !this.homes?.inside) {
         this.sfx.play('splash');
         this.endDrag(false);
         this.hud.toast('You fell in the water!', 0xff8a6a);
@@ -1509,7 +1519,7 @@ class Game {
     this.hud.setPrompt(this.promptText());
     if (!this.boats.active && !this.vehicles.active) this.sfx.setEngine(this.started && !this.onShore, 0.15 + Math.abs(this.ship.speed) / 22);
     const inTown = this.onShore && !this.flying && !this.boats.active && islandAt(pt.x, pt.z, -60)?.id !== 'naval';
-    this.sfx.setOcean(this.started && !this.story.underground, inTown ? 0.25 : 0.6 + Math.abs(this.ship.speed) / 20);
+    this.sfx.setOcean(this.started && !this.story.underground && !this.homes?.inside, inTown ? 0.25 : 0.6 + Math.abs(this.ship.speed) / 20);
     if (this.story.underground) this.sfx.setSiren(0);
     this.cullT = (this.cullT || 0) - dt;
     if (this.cullT <= 0) { this.cullT = 0.4; this.cullFar(); }

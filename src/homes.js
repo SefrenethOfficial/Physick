@@ -2,10 +2,11 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { canvasTex, std } from './buildkit.js';
 import { Heli } from './cargo.js';
+import { buildInterior } from './interiors.js';
 
-// Places to live. Buy one and you wake up there instead of at the hospital (and the hospital
-// doesn't bill you). The top of the ladder is Cherry Crest, up in Cherry Estate, which comes with
-// a helicopter on its own pad.
+// Places to live. Buy one and you wake up there (in bed) instead of at the hospital, and the
+// hospital doesn't bill you. Every home has a furnished inside: press E at the front door to go in
+// (you can look round a place before you buy it).
 
 const money = (n) => '$' + n.toLocaleString();
 
@@ -19,23 +20,23 @@ export class Homes {
     const twoStorey = byBeach((sm.homes || []).filter((h) => h.floors === 2));
     this.list = [
       { id: 'hollows', name: 'Walk-up in the Hollows', area: 'The Hollows', price: 4500, door: g.hood.flat.door, yaw: g.hood.flat.yaw,
-        desc: 'One room over the laundromat noise. The lock works, mostly. Nobody asks questions round here.' },
+        desc: 'One room over the laundromat noise: a bed, a couch, a telly on a milk crate and a kitchenette. The lock works, mostly. Nobody asks questions round here.' },
       ranch && { id: 'ranch', name: 'Saltmarsh bungalow', area: 'Saltmarsh Key', price: 85000, door: ranch.door, yaw: ranch.yaw,
-        desc: 'A tidy single-storey on a quiet street, a short walk from the beach.' },
+        desc: 'A tidy single-storey on a quiet street, a short walk from the beach. Open-plan living room and kitchen, a dining table by the window, and a cosy bedroom at the back.' },
       twoStorey && { id: 'family', name: 'Saltmarsh family home', area: 'Saltmarsh Key', price: 160000, door: twoStorey.door, yaw: twoStorey.yaw,
-        desc: 'Two storeys, a garage and a back yard. Sea air, good neighbours, nothing ever happens.' },
+        desc: 'Two storeys: a big kitchen with an island, a dining room and a living room downstairs; a master bedroom and a kid\'s room up the stairs.' },
       { id: 'penthouse', name: 'Plaza Tower penthouse', area: 'Verian City', price: 750000, door: g.city.penthouse.door, yaw: g.city.penthouse.yaw,
-        desc: 'The top floor over the plaza. Floor-to-ceiling glass, a doorman, and the whole city lit up at night.' },
-      { id: 'mansion', name: 'Cherry Crest', area: 'Cherry Estate', price: 10000000, door: g.park.mansion.door, spawn: g.park.mansion.spawn, yaw: Math.PI,
-        desc: 'A glass-and-cedar mansion alone on its hill: pool, terrace, views to the bridge, and a <b>private helipad with its own helicopter</b>.' },
+        desc: 'The top floor over the plaza: marble floors, a wall of glass onto the city skyline, a grand piano, a backlit bar and a bedroom suite.' },
     ].filter(Boolean);
     for (const h of this.list) {
-      h.spawn = h.spawn || h.door.clone().add(new THREE.Vector3(0, 1.1, 0));
+      h.inner = buildInterior(game, h);
+      h.spawn = h.inner.wake;
       h.sign = this.forSale(h);
     }
+    this.inside = null; // the home you're in
+    // two warm lamps that light whichever home you're in (always in the scene so nothing recompiles)
+    this.lamps = [0, 1].map(() => { const l = new THREE.PointLight(0xffe2c0, 0, 16, 1.2); game.scene.add(l); return l; });
     this.refresh();
-    this.chopper = new Chopper(game, g.park.mansion.pad);
-    this.chopper.setAvailable(this.owns('mansion'));
   }
 
   owns(id) { return this.game.economy.ownedHomes.includes(id); }
@@ -47,7 +48,7 @@ export class Homes {
     const root = new THREE.Group();
     const f = new THREE.Vector3(-Math.sin(h.yaw), 0, -Math.cos(h.yaw)); // out of the front door
     const side = new THREE.Vector3(-f.z, 0, f.x);
-    root.position.copy(h.door).addScaledVector(side, h.id === 'mansion' ? 3 : 2.2);
+    root.position.copy(h.door).addScaledVector(side, 2.2);
     root.rotation.y = h.yaw;
     const post = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.9, 0.1), std({ color: 0xf2f0ea }));
     post.position.y = 0.95;
@@ -68,14 +69,14 @@ export class Homes {
         c.fillStyle = owned ? '#1f5f3a' : '#b3261e'; c.textAlign = 'center';
         c.font = 'bold 44px Arial'; c.fillText(owned ? (home ? 'HOME' : 'SOLD') : 'FOR SALE', w / 2, 60);
         c.fillStyle = '#222'; c.font = 'bold 30px Arial'; c.fillText(owned ? 'Yours' : money(h.price), w / 2, 108);
-        c.font = '20px Arial'; c.fillText(owned ? 'E to go inside' : 'E for details', w / 2, 140);
+        c.font = '20px Arial'; c.fillText(owned ? 'E to go inside' : 'E to look round', w / 2, 140);
       });
       const m = std({ map: tex, roughness: 0.6 });
       h.board.material = [std({ color: 0xffffff }), std({ color: 0xffffff }), std({ color: 0xffffff }), std({ color: 0xffffff }), m, m];
     }
   }
 
-  near(pos) {
+  nearDoor(pos) {
     for (const h of this.list) {
       if (Math.hypot(pos.x - h.door.x, pos.z - h.door.z) < 3.4 && Math.abs(pos.y - h.door.y - 1) < 3) return h;
       const s = h.sign.position;
@@ -85,30 +86,73 @@ export class Homes {
   }
 
   action(pos) {
-    const h = this.near(pos);
-    if (h) return { label: this.owns(h.id) ? `${h.name} (yours)` : `${h.name} — for sale, ${money(h.price)}`, run: () => this.open(h) };
-    const c = this.chopper;
-    if (c.available && !c.active && !c.dead && c.pos.distanceTo(new THREE.Vector3(pos.x, pos.y - 1, pos.z)) < 5) return { label: 'Fly the helicopter', run: () => c.enter() };
-    return null;
+    const near = (p, r) => Math.hypot(pos.x - p.x, pos.z - p.z) < r && Math.abs(pos.y - 1 - p.y) < 1.6;
+    const h = this.inside;
+    if (h) {
+      if (near(h.inner.exit, 1.8)) return { label: 'Go outside', run: () => this.leave() };
+      if (near(h.inner.bed, 2.0)) return this.owns(h.id) ? { label: 'Sleep (heal up)', run: () => this.sleep(h) } : { label: `Buy the place to sleep here (${money(h.price)})`, run: () => this.open(h) };
+      return null;
+    }
+    const d = this.nearDoor(pos);
+    if (!d) return null;
+    if (this.owns(d.id)) return { label: `Go inside${this.game.economy.homeSpawn === d.id ? ' (home)' : ''}`, run: () => this.enter(d) };
+    return { label: `${d.name}: for sale, ${money(d.price)}`, run: () => this.open(d) };
+  }
+
+  enter(h) {
+    const g = this.game;
+    if (g.police.wanted > 0) { g.hud.toast('Not with the police on your tail', 0xff8a6a); return; }
+    g.economy.isOpen && g.economy.close();
+    g.endDrag(false);
+    g.story.fade(() => { this.placeInside(h, h.inner.spawn, 0); });
+  }
+
+  // put the player in a home (spawn point inside it) and switch the lights on
+  placeInside(h, at, yaw = 0) {
+    const g = this.game;
+    g.placeOnShore(at.clone(), yaw);
+    this.inside = h;
+    h.inner.lights.forEach((p, i) => { const l = this.lamps[i]; l.position.copy(p); l.color.set(h.inner.tint); });
+    g.cullFar?.();
+  }
+
+  leave() {
+    const g = this.game, h = this.inside;
+    if (!h) return;
+    g.story.fade(() => {
+      this.inside = null;
+      const f = new THREE.Vector3(-Math.sin(h.yaw), 0, -Math.cos(h.yaw));
+      g.placeOnShore(h.door.clone().addScaledVector(f, 0.8).add(new THREE.Vector3(0, 1.1, 0)), h.yaw);
+      g.cullFar?.();
+    });
+  }
+
+  sleep(h) {
+    const g = this.game, e = g.economy;
+    g.story.fade(() => {
+      g.health.heal(100);
+      if (e.homeSpawn !== h.id) { e.homeSpawn = h.id; e.save(); this.refresh(); }
+      g.hud.toast(`You sleep like a log. ${h.name} is home: you'll wake up here.`, 0x7be08a);
+    });
   }
 
   open(h) {
     const g = this.game, e = g.economy;
     const render = () => {
-      const owned = this.owns(h.id), isHome = e.homeSpawn === h.id;
+      const owned = this.owns(h.id), isHome = e.homeSpawn === h.id, inHere = this.inside === h;
       const funds = e.money + e.bank;
       const body = owned
         ? `<p>${h.desc}</p><p>${isHome ? 'This is <b>home</b>: when things go wrong, you wake up here (no hospital bill).' : 'You own this place.'}</p>
-           <div class="btns"><button data-a="rest">Rest up (full health)</button>${isHome ? '' : '<button data-a="home">Make this home (spawn here)</button>'}</div>`
+           <div class="btns">${inHere ? '' : '<button data-a="in">Go inside</button>'}${isHome ? '' : '<button data-a="home">Make this home (spawn here)</button>'}</div>`
         : `<p>${h.desc}</p><p class="price">${money(h.price)}</p>
            <p><small>Paid from your pocket first, then your account at Verian National. Your home is where you wake up after a bad day, instead of the hospital.</small></p>
-           <div class="btns"><button data-a="buy" ${funds < h.price ? 'disabled' : ''}>${funds < h.price ? `You're ${money(h.price - funds)} short` : `Buy for ${money(h.price)}`}</button></div>`;
+           <div class="btns">${inHere ? '' : '<button data-a="in">Look round inside</button>'}<button data-a="buy" ${funds < h.price ? 'disabled' : ''}>${funds < h.price ? `You're ${money(h.price - funds)} short` : `Buy for ${money(h.price)}`}</button></div>`;
       e.open(`${h.name} · ${h.area}`, e.header() + body, (el) => el.addEventListener('click', (ev) => {
         const b = ev.target.closest('button[data-a]');
         if (!b || b.disabled) return;
+        if (b.dataset.a === 'in') { e.close(); this.enter(h); return; }
         if (b.dataset.a === 'buy') this.buy(h);
         if (b.dataset.a === 'home') { e.homeSpawn = h.id; e.save(); this.refresh(); g.hud.toast(`${h.name} is home now`, 0x7be08a); }
-        if (b.dataset.a === 'rest') { g.health.heal(100); g.hud.toast('You rest up. Good as new.', 0x7be08a); }
         render();
       }));
     };
@@ -126,12 +170,28 @@ export class Homes {
     e.save();
     g.sfx.play('cash');
     g.hud.toast(`You bought ${h.name}! You'll wake up here from now on`, 0x7be08a);
-    if (h.id === 'mansion') { this.chopper.setAvailable(true); g.hud.toast('There\'s a helicopter waiting on the pad', 0xffd166); }
     this.refresh();
     return true;
   }
 
-  update(dt) { this.chopper.update(dt); }
+  // back home after a bad day (or at the start of the game)
+  wakeAtHome() {
+    const h = this.spawnHome;
+    if (!h) return false;
+    this.placeInside(h, h.inner.wake, 0);
+    return true;
+  }
+
+  update() {
+    const h = this.inside;
+    if (h) {
+      // moved out some other way (a mission, a respawn): you're not in here any more
+      const p = this.game.shorePlayer.body.translation();
+      if (!this.game.onShore || Math.hypot(p.x - h.inner.origin.x, p.z - h.inner.origin.z) > 30 || Math.abs(p.y - h.inner.origin.y) > 12) this.inside = null;
+    }
+    const cur = this.inside;
+    for (const [i, l] of this.lamps.entries()) l.intensity = cur && cur.inner.lights[i] ? 26 * cur.inner.power : 0;
+  }
 }
 
 // ---------------------------------------------------------------- the helicopter

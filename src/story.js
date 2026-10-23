@@ -129,6 +129,7 @@ export class Story {
   // Nobody's calling the police from in here.
   quietZone(pos) {
     if (this.mansion.built && this.mansion.inside(pos)) return true;
+    if (this.game.homes?.inside) return true;
     if (this.game.cargo?.onDeck(pos, 2)) return true;
     const a = this.active;
     return !!(a?.id === 'm2' && a.fighting && this.parlour && this.inRoom(this.parlour, pos, 1));

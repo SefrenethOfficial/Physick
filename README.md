@@ -32,7 +32,7 @@ Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **
 
 - **Verian City** (where you start): a compact 5 × 5 block downtown with kerbed pavements, brick walk-ups with shopfronts and fire escapes, apartment blocks with balconies and glass towers on stone podiums. Plenty of ground floors are walk-in: shops with shelves of stuff, diners, office and police/hospital lobbies, and the **pawn shop** (sell anything at its counter with `E`). Cars drive the streets (they queue, turn, stop for people and honk at you) and pedestrians walk the pavements and cross at the corners. There's a plaza with a fountain, a pocket park, the **boat dealer** at the marina, a police station and a hospital.
 - **Verian International Airport** (south-west of the city, over a causeway): closed. The gate's chained shut, the runway is coned off and marked with big yellow crosses, and three airliners sit parked on the apron.
-- **Cherry Estate National Park** (behind Verian City, to the west): forested mountains, with peaks over 80 m out west. A road climbs from the city's west side up through the hills to the **Saltmarsh Gate Bridge**, an international-orange suspension bridge (two towers, sweeping cables, a 940 m deck 30 m above the water) that crosses the strait to Saltmarsh Key. Traffic runs both ways the whole length of it, from Verian City up through the hills, over the bridge and down into Saltmarsh. Off the road: dirt trails over the hills, a ranger station at the trailhead, three campsites with tents and picnic tables (and stuff to steal), boulders, fallen logs, and a lookout tower on a hilltop. Hikers and a ranger wander the trails. On a hill of its own sits **Cherry Crest**, a glass-and-cedar mansion with a pool and a helipad (for sale). Down in the gloom under the bridge's first span, a **dirt lane** that no traffic uses runs back towards Verian City; at its end is **Underpass Customs** (see below).
+- **Cherry Estate National Park** (behind Verian City, to the west): forested mountains, with peaks over 80 m out west. A road climbs from the city's west side up through the hills to the **Saltmarsh Gate Bridge**, an international-orange suspension bridge (two towers, sweeping cables, a 940 m deck 30 m above the water) that crosses the strait to Saltmarsh Key. Traffic runs both ways the whole length of it, from Verian City up through the hills, over the bridge and down into Saltmarsh. Off the road: dirt trails over the hills, a ranger station at the trailhead, three campsites with tents and picnic tables (and stuff to steal), boulders, fallen logs, and a lookout tower on a hilltop. Hikers and a ranger wander the trails. Down in the gloom under the bridge's first span, a **dirt lane** that no traffic uses runs back towards Verian City; at its end is **Underpass Customs** (see below).
 - **The Hollows** (east of Saltmarsh Key, over a short road bridge): the rough part of town. Cracked streets with potholes, boarded-up walk-ups and graffiti, two grim project towers, a liquor store and laundromat, dumped couches and burned-out cars. Two crews hold turf here: the **Eastside Kings** (red) at the basketball court and the **Hollow Boys** (green) in the burned-out lot. Act suspicious around them — get in their faces, come round waving a gun, speed at them, start trouble or drag a body past — and the "?" over their heads turns to "!": they come for you and the whole neighbourhood erupts in a **gang war**, with the crews pushing into each other's turf and shooting it out. It calms down once you've been gone a while. Gang members carry cash and sometimes a pistol.
 - **Saltmarsh Key** (north of the city): a leafy suburb. Asphalt streets with kerbs, grass verges, footpaths, street trees and corner street lights, lined with family homes: one- and two-storey houses in lap siding with pitched shingle roofs, porches, shuttered windows, attached garages, driveways (some with a car in them), mailboxes, hedges and fenced back yards. In the middle is a market square full of stalls, with a church, a lighthouse, a general store and a fishing dock round the edge. Lots of stuff lying around on porches and stalls, and townspeople with cash in their pockets. A strip of **beach** runs down the whole west shore, with umbrellas, towels, a lifeguard tower and a volleyball net, sloping gently into the shallows. The container ship **MV Halvard** is tied up off its west pier.
 - **NAS Halyard** (east): the naval air station with the destroyer moored alongside and fighter jets on the apron.
@@ -55,9 +55,15 @@ Houses with a red **FOR SALE** board out front are on the market; walk up and pr
 | Saltmarsh bungalow | Saltmarsh Key | $85,000 |
 | Saltmarsh family home | Saltmarsh Key | $160,000 |
 | Plaza Tower penthouse | Verian City, by the plaza | $750,000 |
-| **Cherry Crest** mansion | Cherry Estate | $10,000,000 |
 
-Cherry Crest comes with a **helicopter** on its pad. Walk up and press `E`: `W` / `S` tilt forward and back, `A` / `D` turn, `Space` climb, `Shift` descend, and `E` to get out once you're on the ground. Fly it into a hillside or the sea and it's wrecked; a new one turns up on the pad later.
+Every home has a furnished **inside**. Press `E` at the front door to go in (you can look round a place before buying it), and `E` at the door inside to go back out. Inside it's quiet: no sun, no street noise, just the lamps.
+
+- **Hollows walk-up:** one room with green striped wallpaper, a single bed, a couch facing a telly on a milk crate, a kitchenette, a folding table with empties, and a view of the brick alley.
+- **Saltmarsh bungalow:** an open-plan living room and kitchen, a dining table by the window, and a blue bedroom at the back.
+- **Saltmarsh family home:** downstairs, a living room, a dining table for six and a big kitchen with an island; up the stairs, a master bedroom, a kid's room with a desk, toys and a bean bag, and a landing with a window seat.
+- **Plaza Tower penthouse:** marble floors, a wall of glass onto the city skyline at dusk, a sectional sofa and a huge TV, a grand piano, a glass dining table for eight, a backlit bar, a designer kitchen, and a bedroom suite.
+
+Press `E` at the bed in a home you own to sleep: you heal up and it becomes home. You wake up in that bed after a bad day.
 
 ## Cars, guns and the back alleys
 
@@ -191,7 +197,8 @@ src/
   park.js      Cherry Estate National Park: terrain, road, trails, forest
   bridge.js    the Saltmarsh Gate suspension bridge
   highway.js   traffic over the bridge between Verian City and Saltmarsh
-  homes.js     houses for sale, home spawns, the Cherry Crest helicopter
+  homes.js     houses for sale, home spawns, going in and out
+  interiors.js the furnished insides of the homes
   garage.js    Underpass Customs: car upgrades, repairs, paint
   hood.js      the Hollows
   gangs.js     the two crews and gang wars
