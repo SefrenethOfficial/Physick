@@ -45,6 +45,10 @@ import { Highway } from './highway.js';
 import { Homes } from './homes.js';
 import { Garage } from './garage.js';
 import { Dealership } from './dealership.js';
+import { DayNight } from './daynight.js';
+import { News } from './news.js';
+import { Radio } from './radio.js';
+import { Ambient } from './ambient.js';
 import { Airport } from './airport.js';
 import { Bank } from './bank.js';
 import { Vehicles } from './vehicles.js';
@@ -215,6 +219,10 @@ class Game {
     this.homes = new Homes(this);
     this.garage = new Garage(this);
     this.dealer = new Dealership(this);
+    this.news = new News(this);
+    this.daynight = new DayNight(this);
+    this.radio = new Radio(this, import.meta.env.BASE_URL);
+    this.ambient = new Ambient(this);
     this.title = new TitleScene(this);
     this.title.start();
 
@@ -675,7 +683,7 @@ class Game {
         uniforms: {
           top: { value: new THREE.Color(SKY_TOP) },
           horizon: { value: new THREE.Color(HORIZON) },
-          sun: { value: SUN },
+          sun: { value: SUN.clone() },
         },
         vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }',
         fragmentShader: `uniform vec3 top; uniform vec3 horizon; uniform vec3 sun; varying vec3 vP;
@@ -960,6 +968,8 @@ class Game {
     if (home) return home;
     const dl = this.dealer?.action(pos);
     if (dl) return dl;
+    const amb = this.ambient?.action(pos);
+    if (amb) return amb;
     const jet = this.jets.nearby(pos);
     if (jet) return { label: 'Fly the jet', run: () => this.jets.enter(jet) };
     if (this.near(this.city.pawnCounter, 3.5)) return { label: 'Pawn shop — sell loot', run: () => this.economy.openPawn() };
@@ -1180,6 +1190,7 @@ class Game {
         return;
       }
       if (e.code === 'KeyG' && this.story.onKeyG()) return; // (works from the driver's seat)
+      if (e.code === 'KeyR' && this.vehicles.active && this.radio) { this.radio.next(); return; }
       if (this.gunnery.active || this.boats.active || this.vehicles.active) return;
       if (e.code === 'KeyF') { this.useHeld(); return; }
       if (e.code === 'KeyB') { this.stash(); return; }
@@ -1221,7 +1232,7 @@ class Game {
       if (this.underworld.chopZone(v.pos) && !v.ownedUid) return `<kbd>E</kbd> Sell to the chop shop ($${this.underworld.carPrice(v)})`;
       if (this.garage.inBay()) return '<kbd>E</kbd> Underpass Customs: upgrades, repairs, paint';
       const nos = v.nitro ? ` · <kbd>Shift</kbd> Nitro ${Math.round((v.nitroTank ?? 1) * 100)}%` : '';
-      return Math.abs(v.speed) < 5 ? '<kbd>E</kbd> Get out · <kbd>Space</kbd> Handbrake · <kbd>H</kbd> Horn' + nos : '<kbd>E</kbd> Bail out' + nos;
+      return (Math.abs(v.speed) < 5 ? '<kbd>E</kbd> Get out · <kbd>Space</kbd> Handbrake · <kbd>H</kbd> Horn' : '<kbd>E</kbd> Bail out') + nos + ' · <kbd>R</kbd> Radio';
     }
     if (this.onShore && this.bank.heist) {
       const bp = this.bank.prompt(this.shorePlayer.body.translation());
@@ -1426,6 +1437,9 @@ class Game {
     this.homes?.update(dt);
     this.garage?.update(dt);
     this.dealer?.update(dt);
+    this.daynight?.update(dt);
+    this.radio?.update(dt);
+    this.ambient?.update(dt);
     this.title?.update(dt);
     this.pragdoll.update(dt);
     this.underworld.update(dt);
@@ -1510,7 +1524,8 @@ class Game {
     }
     this.ocean.update(dt, this.camera, this.ship);
     const cp = this.camera.position;
-    this.sun.position.set(cp.x + SUN.x * 100, cp.y + SUN.y * 100, cp.z + SUN.z * 100);
+    const sd = this.sunDir || SUN; // (the day/night cycle moves it)
+    this.sun.position.set(cp.x + sd.x * 100, cp.y + sd.y * 100, cp.z + sd.z * 100);
     this.sun.target.position.copy(cp);
 
     // HUD

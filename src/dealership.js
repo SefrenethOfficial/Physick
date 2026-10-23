@@ -188,6 +188,7 @@ export class Dealership {
     e.ownedCars.push(rec);
     e.save();
     g.sfx.play('cash');
+    g.news?.add(`Verian Motors says business is booming after another ${m.name} drove off the lot.`, 'money');
     this.deliver(rec);
     return rec;
   }

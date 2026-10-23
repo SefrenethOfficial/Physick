@@ -90,6 +90,7 @@ export class Citizens extends Npcs {
     npc.fig.root.add(mk);
     npc.marker = mk;
     if (role === 'cop') npc.hp = 160;
+    if (role === 'civ' && !opts.look) this.game.ambient?.dress(npc);
     return npc;
   }
 
@@ -334,7 +335,8 @@ export class Citizens extends Npcs {
         npc.idle -= dt;
         if (npc.idle <= 0) this.flee(npc, npc.inv.pos, 6);
       } else {
-        ({ want, speed } = this.wander(npc, t, dt, 1.4));
+        ({ want, speed } = this.wander(npc, t, dt, npc.jogger ? 3.3 : 1.4));
+        if (npc.jogger && npc.idle > 0) npc.idle = 0; // joggers don't stop
       }
       this.move(npc, t, want, speed, dt);
     }

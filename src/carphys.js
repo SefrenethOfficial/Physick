@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { GROUPS } from './groups.js';
 import { carMesh } from './buildkit.js';
+import { GLOW } from './effects.js';
 import { LAND_Y, blocked, nearestLandPoint } from './world.js';
 
 // One physical car: a dynamic box in the shore physics world, so cars shove each other,
@@ -54,6 +55,19 @@ export class Car {
     this.groundT = 0;
     this.groundY = y;
     this.lights = this.mesh.userData.lights || null;
+    // headlights and tail lights (switched on at night by the day/night cycle)
+    const hl = (this.headlights = new THREE.Group());
+    const hz = half.z;
+    for (const s of [-1, 1]) {
+      const front = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0xfff2d0, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+      front.position.set(s * half.x * 0.7, 0.7, -hz - 0.05); front.scale.setScalar(1.3); hl.add(front);
+      const back = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0xff2a1a, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+      back.position.set(s * half.x * 0.75, 0.8, hz + 0.05); back.scale.setScalar(0.7); hl.add(back);
+    }
+    const beam = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 9), new THREE.MeshBasicMaterial({ color: 0xfff2d0, transparent: true, opacity: 0.1, depthWrite: false, blending: THREE.AdditiveBlending }));
+    beam.rotation.x = -Math.PI / 2; beam.position.set(0, 0.08, -hz - 4.6); hl.add(beam);
+    hl.visible = false;
+    this.mesh.add(hl);
   }
 
   get forward() { return new THREE.Vector3(-Math.sin(this.heading), 0, -Math.cos(this.heading)); }
@@ -230,6 +244,7 @@ export class Car {
     if (this.wreck || this.sinking) { this.coast(dt); return; }
     const dazed = this.dazedT > 0;
     if (dazed) { this.dazedT -= dt; grip *= 0.25; accel *= 0.3; }
+    grip *= this.game.daynight?.grip ?? 1; // wet roads
     const v = this.body.linvel();
     const f = this.forward, r = new THREE.Vector3(-f.z, 0, f.x);
     let vf = v.x * f.x + v.z * f.z, vr = v.x * r.x + v.z * r.z;

@@ -154,6 +154,7 @@ class PoliceHeli {
       this.game.fx.explosion(this.pos.clone());
       this.game.sfx.play('explosion');
       this.game.hud.toast('Police chopper down!', 0xffd166);
+      this.game.news?.add(`A police helicopter has been shot down over ${this.game.news.place(this.pos)}. Unbelievable scenes.`, 'crime');
       this.game.police.heat += 4; this.game.police.setWantedFromHeat();
     }
   }
@@ -342,6 +343,7 @@ export class Escalation {
     if (!hunters.length) { this.bountyT = 30; return; }
     this.bounty = { hunters, amount, t: 0 };
     g.story?.phone?.text?.('Unknown', `Word is someone put $${amount.toLocaleString()} on your head. Watch your back.`, true);
+    g.news?.add('Rumours on the street of a big bounty on whoever caused that chase.', 'crime');
     g.hud.toast(`BOUNTY HUNTERS are after you ($${amount.toLocaleString()} on your head)`, 0xff9a3a);
     g.hud.flashBanner?.('BOUNTY', '#ff9a3a');
   }

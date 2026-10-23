@@ -170,6 +170,7 @@ export class Homes {
     e.save();
     g.sfx.play('cash');
     g.hud.toast(`You bought ${h.name}! You'll wake up here from now on`, 0x7be08a);
+    g.news?.add(`Property news: the ${h.name} in ${h.area} has sold for ${money(h.price)}.`, 'money');
     this.refresh();
     return true;
   }

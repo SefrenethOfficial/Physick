@@ -37,6 +37,13 @@ Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **
 - **Saltmarsh Key** (north of the city): a leafy suburb. Asphalt streets with kerbs, grass verges, footpaths, street trees and corner street lights, lined with family homes: one- and two-storey houses in lap siding with pitched shingle roofs, porches, shuttered windows, attached garages, driveways (some with a car in them), mailboxes, hedges and fenced back yards. In the middle is a market square full of stalls, with a church, a lighthouse, a general store and a fishing dock round the edge. Lots of stuff lying around on porches and stalls, and townspeople with cash in their pockets. A strip of **beach** runs down the whole west shore, with umbrellas, towels, a lifeguard tower and a volleyball net, sloping gently into the shallows. The container ship **MV Halvard** is tied up off its west pier.
 - **NAS Halyard** (east): the naval air station with the destroyer moored alongside and fighter jets on the apron.
 
+## Day, night, weather and radio
+
+- **Day and night:** a full day takes 24 minutes (one game hour per minute; the clock's under the compass). Pink-orange sunrises and sunsets, moonlit nights full of stars, street lamps throwing pools of light, and every car with its headlights and tail lights on after dark.
+- **Weather** changes every few hours: clear, cloudy, **rain** (slippery roads, the hiss of it), **storms** (lightning and thunder) and thick **fog**.
+- **Car radio:** press `R` while driving to change station. *Verian FM 101.3*, *Pursuit 94.7* (the chase themes), *Static Lab 66.6*, and **Talk Verian 88.9**, where host Dale Marsh reads out the news (mostly what you've been up to: crimes, chases, SWAT call-outs, choppers shot down, houses and cars bought), takes useless calls and complains about the weather. The stations keep playing while you're tuned away. A chase theme drowns the radio out.
+- **Around town:** people walk their dogs (on leads; if something happens to the owner, the dog bolts), joggers run the streets and trails, two **buskers** play in the plaza (press `E` to tip them $5), and fishermen line the end of the Saltmarsh fishing dock.
+
 ## Money, the bag and boats
 
 - Look at an item and press `B` to drop it straight in your **bag** (or press `B` while holding something). `Tab` opens the bag: take things out to hold, or drop them. The bag holds 40 kg.
@@ -218,6 +225,11 @@ src/
   interiors.js the furnished insides of the homes
   garage.js    Underpass Customs: car upgrades, repairs, paint
   dealership.js Verian Motors: car models, buying, saved cars
+  swat.js      20-star police: choppers, SWAT, roadblocks, spikes, bounty hunters
+  daynight.js  time of day and weather
+  radio.js     the car radio and Talk Verian
+  news.js      the news feed (radio, TV)
+  ambient.js   buskers, fishermen, dog walkers, joggers
   hood.js      the Hollows
   gangs.js     the two crews and gang wars
   airport.js   Verian International Airport (closed)

@@ -101,6 +101,23 @@ export class Sfx {
   }
 
   // Wind and waves: a looping filtered noise bed.
+  // steady hiss of rain (and the drum of it on a car roof)
+  setRain(level = 0) {
+    if (!this.ctx) return;
+    if (level > 0 && !this.rainN) {
+      const len = this.ctx.sampleRate * 3;
+      const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (Math.random() < 0.002 ? 1 : 0.35);
+      const src = this.ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+      const f = this.ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 1400;
+      const g = this.ctx.createGain(); g.gain.value = 0;
+      src.connect(f).connect(g).connect(this.master); src.start();
+      this.rainN = { src, g };
+    }
+    if (this.rainN) this.rainN.g.gain.setTargetAtTime(level * (this.muffled ? 0.02 : 0.09), this.ctx.currentTime, 0.8);
+  }
+
   setOcean(on, level = 1) {
     if (!this.ctx) return;
     if (on && !this.ocean) {

@@ -74,6 +74,10 @@ export class Police {
       this.game.sfx.play('star');
       const msg = { murder: 'A witness saw the killing', copkill: 'Officer down!', assault: 'Someone saw you attack', theft: 'Someone saw you steal', body: 'Someone saw you with a body', blood: 'A witness put you near the blood' }[why] || 'The police are after you';
       this.game.hud.toast(`${msg}: ${this.wanted} star${this.wanted > 1 ? 's' : ''}`, 0xff6a5a);
+      const N = this.game.news, where = N?.place(pos);
+      const what = { murder: `a killing in ${where}, witnesses say the suspect fled`, copkill: `an officer down in ${where}`, assault: `an assault in ${where}`, theft: `a theft in ${where}`, carjack: `a carjacking in ${where}`, copcar: `someone stole a police cruiser in ${where}`, shooting: `shots fired in ${where}`, explosion: `an explosion in ${where}` }[why];
+      if (what) N.add(`Police are responding to ${what}.`, 'crime');
+      if ([6, 10, 15, 20].includes(this.wanted)) N?.add(this.wanted >= 20 ? 'The city has deployed its advanced SWAT unit. Residents are told to stay indoors.' : this.wanted >= 10 ? `SWAT teams are in pursuit of a suspect in ${where}.` : `Police helicopters are circling ${where} in a manhunt.`, 'crime');
     }
   }
 
@@ -455,5 +459,6 @@ export class Police {
     g.placeOnShore(g.city.policeStation.clone().add(new THREE.Vector3(0, 1, 4)), Math.PI);
     g.hud.toast(`BUSTED — fined $${fine}${lost ? `, ${lost} item${lost > 1 ? 's' : ''} confiscated` : ''}`, 0x9ec5ff);
     g.hud.flashBanner('BUSTED', '#7fb2ff');
+    g.news?.add('A suspect has been taken into custody after a chase. Police say it\'s a weight off everyone\'s minds.', 'crime');
   }
 }
