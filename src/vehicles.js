@@ -45,7 +45,7 @@ export class Vehicles {
     else if (kind === 'highway') { g.highway.cars.splice(g.highway.cars.indexOf(car), 1); car.hw = false; car.maxSpeed = undefined; kind = 'traffic'; }
     else this.parked.splice(this.parked.indexOf(car), 1);
     car.base = 350 + Math.floor(Math.random() * 6) * 70;
-    car.type = { name: police ? 'Police car' : 'Stolen car', hp: car.maxHp, car: true };
+    car.type = { name: police ? 'Police car' : car.bike ? 'Stolen bike' : car.bus ? 'Hijacked bus' : car.tow ? 'Tow truck' : 'Stolen car', hp: car.maxHp, car: true };
     car.mesh.visible = true;
     this.list.push(car);
     const where = new THREE.Vector3(car.pos.x, LAND_Y + 1, car.pos.z);

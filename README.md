@@ -82,7 +82,7 @@ Press `E` at the bed in a home you own to sleep: you heal up and it becomes home
   - **Rosa** (the fence): buys your whole bag for 30% more than the pawn shop, makes the heat go away for $500 a star, and sells a police scanner (every cop on your minimap; you lose them faster).
   - **Dimitri's chop shop:** park a stolen car in his alley and press `E` for cash. Cop cars pay best.
 - **Guns:** hold one and `LMB` fires (hold for the SMG); `RMB` throws it. Ammo is per weapon type and shown next to the gun. Gunfire sends everyone running and counts as a crime if anyone sees. **Grenades:** `RMB` to throw, then run. **Armour:** hold it and press `F` to put it on; it soaks up most damage until it's shot through.
-- **Verian Motors** (the glass showroom on the west side of Verian City, south of where the park road comes in): walk up to the sales desk and press `E` to buy a car. Pick a paint colour first if you like. Six models:
+- **Verian Motors** (the glass showroom on the west side of Verian City, south of where the park road comes in): walk up to the sales desk and press `E` to buy a car. Pick a paint colour first if you like. Ten models (the bikes are on display inside, the tow truck and the helicopter out on the lot):
 
   | Car | Type | Top speed | Price |
   |---|---|---|---|
@@ -92,8 +92,16 @@ Press `E` at the bed in a home you own to sleep: you heal up and it becomes home
   | Trailmaster | SUV (tough) | 112 km/h | $45,000 |
   | Stiletto | Sports car | 151 km/h | $95,000 |
   | Vortex X | Supercar | 180 km/h | $350,000 |
+  | Sparrow 600 | Street bike | 144 km/h | $12,000 |
+  | Reaper 1000 | Superbike | 173 km/h | $28,000 |
+  | Hauler | Tow truck | 101 km/h | $22,000 |
+  | Skylark | Helicopter | 150 km/h | $850,000 |
 
-  Cars you buy are **yours to keep**: they're saved, with their paint and every upgrade from Underpass Customs, and wait in the customer bays behind the showroom. Wreck one (or lose it in the sea) and a replacement with the same paint and upgrades turns up on the lot a minute later. From the desk you can also have any of your cars brought back to the lot, or sell one back for half price. The chop shop won't touch your own cars.
+  The **Skylark** lives on the helipad behind the showroom: walk up to it and press `E` (`W`/`S` tilt, `A`/`D` turn, `Space` climb, `Shift` descend, `E` to get out once you've landed). Cars you buy are **yours to keep**: they're saved, with their paint and every upgrade from Underpass Customs, and wait in the customer bays behind the showroom. Wreck one (or lose it in the sea) and a replacement with the same paint and upgrades turns up on the lot a minute later. From the desk you can also have any of your cars brought back to the lot, or sell one back for half price. The chop shop won't touch your own cars.
+- **Motorbikes:** parked around the city and the Hollows (and a few in traffic, riders and all). Fast and nimble, they lean into corners, but crash hard and you go over the handlebars.
+- **Buses:** two Verian Transit buses run the city streets and pull in at the bus shelters. You can hijack one.
+- **Tow truck:** one's parked on the east side of the city (or buy a *Hauler*). Back up to any car and press `T` to hook it by whichever end is nearest; `T` again drops it. Tow a car into Dimitri's chop shop alley to sell it without ever getting in.
+- **The ferry** runs between a new pier on the north shore of Verian City and the end of the Saltmarsh fishing dock, every couple of minutes. Stand on the pier when it's in and press `E` to board ($10); you ride on the open deck and get off at the other side.
 - **Underpass Customs:** drive down the dirt lane under the Saltmarsh Gate Bridge, roll into the shed and press `E` (while stopped). The mechanics fit three engine stages, armour plating, bulletproof glass and tyres (gunfire just sparks off, and you're safe inside), and **nitrous** (hold `Shift` while driving; it refills when you're off it). They also do repairs and resprays in eight colours. On a car you bought at Verian Motors, the upgrades and paint are saved; on a stolen car they're lost along with it.
 - **Chase music:** *Chase on Foot* plays at one or two stars, *Starvation Pursuer* takes over at three or more (toggle in Settings).
 
@@ -230,6 +238,7 @@ src/
   radio.js     the car radio and Talk Verian
   news.js      the news feed (radio, TV)
   ambient.js   buskers, fishermen, dog walkers, joggers
+  fleet.js     motorbikes, buses and stops, the tow truck, the ferry
   hood.js      the Hollows
   gangs.js     the two crews and gang wars
   airport.js   Verian International Airport (closed)

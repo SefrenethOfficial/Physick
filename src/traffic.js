@@ -30,7 +30,7 @@ export class Traffic {
       .filter((m) => m.i >= 0 && m.j >= 0 && m.i < net.xs.length && m.j < net.zs.length);
   }
 
-  spawn(net, minDist = 25) {
+  spawn(net, minDist = 25, factory = null) {
     const g = this.game;
     for (let tries = 0; tries < 20; tries++) {
       const a = { i: Math.floor(Math.random() * net.xs.length), j: Math.floor(Math.random() * net.zs.length) };
@@ -44,7 +44,8 @@ export class Traffic {
       if (!clearSpot(g, pos.x, pos.z, Math.atan2(-dir.x, -dir.z))) continue;
       const pt = g.shorePlayer?.body.translation();
       if (pt && Math.hypot(pt.x - pos.x, pt.z - pos.z) < minDist) continue;
-      const car = new Car(g, { color: COLORS[Math.floor(Math.random() * COLORS.length)], x: pos.x, z: pos.z, heading: Math.atan2(-dir.x, -dir.z) });
+      const opts = { color: COLORS[Math.floor(Math.random() * COLORS.length)], x: pos.x, z: pos.z, heading: Math.atan2(-dir.x, -dir.z) };
+      const car = factory ? factory(opts) : new Car(g, opts);
       Object.assign(car, { net, from: a, to: b, path: [], waitT: 0, ghostT: 0, honkT: 0, bumpT: 0 });
       this.extend(car);
       this.cars.push(car);

@@ -5,6 +5,9 @@ import { Car, clearSpot } from './carphys.js';
 import { buildFigure } from './figure.js';
 import { UPGRADES } from './garage.js';
 import { LAND_Y } from './world.js';
+import { bikeMesh } from './fleet.js';
+import { Chopper } from './homes.js';
+import { Heli } from './cargo.js';
 
 // Verian Motors: a glass showroom on the west side of Verian City. Buy a car here and it's yours
 // for good: it's saved (with its paint and every upgrade Underpass Customs fits), waits in the
@@ -21,6 +24,10 @@ export const CAR_MODELS = [
   { id: 'suv', name: 'Trailmaster', kind: 'SUV', price: 45000, color: 0x2f4a3a, maxSpeed: 31, hp: 190, scale: [1.1, 1.25, 1.06], blurb: 'Tall, heavy and hard to stop.', rack: true, density: 150 },
   { id: 'sports', name: 'Stiletto', kind: 'Sports car', price: 95000, color: 0x2f7fd8, maxSpeed: 42, hp: 105, scale: [1.02, 0.78, 1.04], blurb: 'Low, light and very quick.', spoiler: true },
   { id: 'super', name: 'Vortex X', kind: 'Supercar', price: 350000, color: 0xf2f2ee, maxSpeed: 50, hp: 120, scale: [1.08, 0.7, 1.1], blurb: 'The fastest thing on four wheels in Verian.', wing: true },
+  { id: 'sparrow', name: 'Sparrow 600', kind: 'Street bike', price: 12000, color: 0xc23b2a, maxSpeed: 40, hp: 60, scale: [1, 1, 1], vehicle: 'bike', sport: false, blurb: 'Nimble and quick off the line. Crash hard and you go over the bars.' },
+  { id: 'reaper', name: 'Reaper 1000', kind: 'Superbike', price: 28000, color: 0x15161a, maxSpeed: 48, hp: 60, scale: [1, 1, 1], vehicle: 'bike', sport: true, blurb: 'A rocket with handlebars. Hang on.' },
+  { id: 'hauler', name: 'Hauler', kind: 'Tow truck', price: 22000, color: 0xe0a030, maxSpeed: 28, hp: 220, scale: [1, 1, 1], vehicle: 'tow', blurb: 'Back up to any car and press T to hook it. Dimitri pays for what you tow in.' },
+  { id: 'skylark', name: 'Skylark', kind: 'Helicopter', price: 850000, color: 0xf2f0ea, maxSpeed: 42, hp: 400, scale: [1, 1, 1], vehicle: 'heli', blurb: 'Your own helicopter, kept on the pad behind the showroom.' },
 ];
 const MODEL = Object.fromEntries(CAR_MODELS.map((m) => [m.id, m]));
 const PAINTS = [0xc23b2a, 0x14161c, 0xeeeeea, 0x2f7fd8, 0xe0a030, 0x3aa760, 0x6a2a8a, 0x8a8f96];
@@ -98,22 +105,36 @@ export class Dealership {
     sign(g, 'VERIAN MOTORS', cx, Y + H + 0.9, z0 - 0.1, Math.PI, { w: 14, h: 1.6, bg: '#14161c', fg: '#e8c547', glow: true });
     // the cars on display, on round plinths
     const plinth = std({ color: 0xb8bcc2, roughness: 0.25, metalness: 0.5 });
-    const spots = [[x0 + 6, z0 + 6, 0.7], [x0 + 14, z0 + 13, -0.5], [cx - 1, z0 + 7, 2.6], [cx + 6, z0 + 14, 0.4], [x1 - 13, z0 + 7, -2.4], [x1 - 6, z0 + 14, 2.8]];
+    const lz = z1 + 2 + 15; // the open part of the lot, behind the customer bays
+    const spots = [[x0 + 6, z0 + 6, 0.7], [x0 + 14, z0 + 13, -0.5], [cx - 1, z0 + 7, 2.6], [cx + 6, z0 + 14, 0.4], [x1 - 13, z0 + 7, -2.4], [x1 - 6, z0 + 14, 2.8],
+      [x0 + 4, z1 - 4, 0.5], [x0 + 9, z1 - 4, -0.5], [cx - 12, lz, 0.6], [cx + 12, lz, 1.2]];
+    this.pad = new THREE.Vector3(cx + 12, Y, lz);
+    const padM = new THREE.Mesh(new THREE.CircleGeometry(7, 32), std({ map: canvasTex(128, 128, (c, w, h) => {
+      c.fillStyle = '#2f3438'; c.fillRect(0, 0, w, h); c.strokeStyle = '#f2d23a'; c.lineWidth = 6; c.beginPath(); c.arc(64, 64, 56, 0, 7); c.stroke();
+      c.fillStyle = '#f2f2ee'; c.font = 'bold 72px Arial'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('H', 64, 68);
+    }), roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -3 }));
+    padM.rotation.x = -Math.PI / 2; padM.position.set(this.pad.x, Y + 0.04, this.pad.z); g.add(padM);
     this.display = CAR_MODELS.map((m, i) => {
       const [x, z, yaw] = spots[i];
-      const p = new THREE.Mesh(new THREE.CylinderGeometry(2.9, 2.9, 0.25, 40), plinth); p.position.set(x, Y + 0.12, z); p.receiveShadow = true; g.add(p);
-      const car = modelMesh(m);
-      car.position.set(x, Y + 0.25, z); car.rotation.y = yaw; g.add(car);
+      const big = !m.vehicle;
+      if (big) { const p = new THREE.Mesh(new THREE.CylinderGeometry(2.9, 2.9, 0.25, 40), plinth); p.position.set(x, Y + 0.12, z); p.receiveShadow = true; g.add(p); p.userData.noMerge = true; }
+      if (m.vehicle === 'bike') { const p = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.2, 30), plinth); p.position.set(x, Y + 0.1, z); g.add(p); }
+      let car;
+      if (m.vehicle === 'heli') { const h = new Heli(this.game); h.ladder.visible = false; h.root.removeFromParent(); h.root.visible = true; car = h.root; car.position.set(x, Y + 1.6, z); car.rotation.y = yaw; g.add(car); this.heliDisplay = car; }
+      else {
+        car = m.vehicle === 'bike' ? bikeMesh(m.color, { sport: m.sport }) : m.vehicle === 'tow' ? this.game.fleet.towMeshFor(m.color) : modelMesh(m);
+        car.position.set(x, Y + (m.vehicle === 'bike' ? 0.2 : big ? 0.25 : 0.02), z); car.rotation.y = yaw; g.add(car);
+      }
       car.traverse((o) => { o.userData.noMerge = true; });
-      p.userData.noMerge = true;
-      sb.addStaticCollider(RAPIER.ColliderDesc.cylinder(0.8, 2.4).setTranslation(x, Y + 0.8, z));
+      if (m.vehicle !== 'heli') sb.addStaticCollider(RAPIER.ColliderDesc.cylinder(0.8, big ? 2.4 : m.vehicle === 'bike' ? 1.1 : 2.3).setTranslation(x, Y + 0.8, z));
       // a price card on a little stand
       const card = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.8), std({ map: canvasTex(192, 128, (c, w, h) => {
         c.fillStyle = '#14161c'; c.fillRect(0, 0, w, h); c.fillStyle = '#e8c547'; c.font = 'bold 30px Arial'; c.textAlign = 'center'; c.fillText(m.name, w / 2, 44);
         c.fillStyle = '#f2f2ee'; c.font = '20px Arial'; c.fillText(m.kind, w / 2, 74); c.font = 'bold 26px Arial'; c.fillText('$' + m.price.toLocaleString(), w / 2, 110);
       }), emissive: 0xffffff, emissiveIntensity: 0.15 }));
-      card.position.set(x, Y + 1.1, z - 3.4); card.rotation.y = Math.PI; card.userData.noMerge = true; g.add(card);
-      box(0.06, 0.9, 0.06, x, Y, z - 3.42, frame, false);
+      const cd = m.vehicle === 'bike' ? 2 : m.vehicle === 'heli' ? 7.6 : 3.4;
+      card.position.set(x, Y + 1.1, z - cd); card.rotation.y = Math.PI; card.userData.noMerge = true; g.add(card);
+      box(0.06, 0.9, 0.06, x, Y, z - cd - 0.02, frame, false);
       return { model: m, mesh: car };
     });
     for (let k = 0; k < 4; k++) { const l = new THREE.Mesh(new THREE.BoxGeometry(6, 0.06, 0.5), std({ color: 0xffffff, emissive: 0xfff4dc, emissiveIntensity: 1.2 })); l.position.set(x0 + 5 + k * ((x1 - x0 - 10) / 3), Y + H - 0.45, (z0 + z1) / 2); g.add(l); }
@@ -143,7 +164,12 @@ export class Dealership {
 
   // ---------------------------------------------------------------- your cars
   near(pos) { return Math.hypot(pos.x - this.desk.x, pos.z - this.desk.z) < 2.6 && Math.abs(pos.y - 1 - this.desk.y) < 2; }
-  action(pos) { return this.near(pos) ? { label: 'Verian Motors: buy a car', run: () => this.open() } : null; }
+  action(pos) {
+    if (this.near(pos)) return { label: 'Verian Motors: buy a car', run: () => this.open() };
+    const c = this.chopper;
+    if (c?.available && !c.active && !c.dead && c.pos.distanceTo(new THREE.Vector3(pos.x, pos.y - 1, pos.z)) < 5) return { label: 'Fly the Skylark', run: () => c.enter() };
+    return null;
+  }
 
   // Make the car for a saved record, with its paint and upgrades, in a free bay.
   deliver(rec, quiet = false) {
@@ -151,10 +177,14 @@ export class Dealership {
     if (!m) return null;
     const old = this.cars.get(rec.uid);
     if (old && !old.wreck && g.vehicles.list.includes(old)) { if (g.vehicles.active === old) return old; g.vehicles.remove(old); }
+    if (m.vehicle === 'heli') return this.deliverHeli(rec, quiet);
     const sx = m.scale[0], sz = m.scale[2];
-    const half = { x: BASE_HALF.x * sx, y: BASE_HALF.y * m.scale[1], z: BASE_HALF.z * sz };
+    const half = m.vehicle === 'bike' ? { x: 0.42, y: 0.5, z: 1.1 } : { x: BASE_HALF.x * sx, y: BASE_HALF.y * m.scale[1], z: BASE_HALF.z * sz };
     const bay = this.bays.find((p) => !g.vehicles.all.some((c) => Math.hypot(c.pos.x - p.x, c.pos.z - p.z) < 2.6) && clearSpot(g, p.x, p.z, p.heading, half, Y)) || this.bays[0];
-    const car = new Car(g, { color: rec.color, x: bay.x, z: bay.z, heading: bay.heading, hp: m.hp, maxSpeed: m.maxSpeed, mesh: modelMesh(m, rec.color), half, density: m.density || 120, ride: 0.55 * Math.min(1, m.scale[1]) });
+    const opts = { color: rec.color, x: bay.x, z: bay.z, heading: bay.heading, hp: m.hp, maxSpeed: m.maxSpeed };
+    const car = m.vehicle === 'bike' ? g.fleet.makeBike({ ...opts, sport: m.sport })
+      : m.vehicle === 'tow' ? g.fleet.makeTow(opts)
+        : new Car(g, { ...opts, mesh: modelMesh(m, rec.color), half, density: m.density || 120, ride: 0.55 * Math.min(1, m.scale[1]) });
     car.baseMax = m.maxSpeed;
     car.ownedUid = rec.uid;
     car.color = rec.color;
@@ -167,6 +197,19 @@ export class Dealership {
     this.respawnT.delete(rec.uid);
     if (!quiet) g.hud.toast(`Your ${m.name} is waiting in the customer bays at Verian Motors`, 0x7be08a);
     return car;
+  }
+
+  // your helicopter: one Skylark on the pad behind the showroom (it looks after its own wrecks)
+  deliverHeli(rec, quiet) {
+    const g = this.game;
+    if (!this.chopper) this.chopper = new Chopper(g, this.pad);
+    const c = this.chopper;
+    if (g.vehicles.active === c) return c;
+    c.reset(); c.setAvailable(true); c.ownedUid = rec.uid;
+    this.cars.set(rec.uid, c);
+    if (this.heliDisplay) this.heliDisplay.visible = false;
+    if (!quiet) g.hud.toast('Your Skylark is on the helipad behind Verian Motors', 0x7be08a);
+    return c;
   }
 
   // the garage just changed something on one of your cars: remember it
@@ -197,7 +240,8 @@ export class Dealership {
     const g = this.game, e = g.economy, m = MODEL[rec.model];
     const car = this.cars.get(rec.uid);
     if (car && g.vehicles.active === car) { g.hud.toast('Get out of it first', 0xff8a6a); return; }
-    if (car && g.vehicles.list.includes(car)) g.vehicles.remove(car);
+    if (car?.isHeli) { car.setAvailable(false); if (this.heliDisplay) this.heliDisplay.visible = true; }
+    else if (car && g.vehicles.list.includes(car)) g.vehicles.remove(car);
     this.cars.delete(rec.uid);
     e.ownedCars.splice(e.ownedCars.indexOf(rec), 1);
     const back = Math.round(m.price * 0.5);
@@ -210,11 +254,11 @@ export class Dealership {
     const swatch = (c, i) => `<button data-a="col" data-i="${i}" title="paint" style="background:#${c.toString(16).padStart(6, '0')};width:24px;height:24px;padding:0;border-radius:50%;${this.selColor === c ? 'outline:2px solid #ffd166;outline-offset:2px' : ''}"></button>`;
     const render = () => {
       const funds = e.money + e.bank;
-      const rows = CAR_MODELS.map((m) => `<div class="erow"><div><b>${m.name}</b> <small style="display:inline">${m.kind}</small><small>${Math.round(m.maxSpeed * 3.6)} km/h · body ${m.hp} · ${m.blurb}</small></div>
+      const rows = CAR_MODELS.map((m) => `<div class="erow"><div><b>${m.name}</b> <small style="display:inline">${m.kind}</small><small>${m.vehicle === 'heli' ? '150 km/h in the air' : Math.round(m.maxSpeed * 3.6) + ' km/h'} · body ${m.hp} · ${m.blurb}</small></div>
         <div class="btns"><button data-a="buy" data-id="${m.id}" ${funds < m.price ? 'disabled' : ''}>$${m.price.toLocaleString()}</button></div></div>`).join('');
       const mine = e.ownedCars.map((r) => {
         const m = MODEL[r.model], car = this.cars.get(r.uid), mods = Object.entries(r.mods || {}).map(([k, v]) => k === 'engine' ? `engine ${v + 1}` : k).join(', ');
-        const status = !car || car.wreck ? (this.respawnT.has(r.uid) ? 'wrecked: a new one is on its way' : 'wrecked') : g.vehicles.active === car ? 'you\'re driving it' : 'parked';
+        const status = car?.isHeli ? (car.dead ? 'wrecked: a new one is on its way' : g.vehicles.active === car ? 'you\'re flying it' : 'on the pad') : !car || car.wreck ? (this.respawnT.has(r.uid) ? 'wrecked: a new one is on its way' : 'wrecked') : g.vehicles.active === car ? 'you\'re driving it' : 'parked';
         return `<div class="erow"><div><b>${m.name}</b> <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#${r.color.toString(16).padStart(6, '0')}"></span><small>${status}${mods ? ' · ' + mods : ''}</small></div>
           <div class="btns"><button data-a="bring" data-uid="${r.uid}">Bring to the lot</button><button data-a="sell" data-uid="${r.uid}">Sell ($${Math.round(m.price * 0.5).toLocaleString()})</button></div></div>`;
       }).join('') || '<p class="empty">You don\'t own any cars yet.</p>';
@@ -239,8 +283,10 @@ export class Dealership {
     this.t = (this.t || 0) + dt;
     if (this.salesman.parts?.armR) this.salesman.parts.armR.rotation.x = -0.2 + Math.sin(this.t * 1.3) * 0.15;
     // wrecked or gone: a replacement is delivered to the lot a minute later
+    this.chopper?.update(dt);
     for (const rec of g.economy.ownedCars) {
       const car = this.cars.get(rec.uid);
+      if (car?.isHeli) continue;
       const gone = !car || car.wreck || car.sinking || !g.vehicles.list.includes(car);
       if (!gone) continue;
       if (!this.respawnT.has(rec.uid)) { this.respawnT.set(rec.uid, 60); if (car && car.wreck) g.hud.toast(`Your ${MODEL[rec.model].name} is wrecked. Verian Motors will have a new one on the lot in a minute`, 0xffd166); continue; }

@@ -120,6 +120,7 @@ export class Car {
     const g = this.game;
     const mine = g.vehicles?.active === this;
     this.damage((m - 3) * 2.4);
+    if (this.bike && mine && m > 8) { g.vehicles.bailOut(this); return; } // over the handlebars
     // which side took it: the velocity jumped away from whatever we hit
     const local = dv.clone().multiplyScalar(-1 / m).applyAxisAngle(new THREE.Vector3(0, 1, 0), -this.heading);
     this.dent(local, Math.min(0.32, (m - 2.5) * 0.035));

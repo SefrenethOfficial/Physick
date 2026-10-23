@@ -49,6 +49,7 @@ import { DayNight } from './daynight.js';
 import { News } from './news.js';
 import { Radio } from './radio.js';
 import { Ambient } from './ambient.js';
+import { Fleet } from './fleet.js';
 import { Airport } from './airport.js';
 import { Bank } from './bank.js';
 import { Vehicles } from './vehicles.js';
@@ -218,6 +219,7 @@ class Game {
     this.highway = new Highway(this);
     this.homes = new Homes(this);
     this.garage = new Garage(this);
+    this.fleet = new Fleet(this);
     this.dealer = new Dealership(this);
     this.news = new News(this);
     this.daynight = new DayNight(this);
@@ -970,6 +972,8 @@ class Game {
     if (dl) return dl;
     const amb = this.ambient?.action(pos);
     if (amb) return amb;
+    const fl = this.fleet?.action(pos);
+    if (fl) return fl;
     const jet = this.jets.nearby(pos);
     if (jet) return { label: 'Fly the jet', run: () => this.jets.enter(jet) };
     if (this.near(this.city.pawnCounter, 3.5)) return { label: 'Pawn shop — sell loot', run: () => this.economy.openPawn() };
@@ -985,7 +989,7 @@ class Game {
     if (atm) return { label: 'Use the ATM', run: () => this.bank.open(true) };
     if (dealer) return { label: `Talk to ${dealer.title.split(' ')[0].replace(/[^\w']/g, '')}`, run: () => this.underworld.open(dealer) };
     const car = this.vehicles.nearby(pos);
-    if (car) return { label: car.kind === 'mine' ? 'Get in' : car.kind === 'police' ? 'Steal the police car' : 'Steal the car', run: () => this.vehicles.steal(car) };
+    if (car) return { label: car.kind === 'mine' ? (car.car.bike ? 'Get on' : 'Get in') : car.kind === 'police' ? 'Steal the police car' : car.car.bike ? 'Steal the bike' : car.car.bus ? 'Hijack the bus' : car.car.tow ? 'Steal the tow truck' : 'Steal the car', run: () => this.vehicles.steal(car) };
     const hit = this.lookHit(3);
     const rd = hit?.prop?.ragdoll;
     if (rd && this.citizens.ragdolls.includes(rd)) {
@@ -1191,6 +1195,7 @@ class Game {
       }
       if (e.code === 'KeyG' && this.story.onKeyG()) return; // (works from the driver's seat)
       if (e.code === 'KeyR' && this.vehicles.active && this.radio) { this.radio.next(); return; }
+      if (e.code === 'KeyT' && this.vehicles.active && this.fleet?.toggleTow()) return;
       if (this.gunnery.active || this.boats.active || this.vehicles.active) return;
       if (e.code === 'KeyF') { this.useHeld(); return; }
       if (e.code === 'KeyB') { this.stash(); return; }
@@ -1231,7 +1236,8 @@ class Game {
       if (v.isHeli) return v.altitude < 2.5 ? '<kbd>E</kbd> Get out · <kbd>Space</kbd> Climb' : '<kbd>Space</kbd> Climb · <kbd>Shift</kbd> Descend · <kbd>W</kbd>/<kbd>S</kbd> Tilt';
       if (this.underworld.chopZone(v.pos) && !v.ownedUid) return `<kbd>E</kbd> Sell to the chop shop ($${this.underworld.carPrice(v)})`;
       if (this.garage.inBay()) return '<kbd>E</kbd> Underpass Customs: upgrades, repairs, paint';
-      const nos = v.nitro ? ` · <kbd>Shift</kbd> Nitro ${Math.round((v.nitroTank ?? 1) * 100)}%` : '';
+      const tow = v.tow ? (this.fleet?.tow ? ' · <kbd>T</kbd> Drop the car' : ' · <kbd>T</kbd> Hook a car') : '';
+      const nos = tow + (v.nitro ? ` · <kbd>Shift</kbd> Nitro ${Math.round((v.nitroTank ?? 1) * 100)}%` : '');
       return (Math.abs(v.speed) < 5 ? '<kbd>E</kbd> Get out · <kbd>Space</kbd> Handbrake · <kbd>H</kbd> Horn' : '<kbd>E</kbd> Bail out') + nos + ' · <kbd>R</kbd> Radio';
     }
     if (this.onShore && this.bank.heist) {
@@ -1440,6 +1446,7 @@ class Game {
     this.daynight?.update(dt);
     this.radio?.update(dt);
     this.ambient?.update(dt);
+    this.fleet?.update(dt);
     this.title?.update(dt);
     this.pragdoll.update(dt);
     this.underworld.update(dt);
