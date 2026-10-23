@@ -402,3 +402,24 @@ h3.kih { margin: 16px 0 4px; font-size: 13px; letter-spacing: .12em; text-transf
 @keyframes spin { to { transform: rotate(360deg); } }
 
 #clock { position: absolute; top: 58px; left: 50%; transform: translateX(-50%); font: 600 14px/1 inherit; color: #f2f2ee; text-shadow: 0 1px 3px #000; background: rgba(0,0,0,.3); padding: 3px 9px; border-radius: 10px; letter-spacing: .5px; pointer-events: none; }
+
+/* ---- admin panel ---- */
+#admin { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.35); font: 13px/1.35 system-ui, sans-serif; color: #e8e8e8; }
+#admin.hidden { display: none; }
+#admin .adm-box { width: min(760px, 94vw); max-height: 86vh; display: flex; flex-direction: column; background: #15171c; border: 1px solid #c0442c; border-radius: 10px; box-shadow: 0 12px 40px rgba(0,0,0,.6); overflow: hidden; }
+#admin .adm-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #1f2128; border-bottom: 1px solid #2c2f38; }
+#admin .adm-head b { color: #ff6a4a; letter-spacing: 2px; }
+#admin .adm-head span { flex: 1; color: #888; font-size: 12px; }
+#admin .adm-tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 10px; border-bottom: 1px solid #2c2f38; }
+#admin .adm-body { padding: 10px 14px 16px; overflow-y: auto; }
+#admin h4 { margin: 12px 0 6px; color: #ffd166; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+#admin .row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0; }
+#admin .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 5px; }
+#admin .grid.small { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+#admin button { background: #2a2d36; color: #eee; border: 1px solid #3a3e4a; border-radius: 6px; padding: 5px 9px; cursor: pointer; font: inherit; text-align: left; }
+#admin button:hover { background: #363a46; }
+#admin button.on { background: #3a2a22; border-color: #ff8a4a; color: #ffd8b8; }
+#admin button.danger { background: #5a1a14; border-color: #c0442c; }
+#admin input { background: #0e0f12; color: #eee; border: 1px solid #3a3e4a; border-radius: 5px; padding: 4px 6px; font: inherit; }
+#admin-debug { position: fixed; left: 12px; bottom: 210px; z-index: 40; display: none; font: 12px/1.4 ui-monospace, monospace; color: #b8ffb8; background: rgba(0,0,0,.55); padding: 6px 9px; border-radius: 6px; pointer-events: none; text-shadow: 0 1px 1px #000; }
+.admin-flash { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 70; background: #1f2128; color: #ffd166; border: 1px solid #c0442c; padding: 8px 14px; border-radius: 8px; font: 600 14px system-ui, sans-serif; }

@@ -286,3 +286,9 @@ src/
   audio.js     synthesized sounds (sea, engines, horn, telegraph)
   groups.js    collision groups
 ```
+
+## Admin panel (testing)
+
+On the title screen, hold **Alt** and click the very top-left corner of the screen to unlock admin commands (remembered in this browser). In game, press **F8** (or **`**) to open the panel; **Esc** closes it.
+
+Tabs: **Player** (god mode, health/armour, money, wanted 0–20, police off, infinite ammo, debug overlay), **Teleport** (landmarks, homes, where you're looking, coordinates), **Items** (any weapon or item, max ammo), **Vehicles** (spawn any car, bike, helicopter, police car or El Monstruo; repair, max upgrades, bulletproof, clear/freeze traffic), **World** (time, clock speed, weather, game speed), **Story** (start/pass/fail missions, key items), **Activities** (races, jobs, packages, ramps, bounty hunters, roadblocks) and **Save data** (wipe individual saves, or hide the admin panel again).

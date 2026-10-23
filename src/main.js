@@ -52,6 +52,7 @@ import { Ambient } from './ambient.js';
 import { Fleet } from './fleet.js';
 import { Activities } from './activities.js';
 import { Stunts } from './stunts.js';
+import { Admin } from './admin.js';
 import { Airport } from './airport.js';
 import { Bank } from './bank.js';
 import { Vehicles } from './vehicles.js';
@@ -230,6 +231,7 @@ class Game {
     this.ambient = new Ambient(this);
     this.activities = new Activities(this);
     this.stunts = new Stunts(this);
+    this.admin = new Admin(this);
     this.title = new TitleScene(this);
     this.title.start();
 
@@ -1414,7 +1416,7 @@ class Game {
   // ---------- loop ----------
   tick() {
     this.timer.update();
-    const dt = Math.min(this.timer.getDelta(), 0.1) * (this.timeScale ?? 1); // (slowed right down mid-stunt)
+    const dt = Math.min(this.timer.getDelta(), 0.1) * (this.timeScale ?? 1) * (this.adminSpeed ?? 1); // (slowed right down mid-stunt; admin game speed)
     this.time += dt;
     const k = this.keys;
     const steer = this.atHelm ? (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0) : 0;
@@ -1463,6 +1465,7 @@ class Game {
     this.fleet?.update(dt);
     this.activities?.update(dt);
     this.stunts?.update(dt);
+    this.admin?.update(dt);
     this.title?.update(dt);
     this.pragdoll.update(dt);
     this.underworld.update(dt);

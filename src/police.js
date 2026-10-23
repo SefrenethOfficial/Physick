@@ -39,7 +39,7 @@ export class Police {
     this.tracers.push({ l, t: 0.09 });
   }
 
-  get enabled() { return true; }
+  get enabled() { return !this.disabled; } // (the admin panel can switch them off)
   // SWAT on the scene (10+ stars, or vans/officers still hunting you)
   get swatActive() { return this.wanted >= 10 || (this.wanted > 0 && (this.cars.some((c) => c.swat && !c.leaving) || this.game.citizens.list.some((n) => n.swat && n.dispatched && !n.leaving))); }
   get searching() { return this.wanted > 0 && this.game.time * 1000 - this.lastSeen > 2500; }

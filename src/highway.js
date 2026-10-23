@@ -70,6 +70,7 @@ export class Highway {
 
   update(dt) {
     const g = this.game;
+    if (this.frozen) { for (const c of this.cars) c.coast(dt); return; }
     const pt = g.shorePlayer.body.translation();
     for (const c of [...this.cars]) {
       if (c.wreck || c.sinking) {

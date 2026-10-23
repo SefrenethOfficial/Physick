@@ -114,6 +114,7 @@ export class Traffic {
 
   update(dt) {
     const g = this.game;
+    if (this.frozen) { for (const c of this.cars) c.coast(dt); return; } // (admin: everyone stops)
     const pt = g.shorePlayer.body.translation();
     const onFoot = g.onShore && !g.flying && !g.boats.active && !g.health.dead;
     const people = g.citizens.list;
