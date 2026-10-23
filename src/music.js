@@ -1,5 +1,5 @@
 // Chase music: one track for a low wanted level (1-2 stars), another when they're really
-// after you (3+). Tracks crossfade as the level changes and fade out when you lose the police.
+// after you (3+), and *Oversized* once the SWAT teams are out (10+ stars). Tracks crossfade as the level changes and fade out when you lose the police.
 export class Track {
   constructor(url, max) {
     this.el = new Audio(url);
@@ -28,18 +28,21 @@ export class ChaseMusic {
     this.low = new Track(`${base}assets/music/chase-on-foot.mp3`, 0.5);
     this.high = new Track(`${base}assets/music/starvation-pursuer.mp3`, 0.6);
     this.lab = new Track(`${base}assets/music/true-lab.mp3`, 0.6);
+    this.swat = new Track(`${base}assets/music/oversized.mp3`, 0.6);
   }
 
   // stars: current wanted level (0 = no music)
   // lab: you're down in the lab under Cherry Estate (its own music, nothing else)
   // force: a mission's own track ('low' = Chase on Foot, 'high' = Pursuer), whatever the stars
-  update(dt, stars, lab = false, force = null) {
-    const low = force ? force === 'low' : stars >= 1 && stars <= 2;
-    const high = force ? force === 'high' : stars >= 3;
+  // swat: SWAT teams are on you (Oversized takes over from everything else)
+  update(dt, stars, lab = false, force = null, swat = false) {
+    const low = !swat && (force ? force === 'low' : stars >= 1 && stars <= 2);
+    const high = !swat && (force ? force === 'high' : stars >= 3);
     this.low.update(dt, !lab && low);
     this.high.update(dt, !lab && high);
+    this.swat.update(dt, !lab && swat);
     this.lab.update(dt, lab);
   }
 
-  get vol() { return Math.max(this.low.vol, this.high.vol, this.lab.vol); }
+  get vol() { return Math.max(this.low.vol, this.high.vol, this.lab.vol, this.swat.vol); }
 }

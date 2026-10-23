@@ -69,7 +69,7 @@ export class Garage {
         return `<div class="erow"><div><b>${u.name}</b>${tag}<small>${u.desc(done ? lv : next)}</small></div>
           <div class="btns">${done ? '<button disabled>Fitted</button>' : `<button data-a="up" data-id="${u.id}">$${u.levels[next].toLocaleString()}</button>`}</div></div>`;
       }).join('');
-      const fix = car.hp < car.maxHp ? `<div class="erow"><div><b>Repair</b><small>Panel beating and a polish (${Math.round((car.hp / car.maxHp) * 100)}% now)</small></div><div class="btns"><button data-a="fix">$300</button></div></div>` : '';
+      const fix = car.hp < car.maxHp || car.flat ? `<div class="erow"><div><b>Repair</b><small>Panel beating, a polish${car.flat ? ' and four new tyres' : ''} (${Math.round((car.hp / car.maxHp) * 100)}% now)</small></div><div class="btns"><button data-a="fix">$300</button></div></div>` : '';
       const paint = `<div class="erow"><div><b>Respray</b><small>$500, any colour you like</small></div><div class="btns paints">${PAINTS.map(([n, c], i) => `<button data-a="paint" data-i="${i}" title="${n}" style="background:#${c.toString(16).padStart(6, '0')};width:26px;height:26px;padding:0;border-radius:50%"></button>`).join('')}</div></div>`;
       e.open('Underpass Customs', e.header() + '<p><i>"What are we doing to her?"</i></p>' + (car.ownedUid ? '<p class="lede">It\'s your car: everything we fit is kept.</p>' : '<p class="lede">Heads up: this one isn\'t yours, so the work goes when the car does. Buy a car at Verian Motors to keep your upgrades.</p>') + rows + fix + paint, (el) => el.addEventListener('click', (ev) => {
         const b = ev.target.closest('button[data-a]');
@@ -82,7 +82,7 @@ export class Garage {
           g.hud.toast(`${u.name} fitted`, 0x7be08a);
           g.sfx.play('engineStart');
         }
-        if (b.dataset.a === 'fix' && pay(300)) { car.hp = car.maxHp; g.hud.toast('Good as new', 0x7be08a); }
+        if (b.dataset.a === 'fix' && pay(300)) { car.hp = car.maxHp; car.flat = false; g.hud.toast('Good as new', 0x7be08a); }
         if (b.dataset.a === 'paint' && pay(500)) { this.respray(car, PAINTS[+b.dataset.i][1]); g.hud.toast(`Sprayed ${PAINTS[+b.dataset.i][0].toLowerCase()}`, 0x7be08a); }
         if (car.ownedUid) g.dealer?.remember(car); // your own car keeps its upgrades (saved)
         render();

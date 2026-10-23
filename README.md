@@ -113,7 +113,12 @@ Press `M` for the full map: every island, road, trail and landmark, the shops an
 - **Punch** (`LMB` with an empty hand) or swing a bat; **grab** someone (`RMB`) to knock them out. Kill someone and you can **search the body** (`E`) for cash and valuables.
 - **Pick pockets:** get behind someone and hold `E`. If they notice, they run and call the police.
 - **Witnesses:** anyone who sees a crime runs and phones it in. Townspeople who find **blood or a body** go to look, then call the police, and if you're standing around nearby they'll describe you. People also notice you dragging a body around. Mops (in the plaza, the market and on the fishing dock) clean blood off the street.
-- **Wanted level** (1–5 stars): officers on foot, then squad cars that chase you down the streets and run you over, and at sea police boats that ram your boat. From 2 stars they hit back, from 3 they shoot. Stay out of sight and the stars drain away; flying a jet loses them.
+- **Wanted level** (1–20 stars): officers on foot, then squad cars that chase you down the streets and run you over, and at sea police boats that ram your boat. From 2 stars they hit back, from 3 they shoot (at you, and at the car you're in). Stay out of sight and the stars drain away; flying a jet loses them. From 5 stars, every stretch they keep eyes on you makes it worse.
+  - **6+ stars:** police **helicopters** circle overhead, sweeping a searchlight over you while a marksman shoots from the door. Shoot them down (they take a lot) or get out of sight.
+  - **10+ stars:** **SWAT** vans roll in and unload four armoured officers with rifles each; half the officers on foot are SWAT too. The music switches to *Oversized* while SWAT are on you.
+  - **20 stars:** **advanced SWAT**: bulletproof armoured trucks and exo-armoured officers with red visors who fire fast and hit hard, plus three choppers.
+  - **Roadblocks** (4+ stars, while you're driving): two cruisers parked across the road ahead (on the city streets or the long road over the bridge) with officers behind them and a **spike strip** in the gap. Hit the spikes and your tyres are shredded (slow, wobbly, sparking) until Underpass Customs fixes them; bulletproof tyres just roll over.
+  - **Bounty hunters:** get away from a chase of 5+ stars and, a little later, someone puts a price on your head. A crew of hunters (one with a shotgun) tracks you down wherever you are. Kill them all for half the bounty, or survive four minutes until they give up.
 - **Busted:** let an officer stay on you for a couple of seconds and you're arrested: fined a quarter of your cash and your bag confiscated. Die and you wake up at the hospital, minus the bill.
 
 ## Graphics settings

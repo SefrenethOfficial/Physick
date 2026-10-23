@@ -7,10 +7,11 @@ import { LAND_Y, islandAt, blocked, onLand } from './world.js';
 // Wanted level, witnesses' calls, and the police response: officers on foot, squad cars that
 // chase and ram you through the streets, and police boats that hunt you down at sea.
 
-const HEAT = [0, 1, 2, 4, 7, 11]; // heat needed for each star
-const FOOT = [0, 2, 4, 6, 8, 10];
-const CARS = [0, 1, 2, 3, 4, 4];
-const BOATS = [0, 0, 1, 2, 3, 4];
+import { HEAT, FOOT, CARS, Escalation, makeSwat, SWAT_LOOK, ADV_LOOK } from './swat.js';
+
+const SWAT_LOOKS = [SWAT_LOOK, ADV_LOOK];
+
+const BOATS = [0, 0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6];
 const CAR_SPEED = 17;
 
 const angleTo = (from, to) => { let d = to - from; return Math.atan2(Math.sin(d), Math.cos(d)); };
@@ -29,6 +30,7 @@ export class Police {
     this.spawnT = 0;
     this.radioT = 0;
     this.tracers = [];
+    this.esc = new Escalation(game);
   }
 
   tracer(a, b) {
@@ -38,6 +40,8 @@ export class Police {
   }
 
   get enabled() { return true; }
+  // SWAT on the scene (10+ stars, or vans/officers still hunting you)
+  get swatActive() { return this.wanted >= 10 || (this.wanted > 0 && (this.cars.some((c) => c.swat && !c.leaving) || this.game.citizens.list.some((n) => n.swat && n.dispatched && !n.leaving))); }
   get searching() { return this.wanted > 0 && this.game.time * 1000 - this.lastSeen > 2500; }
 
   // The player just did something. Anyone (or any officer) who sees it may call it in.
@@ -69,7 +73,7 @@ export class Police {
     if (this.wanted > before) {
       this.game.sfx.play('star');
       const msg = { murder: 'A witness saw the killing', copkill: 'Officer down!', assault: 'Someone saw you attack', theft: 'Someone saw you steal', body: 'Someone saw you with a body', blood: 'A witness put you near the blood' }[why] || 'The police are after you';
-      this.game.hud.toast(`${msg} — ${'★'.repeat(this.wanted)}`, 0xff6a5a);
+      this.game.hud.toast(`${msg}: ${this.wanted} star${this.wanted > 1 ? 's' : ''}`, 0xff6a5a);
     }
   }
 
@@ -90,7 +94,9 @@ export class Police {
     if (best) { best.state = 'investigate'; best.target = pos.clone(); }
   }
 
-  clearWanted() {
+  // lost: you got away (a big chase can still bring bounty hunters); otherwise the slate's wiped
+  clearWanted(lost = false) {
+    if (!lost) this.esc?.reset();
     this.heat = 0;
     this.wanted = 0;
     this.bustT = 0;
@@ -104,13 +110,18 @@ export class Police {
     const g = this.game;
     const t = npc.body.translation();
     const from = new THREE.Vector3(t.x, t.y + 0.5, t.z).addScaledVector(new THREE.Vector3(Math.sin(npc.heading), 0, Math.cos(npc.heading)), 0.4);
-    const hit = Math.random() < 0.35;
+    const tier = npc.swat || 0;
+    const hit = Math.random() < [0.35, 0.45, 0.55][tier];
     const to = new THREE.Vector3(target.x, target.y + 0.4, target.z);
     if (!hit) to.add(new THREE.Vector3((Math.random() - 0.5) * 2.5, Math.random() * 1.2, (Math.random() - 0.5) * 2.5));
     this.tracer(from, to);
     g.fx.flash(from, 0xffc060, 0.8, 0.06);
-    g.sfx.play('pistol');
-    if (hit) g.health.damage(7, 'police');
+    g.sfx.play(tier ? 'smg' : 'pistol');
+    const v = g.vehicles.active;
+    if (hit && v && !v.isHeli) { // shooting up your car
+      if (v.bulletproof || v.monster) g.fx.flash(to, 0xffe0a0, 0.6, 0.05);
+      else { v.damage([5, 7, 10][tier]); if (Math.random() < 0.4) g.health.damage(3, 'police'); }
+    } else if (hit) g.health.damage([7, 10, 13][tier], 'police');
     g.citizens.alarm(from, 18);
   }
 
@@ -120,8 +131,9 @@ export class Police {
       const a = Math.random() * Math.PI * 2, r = 50 + Math.random() * 35;
       const p = c.randomPointOn(island, new THREE.Vector3(target.x + Math.cos(a) * r, 0, target.z + Math.sin(a) * r), 10, 40);
       if (!p) continue;
-      const n = c.spawnCitizen(island, 'cop', p);
+      const n = c.spawnCitizen(island, 'cop', p, this.wanted >= 10 && Math.random() < 0.5 ? { look: this.wanted >= 20 ? SWAT_LOOKS[1] : SWAT_LOOKS[0] } : {});
       if (!n) continue;
+      if (n.fig.look === SWAT_LOOKS[0] || n.fig.look === SWAT_LOOKS[1]) makeSwat(n, n.fig.look === SWAT_LOOKS[1] ? 2 : 1);
       n.dispatched = true;
       n.state = 'chase';
       n.lastSeen = new THREE.Vector3(target.x, target.y, target.z);
@@ -254,11 +266,13 @@ export class Police {
     const c = this.game.citizens;
     const fwd = new THREE.Vector3(-Math.sin(car.heading), 0, -Math.cos(car.heading));
     const side = new THREE.Vector3(-fwd.z, 0, fwd.x);
-    for (const s of [-1, 1]) {
-      const p = car.pos.clone().addScaledVector(side, s * 2);
+    const spots = car.swat ? [[-1, 0], [1, 0], [-1, -2.5], [1, -2.5]] : [[-1, 0], [1, 0]];
+    for (const [s, back] of spots) {
+      const p = car.pos.clone().addScaledVector(side, s * (car.swat ? 2.4 : 2)).addScaledVector(fwd, back);
       p.y = LAND_Y;
-      const n = c.spawnCitizen(car.island, 'cop', p);
+      const n = c.spawnCitizen(car.island, 'cop', p, car.swat ? { look: SWAT_LOOKS[car.swat - 1] } : {});
       if (!n) continue;
+      if (car.swat) makeSwat(n, car.swat);
       n.dispatched = true;
       n.state = 'chase';
       n.lastSeen = new THREE.Vector3(goal.x, goal.y, goal.z);
@@ -341,6 +355,7 @@ export class Police {
     let seen = false;
     for (const n of g.citizens.list) if (n.role === 'cop' && n.playerVisible) { seen = true; break; }
     for (const c of [...this.cars]) {
+      if (c.blockade) { c.coast(dt); runOver(g, c, false); continue; } // parked across the road
       if (this.updateCar(c, dt, target, onFoot)) seen = seen || this.wanted > 0;
       const far = Math.hypot(c.pos.x - target.x, c.pos.z - target.z);
       if ((c.leaving && far > 70) || far > 600) this.removeCar(c);
@@ -364,8 +379,8 @@ export class Police {
       this.wanted -= 1;
       this.heat = HEAT[this.wanted];
       this.lastSeen = now;
-      if (this.wanted === 0) { this.clearWanted(); g.hud.toast('You lost the police', 0x7be08a); }
-      else g.hud.toast(`Wanted level down — ${'★'.repeat(this.wanted)}`, 0x9ec5ff);
+      if (this.wanted === 0) { this.clearWanted(true); g.hud.toast('You lost the police', 0x7be08a); }
+      else g.hud.toast(`Wanted level down: ${this.wanted} star${this.wanted > 1 ? 's' : ''}`, 0x9ec5ff);
     }
 
     // send more units
@@ -382,6 +397,24 @@ export class Police {
       }
       const boats = this.boats.filter((b) => !b.leaving && b.alive).length;
       if (inBoat && boats < BOATS[this.wanted]) this.spawnBoat(target);
+    }
+    // choppers, SWAT, roadblocks, bounty hunters
+    {
+      const isl = islandAt(target.x, target.z, 4);
+      const island = isl && ['city', 'town', 'hood'].includes(isl.id) && !inBoat ? isl.id : null;
+      if (this.esc.update(dt, target, onFoot, island) && this.wanted > 0) this.lastSeen = now;
+    }
+    // officers who can see you shoot at the car you're in
+    this.carFireT = (this.carFireT || 0) - dt;
+    if (this.wanted >= 3 && g.vehicles.active && !g.vehicles.active.isHeli && this.carFireT <= 0) {
+      this.carFireT = 0.5;
+      for (const n of g.citizens.list) {
+        if (n.role !== 'cop' || !n.playerVisible || n.down) continue;
+        const t = n.body.translation();
+        if (Math.hypot(t.x - target.x, t.z - target.z) > 35) continue;
+        n.carAtk = (n.carAtk || 0) - 0.5;
+        if (n.carAtk <= 0) { n.carAtk = n.swat === 2 ? 0.8 : n.swat ? 1.3 : 2.2; this.copShoots(n, target); }
+      }
     }
     // officers on the radio always know roughly where you were last seen
     this.radioT -= dt;
@@ -411,6 +444,7 @@ export class Police {
   busted() {
     const g = this.game;
     g.story?.onBusted();
+    this.esc.reset();
     const lost = g.economy.loseBag();
     const fine = Math.round(g.economy.money * 0.25);
     if (fine) g.economy.addMoney(-fine);

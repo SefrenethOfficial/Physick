@@ -250,6 +250,11 @@ export class Car {
   // Player controls: throttle -1..1, steer -1 (right) .. 1 (left), handbrake.
   driveInput(dt, throttle, steer, handbrake, boost = false) {
     let max = this.maxSpeed ?? (this.police ? 36 : 30);
+    if (this.flat) { // shredded tyres: slow, and it pulls and shudders
+      max = Math.min(max, 15);
+      steer += Math.sin((this.game.time || 0) * 11) * 0.18;
+      if (Math.abs(this.speed) > 4 && Math.random() < 0.3) this.game.fx.emit(this.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 2, 0.2, (Math.random() - 0.5) * 3)), new THREE.Vector3((Math.random() - 0.5) * 2, 1.5, (Math.random() - 0.5) * 2), 0xffc060, 0.2, 1, 0);
+    }
     // nitrous: a few seconds of shove, refilling when you're off it
     const nos = this.nitro && boost && this.nitroTank > 0.02 && throttle > 0;
     if (this.nitro) this.nitroTank = Math.min(1, Math.max(0, (this.nitroTank ?? 1) + (nos ? -dt / 4 : dt / 12)));

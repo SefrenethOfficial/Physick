@@ -327,7 +327,10 @@ class Game {
     this.fx.flash(toWorld(muzzle), 0xffc060, 1.2, 0.05);
     for (let k = 0; k < G.pellets; k++) {
       const dir = base.clone().add(new THREE.Vector3((Math.random() - 0.5) * 2 * G.spread, (Math.random() - 0.5) * 2 * G.spread, (Math.random() - 0.5) * 2 * G.spread)).normalize();
-      const hit = this.sb.raycast(eye, dir, G.range, this.player.collider);
+      let hit = this.sb.raycast(eye, dir, G.range, this.player.collider);
+      // a police chopper in the way?
+      const airT = this.onShore ? this.police.esc.shootAir(eye, dir, hit ? eye.distanceTo(hit.point) : G.range, G.dmg) : null;
+      if (airT != null) { if (k < 3) this.police.tracer(toWorld(muzzle), eye.clone().addScaledVector(dir, airT)); continue; }
       const end = hit ? hit.point : eye.clone().addScaledVector(dir, G.range);
       if (k < 3) this.police.tracer(toWorld(muzzle), toWorld(end));
       if (!hit) continue;
@@ -1434,7 +1437,7 @@ class Game {
     this.gangs.update(dt);
     this.graphics.update(dt);
     const under = this.story.underground;
-    this.music.update(dt, this.started && this.settings.music && !this.health.dead ? Math.max(this.police.wanted, this.gangs.war.active ? 1 : 0) : 0, this.started && under, this.started && this.settings.music && !this.health.dead ? this.story.musicTrack : null);
+    this.music.update(dt, this.started && this.settings.music && !this.health.dead ? Math.max(this.police.wanted, this.gangs.war.active ? 1 : 0) : 0, this.started && under, this.started && this.settings.music && !this.health.dead ? this.story.musicTrack : null, this.started && this.settings.music && !this.health.dead && this.police.swatActive);
     this.setUnderground(under ? 'lab' : this.homes?.inside ? 'home' : false);
     this.police.update(dt);
     this.updatePickpocket(dt);

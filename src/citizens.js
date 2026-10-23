@@ -297,8 +297,8 @@ export class Citizens extends Npcs {
             npc.atkT = 0.9;
             g.health.damage(8, 'police');
             g.sfx.play('thud');
-          } else if (wanted >= 3 && playerVisible && distP < 35 && distP > 3 && npc.atkT <= 0) {
-            npc.atkT = 1.4 + Math.random() * 0.6;
+          } else if (wanted >= 3 && playerVisible && distP < (npc.swat ? 45 : 35) && distP > 3 && npc.atkT <= 0) {
+            npc.atkT = npc.swat === 2 ? 0.45 + Math.random() * 0.3 : npc.swat ? 0.8 + Math.random() * 0.4 : 1.4 + Math.random() * 0.6;
             g.police.copShoots(npc, pp);
           }
           if (!playerVisible && npc.lastSeen && Math.hypot(npc.lastSeen.x - t.x, npc.lastSeen.z - t.z) < 2) { npc.lastSeen = null; npc.state = 'patrol'; }
