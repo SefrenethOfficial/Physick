@@ -188,10 +188,10 @@ export class Homes {
   // the phone's Home app: pick where you spawn from anywhere
   app() {
     return {
-      id: 'home', icon: '🏠', name: 'Home',
+      id: 'homes', icon: '🏠', name: 'Home',
       render: (head) => {
         const e = this.game.economy, mine = this.list.filter((h) => this.owns(h.id));
-        const row = (title, small, on, cmd, id = '') => `<div class="ph-item"><div><b>${title}</b><small>${small}</small></div>${on ? '<small>✓ Spawn</small>' : `<button data-a="app-act" data-app="home" data-cmd="${cmd}" data-id="${id}">Spawn here</button>`}</div>`;
+        const row = (title, small, on, cmd, id = '') => `<div class="ph-item"><div><b>${title}</b><small>${small}</small></div>${on ? '<small>✓ Spawn</small>' : `<button data-a="app-act" data-app="homes" data-cmd="${cmd}" data-id="${id}">Spawn here</button>`}</div>`;
         return head('Home') + '<div class="ph-list">'
           + row('Verian Plaza', 'Start at the plaza; come round at the hospital after a bad day', !e.homeSpawn, 'plaza')
           + mine.map((h) => row(h.name, `${h.area} · wake up in your own bed, no hospital bill`, e.homeSpawn === h.id, 'set', h.id)).join('')

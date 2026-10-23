@@ -129,7 +129,7 @@ export class Phone {
         <div><b>${m.n}. ${esc(m.title)}</b><small>${m.state === 'locked' ? esc(m.lockText) : m.state === 'passed' ? 'Done' : m.state === 'active' ? 'In progress' : 'Ready'}</small></div>
         ${m.canStart ? `<button data-a="start" data-id="${m.id}">${m.state === 'passed' ? 'Replay' : 'Start'}</button>` : ''}</div>`).join('') + '</div>';
       if (s.active) h += '<div class="ph-foot"><button data-a="abandon">Abandon current job</button></div>';
-    } else if (this.apps.some((x) => x.id === sc)) {
+    } else if (!['home', 'call', 'missions', 'messages', 'keys'].includes(sc) && this.apps.some((x) => x.id === sc)) { // (an app can't take over a built-in screen)
       h = this.apps.find((x) => x.id === sc).render(head);
     } else if (sc === 'messages') {
       const msgs = s.state.messages || [];
