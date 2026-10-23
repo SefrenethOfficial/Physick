@@ -15,6 +15,7 @@ export class Economy {
     this.ammo = { pistolAmmo: 0, smgAmmo: 0, shells: 0 };
     this.perks = {};
     this.ownedHomes = [];
+    this.ownedCars = []; // { uid, model, color, mods }
     this.homeSpawn = null;
     this.load();
     this.panel = document.getElementById('panel');
@@ -35,6 +36,7 @@ export class Economy {
         Object.assign(this.ammo, s.ammo || {});
         Object.assign(this.perks, s.perks || {});
         this.ownedHomes = s.ownedHomes || [];
+        this.ownedCars = (s.ownedCars || []).filter((r) => r && r.uid && r.model);
         this.homeSpawn = s.homeSpawn || null;
       }
     } catch { /* no saved game */ }
@@ -42,7 +44,7 @@ export class Economy {
 
   save() {
     this.game.hud?.setBank?.(this.bank);
-    try { localStorage.setItem(KEY, JSON.stringify({ bank: this.bank, money: this.money, bag: this.bag, ownedBoats: this.ownedBoats, ammo: this.ammo, perks: this.perks, ownedHomes: this.ownedHomes, homeSpawn: this.homeSpawn })); } catch { /* storage unavailable */ }
+    try { localStorage.setItem(KEY, JSON.stringify({ bank: this.bank, money: this.money, bag: this.bag, ownedBoats: this.ownedBoats, ammo: this.ammo, perks: this.perks, ownedHomes: this.ownedHomes, homeSpawn: this.homeSpawn, ownedCars: this.ownedCars })); } catch { /* storage unavailable */ }
   }
 
   get weight() { return this.bag.reduce((w, id) => w + (ITEM_BY_ID[id].weight ?? 1), 0); }

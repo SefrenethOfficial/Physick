@@ -10,7 +10,7 @@ const PAINTS = [['Fire red', 0xc23b2a], ['Midnight', 0x14161c], ['Pearl', 0xeeee
 
 export const UPGRADES = [
   { id: 'engine', name: 'Engine', levels: [2500, 6000, 12000], desc: (lv) => `Stage ${lv + 1}: more power, higher top speed`,
-    apply: (car, lv) => { car.maxSpeed = 35 + 6 * lv; car.accelMul = 1.2 + 0.2 * lv; } },
+    apply: (car, lv) => { car.maxSpeed = (car.baseMax ?? 30) + 5 + 6 * lv; car.accelMul = 1.2 + 0.2 * lv; } },
   { id: 'armour', name: 'Armour plating', levels: [4000], desc: () => 'Reinforced body: takes about 2.5x the punishment',
     apply: (car) => { car.maxHp = Math.max(car.maxHp, 250); car.hp = car.maxHp; if (car.type) car.type = { ...car.type, hp: car.maxHp }; } },
   { id: 'bulletproof', name: 'Bulletproof glass & tyres', levels: [15000], desc: () => 'Rounds just spark off. You and the car stay safe from gunfire',
@@ -71,7 +71,7 @@ export class Garage {
       }).join('');
       const fix = car.hp < car.maxHp ? `<div class="erow"><div><b>Repair</b><small>Panel beating and a polish (${Math.round((car.hp / car.maxHp) * 100)}% now)</small></div><div class="btns"><button data-a="fix">$300</button></div></div>` : '';
       const paint = `<div class="erow"><div><b>Respray</b><small>$500, any colour you like</small></div><div class="btns paints">${PAINTS.map(([n, c], i) => `<button data-a="paint" data-i="${i}" title="${n}" style="background:#${c.toString(16).padStart(6, '0')};width:26px;height:26px;padding:0;border-radius:50%"></button>`).join('')}</div></div>`;
-      e.open('Underpass Customs', e.header() + '<p><i>"What are we doing to her?"</i></p>' + rows + fix + paint, (el) => el.addEventListener('click', (ev) => {
+      e.open('Underpass Customs', e.header() + '<p><i>"What are we doing to her?"</i></p>' + (car.ownedUid ? '<p class="lede">It\'s your car: everything we fit is kept.</p>' : '<p class="lede">Heads up: this one isn\'t yours, so the work goes when the car does. Buy a car at Verian Motors to keep your upgrades.</p>') + rows + fix + paint, (el) => el.addEventListener('click', (ev) => {
         const b = ev.target.closest('button[data-a]');
         if (!b || b.disabled) return;
         if (b.dataset.a === 'up') {
@@ -84,6 +84,7 @@ export class Garage {
         }
         if (b.dataset.a === 'fix' && pay(300)) { car.hp = car.maxHp; g.hud.toast('Good as new', 0x7be08a); }
         if (b.dataset.a === 'paint' && pay(500)) { this.respray(car, PAINTS[+b.dataset.i][1]); g.hud.toast(`Sprayed ${PAINTS[+b.dataset.i][0].toLowerCase()}`, 0x7be08a); }
+        if (car.ownedUid) g.dealer?.remember(car); // your own car keeps its upgrades (saved)
         render();
       }));
     };

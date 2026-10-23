@@ -75,7 +75,19 @@ Press `E` at the bed in a home you own to sleep: you heal up and it becomes home
   - **Rosa** (the fence): buys your whole bag for 30% more than the pawn shop, makes the heat go away for $500 a star, and sells a police scanner (every cop on your minimap; you lose them faster).
   - **Dimitri's chop shop:** park a stolen car in his alley and press `E` for cash. Cop cars pay best.
 - **Guns:** hold one and `LMB` fires (hold for the SMG); `RMB` throws it. Ammo is per weapon type and shown next to the gun. Gunfire sends everyone running and counts as a crime if anyone sees. **Grenades:** `RMB` to throw, then run. **Armour:** hold it and press `F` to put it on; it soaks up most damage until it's shot through.
-- **Underpass Customs:** drive down the dirt lane under the Saltmarsh Gate Bridge, roll into the shed and press `E` (while stopped). The mechanics fit three engine stages, armour plating, bulletproof glass and tyres (gunfire just sparks off, and you're safe inside), and **nitrous** (hold `Shift` while driving; it refills when you're off it). They also do repairs and resprays in eight colours. Upgrades stay with that car.
+- **Verian Motors** (the glass showroom on the west side of Verian City, south of where the park road comes in): walk up to the sales desk and press `E` to buy a car. Pick a paint colour first if you like. Six models:
+
+  | Car | Type | Top speed | Price |
+  |---|---|---|---|
+  | Pico | City hatchback | 97 km/h | $6,500 |
+  | Meridian | Family saloon | 108 km/h | $14,000 |
+  | Bruiser GT | Muscle car | 133 km/h | $38,000 |
+  | Trailmaster | SUV (tough) | 112 km/h | $45,000 |
+  | Stiletto | Sports car | 151 km/h | $95,000 |
+  | Vortex X | Supercar | 180 km/h | $350,000 |
+
+  Cars you buy are **yours to keep**: they're saved, with their paint and every upgrade from Underpass Customs, and wait in the customer bays behind the showroom. Wreck one (or lose it in the sea) and a replacement with the same paint and upgrades turns up on the lot a minute later. From the desk you can also have any of your cars brought back to the lot, or sell one back for half price. The chop shop won't touch your own cars.
+- **Underpass Customs:** drive down the dirt lane under the Saltmarsh Gate Bridge, roll into the shed and press `E` (while stopped). The mechanics fit three engine stages, armour plating, bulletproof glass and tyres (gunfire just sparks off, and you're safe inside), and **nitrous** (hold `Shift` while driving; it refills when you're off it). They also do repairs and resprays in eight colours. On a car you bought at Verian Motors, the upgrades and paint are saved; on a stolen car they're lost along with it.
 - **Chase music:** *Chase on Foot* plays at one or two stars, *Starvation Pursuer* takes over at three or more (toggle in Settings).
 
 ## The bank
@@ -200,6 +212,7 @@ src/
   homes.js     houses for sale, home spawns, going in and out
   interiors.js the furnished insides of the homes
   garage.js    Underpass Customs: car upgrades, repairs, paint
+  dealership.js Verian Motors: car models, buying, saved cars
   hood.js      the Hollows
   gangs.js     the two crews and gang wars
   airport.js   Verian International Airport (closed)

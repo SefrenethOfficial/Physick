@@ -44,6 +44,7 @@ import { Bridge } from './bridge.js';
 import { Highway } from './highway.js';
 import { Homes } from './homes.js';
 import { Garage } from './garage.js';
+import { Dealership } from './dealership.js';
 import { Airport } from './airport.js';
 import { Bank } from './bank.js';
 import { Vehicles } from './vehicles.js';
@@ -213,6 +214,7 @@ class Game {
     this.highway = new Highway(this);
     this.homes = new Homes(this);
     this.garage = new Garage(this);
+    this.dealer = new Dealership(this);
     this.title = new TitleScene(this);
     this.title.start();
 
@@ -953,6 +955,8 @@ class Game {
     if (sa) return sa;
     const home = this.homes?.action(pos);
     if (home) return home;
+    const dl = this.dealer?.action(pos);
+    if (dl) return dl;
     const jet = this.jets.nearby(pos);
     if (jet) return { label: 'Fly the jet', run: () => this.jets.enter(jet) };
     if (this.near(this.city.pawnCounter, 3.5)) return { label: 'Pawn shop — sell loot', run: () => this.economy.openPawn() };
@@ -1158,7 +1162,7 @@ class Game {
         if (this.vehicles.active && this.garage.inBay()) { this.garage.open(this.vehicles.active); return; }
         if (this.vehicles.active) {
           const chop = this.underworld.chopZone(this.vehicles.active.pos);
-          if (chop && Math.abs(this.vehicles.active.speed) < 3) this.chopCar();
+          if (chop && Math.abs(this.vehicles.active.speed) < 3 && !this.vehicles.active.ownedUid) this.chopCar();
           else this.vehicles.exit();
           return;
         }
@@ -1211,7 +1215,7 @@ class Game {
     if (this.vehicles.active) {
       const v = this.vehicles.active;
       if (v.isHeli) return v.altitude < 2.5 ? '<kbd>E</kbd> Get out · <kbd>Space</kbd> Climb' : '<kbd>Space</kbd> Climb · <kbd>Shift</kbd> Descend · <kbd>W</kbd>/<kbd>S</kbd> Tilt';
-      if (this.underworld.chopZone(v.pos)) return `<kbd>E</kbd> Sell to the chop shop ($${this.underworld.carPrice(v)})`;
+      if (this.underworld.chopZone(v.pos) && !v.ownedUid) return `<kbd>E</kbd> Sell to the chop shop ($${this.underworld.carPrice(v)})`;
       if (this.garage.inBay()) return '<kbd>E</kbd> Underpass Customs: upgrades, repairs, paint';
       const nos = v.nitro ? ` · <kbd>Shift</kbd> Nitro ${Math.round((v.nitroTank ?? 1) * 100)}%` : '';
       return Math.abs(v.speed) < 5 ? '<kbd>E</kbd> Get out · <kbd>Space</kbd> Handbrake · <kbd>H</kbd> Horn' + nos : '<kbd>E</kbd> Bail out' + nos;
@@ -1298,6 +1302,7 @@ class Game {
     for (const a of this.bank.atms) P(a.pos, a.broken ? '#666' : '#2fd38a', 'ATM', false, 3);
     P(c.dealerCounter, '#7fd3ff', 'Boat sales', true);
     P(c.hospital, '#ff6a6a', 'Hospital');
+    if (this.dealer) P(this.dealer.desk, '#e8c547', 'Verian Motors (cars)', true, 5);
     for (const h of this.homes?.list || []) P(h.door, this.homes.owns(h.id) ? '#7be08a' : '#f2d23a', this.homes.owns(h.id) ? `⌂ ${h.name}` : `⌂ For sale ${h.price >= 1e6 ? '$' + h.price / 1e6 + 'M' : '$' + Math.round(h.price / 1000) + 'k'}`, false, 4);
     P(c.policeStation, '#4a7dff', 'Police station');
     P(c.plaza, '#e8e2d4', 'Plaza');
@@ -1417,6 +1422,7 @@ class Game {
     this.highway?.update(dt);
     this.homes?.update(dt);
     this.garage?.update(dt);
+    this.dealer?.update(dt);
     this.title?.update(dt);
     this.pragdoll.update(dt);
     this.underworld.update(dt);
