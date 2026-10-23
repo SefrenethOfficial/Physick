@@ -143,7 +143,7 @@ export class Homes {
       const funds = e.money + e.bank;
       const body = owned
         ? `<p>${h.desc}</p><p>${isHome ? 'This is <b>home</b>: when things go wrong, you wake up here (no hospital bill).' : 'You own this place.'}</p>
-           <div class="btns">${inHere ? '' : '<button data-a="in">Go inside</button>'}${isHome ? '' : '<button data-a="home">Make this home (spawn here)</button>'}</div>`
+           <div class="btns">${inHere ? '' : '<button data-a="in">Go inside</button>'}${isHome ? '<button data-a="plaza">Spawn at the plaza instead</button>' : '<button data-a="home">Make this home (spawn here)</button>'}</div>`
         : `<p>${h.desc}</p><p class="price">${money(h.price)}</p>
            <p><small>Paid from your pocket first, then your account at Verian National. Your home is where you wake up after a bad day, instead of the hospital.</small></p>
            <div class="btns">${inHere ? '' : '<button data-a="in">Look round inside</button>'}<button data-a="buy" ${funds < h.price ? 'disabled' : ''}>${funds < h.price ? `You're ${money(h.price - funds)} short` : `Buy for ${money(h.price)}`}</button></div>`;
@@ -152,7 +152,8 @@ export class Homes {
         if (!b || b.disabled) return;
         if (b.dataset.a === 'in') { e.close(); this.enter(h); return; }
         if (b.dataset.a === 'buy') this.buy(h);
-        if (b.dataset.a === 'home') { e.homeSpawn = h.id; e.save(); this.refresh(); g.hud.toast(`${h.name} is home now`, 0x7be08a); }
+        if (b.dataset.a === 'home') this.setSpawn(h.id);
+        if (b.dataset.a === 'plaza') this.setSpawn(null);
         render();
       }));
     };
@@ -175,6 +176,31 @@ export class Homes {
     return true;
   }
 
+  // where you start the game and come round after dying: a home you own, or null for the plaza
+  setSpawn(id) {
+    const g = this.game, e = g.economy, h = this.list.find((x) => x.id === id);
+    e.homeSpawn = h && this.owns(h.id) ? h.id : null;
+    e.save();
+    this.refresh();
+    g.hud.toast(e.homeSpawn ? `${h.name} is home now: you'll wake up here` : 'Spawn reset: you\'ll start at the plaza (and come round at the hospital)', 0x7be08a);
+  }
+
+  // the phone's Home app: pick where you spawn from anywhere
+  app() {
+    return {
+      id: 'home', icon: '🏠', name: 'Home',
+      render: (head) => {
+        const e = this.game.economy, mine = this.list.filter((h) => this.owns(h.id));
+        const row = (title, small, on, cmd, id = '') => `<div class="ph-item"><div><b>${title}</b><small>${small}</small></div>${on ? '<small>✓ Spawn</small>' : `<button data-a="app-act" data-app="home" data-cmd="${cmd}" data-id="${id}">Spawn here</button>`}</div>`;
+        return head('Home') + '<div class="ph-list">'
+          + row('Verian Plaza', 'Start at the plaza; come round at the hospital after a bad day', !e.homeSpawn, 'plaza')
+          + mine.map((h) => row(h.name, `${h.area} · wake up in your own bed, no hospital bill`, e.homeSpawn === h.id, 'set', h.id)).join('')
+          + (mine.length ? '' : '<small class="ph-empty">You don\'t own a home yet. Look for FOR SALE signs.</small>') + '</div>';
+      },
+      act: (cmd, d) => this.setSpawn(cmd === 'set' ? d.id : null),
+    };
+  }
+
   // back home after a bad day (or at the start of the game)
   wakeAtHome() {
     const h = this.spawnHome;
@@ -184,6 +210,7 @@ export class Homes {
   }
 
   update() {
+    if (!this.appAdded && this.game.story?.phone) { this.game.story.phone.addApp(this.app()); this.appAdded = true; }
     const h = this.inside;
     if (h) {
       // moved out some other way (a mission, a respawn): you're not in here any more

@@ -84,6 +84,8 @@ Every home has a furnished **inside**. Press `E` at the front door to go in (you
 
 Press `E` at the bed in a home you own to sleep: you heal up and it becomes home. You wake up in that bed after a bad day.
 
+To choose where you spawn, open the **Home** app on your phone (`J`): pick any home you own, or **Verian Plaza** to go back to the default (you start at the plaza and come round at the hospital).
+
 ## Cars, guns and the back alleys
 
 - **Smash the scenery:** trees and street lamps snap off and go flying when a car hits them at speed. Your car loses some speed and takes a little damage (El Monstruo barely notices). They're quietly put back a few minutes later when you're well away. Cars never spawn inside buildings, walls, trees or lamps.
