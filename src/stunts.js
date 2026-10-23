@@ -66,14 +66,14 @@ export class Stunts {
     const g = this.game, C = g.city, H = g.hood, S = g.saltmarsh, Y = LAND_Y;
     const v = (x, z, y = Y) => new THREE.Vector3(x, y, z);
     // the closed airport is a stunt park
-    for (const [k, [x, z, yaw, rise]] of [[-1700, 560, -Math.PI / 2, 3], [-1500, 620, Math.PI / 2, 2.6], [-1300, 700, 0, 3.4], [-1820, 720, Math.PI, 2.2]].entries()) this.ramp(`air${k}`, v(x, z), yaw, { rise, len: 10, min: 30, name: `Airport jump ${k + 1}` });
+    for (const [k, [x, z, yaw, rise]] of [[-1700, 560, -Math.PI / 2, 3], [-1500, 620, Math.PI / 2, 2.6], [-1300, 700, 0, 3.4], [-1820, 720, Math.PI, 2.2]].entries()) this.ramp(`air${k}`, v(x, z), yaw, { rise, len: 10, min: 22, name: `Airport jump ${k + 1}` });
     // off the ends of streets: city edges, the Hollows, Saltmarsh
-    this.ramp('cityE', v(C.xs[5] - 4, C.zs[1] + 30, Y + KERB), -Math.PI / 2, { min: 22, name: 'Marina leap' });
-    this.ramp('cityN', v(C.xs[2] + 3, C.zs[0] - 2, Y), 0, { min: 22, rise: 2, name: 'North shore hop' });
-    this.ramp('hood1', v(H.xs[3] + 3, H.zs[2] + 40), -Math.PI / 2, { min: 22, name: 'Hollows hop' });
-    this.ramp('hood2', v(H.xs[0] - 3, H.zs[4] - 30), Math.PI / 2, { min: 22, name: 'Projects launch' });
-    this.ramp('town1', v(S.xs[0] + 3, S.zs[0] + 40), Math.PI / 2, { min: 22, name: 'Saltmarsh skip' });
-    this.ramp('dock', v(DOCKX(), DOCKZ(g) + 20), Math.PI, { min: 22, rise: 2, name: 'Dock dive' });
+    this.ramp('cityE', v(C.xs[5] - 4, C.zs[1] + 30, Y + KERB), -Math.PI / 2, { min: 18, name: 'Marina leap' });
+    this.ramp('cityN', v(C.xs[2] + 3, C.zs[0] - 2, Y), 0, { min: 18, rise: 2, name: 'North shore hop' });
+    this.ramp('hood1', v(H.xs[3] + 3, H.zs[2] + 40), -Math.PI / 2, { min: 18, name: 'Hollows hop' });
+    this.ramp('hood2', v(H.xs[0] - 3, H.zs[4] - 30), Math.PI / 2, { min: 18, name: 'Projects launch' });
+    this.ramp('town1', v(S.xs[0] + 3, S.zs[0] + 40), Math.PI / 2, { min: 18, name: 'Saltmarsh skip' });
+    this.ramp('dock', v(DOCKX(), DOCKZ(g) + 20), Math.PI, { min: 18, rise: 2, name: 'Dock dive' });
   }
 
   // ---------------------------------------------------------------- the jump
@@ -81,14 +81,17 @@ export class Stunts {
     const g = this.game, v = g.vehicles.active;
     this.slowT = Math.max(0, this.slowT - dt / Math.max(0.05, g.timeScale || 1));
     g.timeScale = this.slowT > 0 ? 0.35 : 1;
-    if (v && !v.isHeli && !v.air) {
+    if (this.jump && (this.jump.car !== v || !v)) this.jump = null;
+    if (v && !v.isHeli && !this.jump) {
       // driving up a ramp fast: launch off the lip
       for (const r of this.ramps) {
         const d = v.pos.clone().sub(r.lip);
         const along = d.dot(r.f), side = Math.abs(d.x * r.f.z - d.z * r.f.x);
         if (along > -0.8 && along < 1.2 && side < r.w / 2 + 0.4 && v.vel.dot(r.f) > 12 && Math.abs(v.pos.y - r.lip.y) < 1.2) {
           const sp = v.vel.dot(r.f);
-          v.air = { vy: sp * Math.sin(r.ang) * 1.35 + 2.5, from: v.pos.clone(), ramp: r, t: 0 };
+          v.vy = Math.max(v.vy || 0, sp * Math.sin(r.ang) * 1.35 + 2.5); // a kick off the lip
+          v.airborne = true;
+          this.jump = { car: v, from: v.pos.clone(), ramp: r, t: 0 };
           this.slowT = 1.2;
           g.sfx.play('engineStart');
           break;
@@ -96,10 +99,11 @@ export class Stunts {
       }
     }
     // in the air: a chase camera from the side, then land it
-    if (v?.air) {
-      v.air.t += dt;
-      if (v.air.landed) {
-        const a = v.air, r = a.ramp; v.air = null;
+    if (this.jump) {
+      const a = this.jump;
+      a.t += dt;
+      if (a.t > 0.3 && !v.airborne) {
+        const r = a.ramp; this.jump = null;
         const dist = Math.hypot(v.pos.x - a.from.x, v.pos.z - a.from.z);
         if (dist >= r.min) {
           const first = !this.done.has(r.id);

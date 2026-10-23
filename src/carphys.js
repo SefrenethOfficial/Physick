@@ -13,6 +13,7 @@ import { LAND_Y, blocked, nearestLandPoint } from './world.js';
 const WHEELBASE = 2.7;
 const HALF = { x: 0.95, y: 0.55, z: 2.25 };
 const angDiff = (a, b) => { const d = b - a; return Math.atan2(Math.sin(d), Math.cos(d)); };
+const _tilt = new THREE.Quaternion(), _eul = new THREE.Euler();
 const yawOf = (q) => new THREE.Euler().setFromQuaternion(new THREE.Quaternion(q.x, q.y, q.z, q.w), 'YXZ').y;
 
 export class Car {
@@ -90,7 +91,17 @@ export class Car {
     const f = this.forward;
     this.speed = this.vel.dot(f);
     this.mesh.position.set(t.x, t.y, t.z);
-    this.mesh.quaternion.set(r.x, r.y, r.z, r.w);
+    // tilt the whole car (body and collider) with the road: nose up a hill, lean on a camber; in
+    // the air the nose follows the arc. (The physics only spins it about the vertical; we set the
+    // rest here, so the box sits along a slope instead of digging its nose into it.)
+    const wantP = this.airborne ? THREE.MathUtils.clamp(Math.atan2(this.vy || 0, Math.max(4, Math.abs(this.speed))) * 0.8, -0.6, 0.45) : Math.atan(this.slope || 0);
+    const wantR = this.airborne ? 0 : Math.atan(this.bank || 0);
+    const kt = Math.min(1, dt * (this.airborne ? 2.5 : 9));
+    this.pitchV = (this.pitchV || 0) + (wantP - (this.pitchV || 0)) * kt;
+    this.rollV = (this.rollV || 0) + (wantR - (this.rollV || 0)) * kt;
+    _tilt.setFromEuler(_eul.set(this.pitchV, this.heading, this.rollV, 'YXZ'));
+    if (Math.abs(this.pitchV) > 1e-4 || Math.abs(this.rollV) > 1e-4 || Math.abs(r.x) + Math.abs(r.z) > 1e-4) this.body.setRotation(_tilt, false);
+    this.mesh.quaternion.copy(_tilt);
     // a crash: the velocity changed far more than we asked it to
     if (this.expect && !this.wreck) {
       const dv = new THREE.Vector3(v.x - this.expect.x, 0, v.z - this.expect.z);
@@ -188,46 +199,82 @@ export class Car {
     g.sfx.play('explosion');
   }
 
-  // Keep the car on the road surface (we have no gravity; kerbs pass under the body).
+  // The car's own vertical physics (the body has no gravity of its own). On the ground it rides
+  // the road surface (kerbs, hills, the bridge deck); it can never be pulled down faster than it
+  // would fall, so drive off a ledge or over a crest at speed and it flies, then lands. It only
+  // goes in the sea once it has actually fallen to the water.
   hover(dt) {
-    if (this.air && !this.air.landed) return this.flight(dt);
-    if (this.air?.landed && this.game.vehicles?.active !== this) this.air = null;
-    if (this.sinking || (!blocked(this.pos.x, this.pos.z, 1) && !this.overDeck())) return this.sinkInto(dt);
+    if (this.sinking) return this.sinkInto(dt);
     this.groundT -= dt;
     if (this.groundT <= 0) {
-      // ride on the highest of front, middle and back so climbing a hill doesn't dig the nose in
-      this.groundT = 0.05;
-      const f = this.forward;
-      const lead = 1.8 + Math.min(Math.abs(this.speed) * 0.08, 2);
-      this.groundY = Math.max(this.groundAt(this.pos.x, this.pos.z),
-        this.groundAt(this.pos.x + f.x * lead, this.pos.z + f.z * lead),
-        this.groundAt(this.pos.x - f.x * lead, this.pos.z - f.z * lead));
+      this.groundT = 0.035;
+      const f = this.forward, r = new THREE.Vector3(-f.z, 0, f.x);
+      const L = (this.half?.z ?? 2.25) * 0.85, W = (this.half?.x ?? 0.95) * 0.85;
+      const x = this.pos.x, z = this.pos.z;
+      const hc = this.probe(x, z), hf = this.probe(x + f.x * L, z + f.z * L), hb = this.probe(x - f.x * L, z - f.z * L);
+      // and further ahead the faster we go, so a hill coming up lifts us in time (no digging in)
+      const la = L + Math.min(Math.abs(this.speed) * 0.09, 2.6), sg = this.speed >= 0 ? 1 : -1;
+      const hfar = this.probe(x + f.x * la * sg, z + f.z * la * sg);
+      const hl = this.probe(x + r.x * W, z + r.z * W), hr = this.probe(x - r.x * W, z - r.z * W);
+      // ride on the centre, or the wheels ahead of us on a climb (so the nose doesn't dig in)
+      // (a sample way above us is a wall or a tree, not the road: don't climb it)
+      const ok = (h, d) => (h != null && h < this.pos.y + 0.4 + d * 0.62 ? h : -Infinity);
+      const ahead = Math.max(ok(this.speed >= 0 ? hf : hb, L), ok(hfar, la));
+      const centre = hc != null && hc < this.pos.y + 0.5 ? hc : -Infinity;
+      this.groundY = centre === -Infinity && ahead === -Infinity ? (hc ?? null) : Math.max(centre, ahead);
+      // the slope under the car: nose up/down along it, and the lean across it
+      this.slope = hf != null && hb != null ? THREE.MathUtils.clamp((hf - hb) / (2 * L), -1.2, 1.2) : 0;
+      this.bank = hl != null && hr != null ? THREE.MathUtils.clamp((hl - hr) / (2 * W), -0.8, 0.8) : 0;
     }
-    return THREE.MathUtils.clamp((this.groundY - this.pos.y) * 14, -8, 10);
+    const G = 22;
+    this.vy ??= 0;
+    const gy = this.groundY;
+    // nothing under us at all: over open water (or off the end of something), so fall
+    if (gy == null) {
+      this.vy -= G * dt;
+      this.airborne = true;
+      if (this.pos.y < LAND_Y - 0.6 && !blocked(this.pos.x, this.pos.z, 1)) return this.sinkInto(dt);
+      return Math.max(this.vy, -40);
+    }
+    let gap = this.pos.y - gy;
+    // resting on something the probe missed (another car, a bump under the body, a wall top):
+    // we asked to fall and didn't, so that's the ground for now (and the wheels can drive)
+    if (gap > 0.3 && this.vyCmd < -2 && this.lastY != null && (this.pos.y - this.lastY) / Math.max(dt, 1e-3) > this.vyCmd * 0.25) { this.supportT = (this.supportT || 0) + dt; } else this.supportT = 0;
+    this.lastY = this.pos.y;
+    if (this.supportT > 0.08) { gap = 0; this.vy = 0; }
+    if (gap > 0.3) { // in the air
+      this.vy = Math.max(this.vy - G * dt, -40);
+      this.airborne = true;
+      this.airT = (this.airT || 0) + dt;
+      this.vyCmd = this.vy;
+      return this.vy;
+    }
+    if (this.supportT > 0.08) { if (this.airborne) this.land(this.vy); this.airborne = false; this.airT = 0; this.vy = -3; this.vyCmd = -3; return -3; } // (keep pressing down onto it)
+    // on the ground: follow it up, but it can't drag us down faster than gravity
+    const want = THREE.MathUtils.clamp((gy - this.pos.y) * 18, -40, 14);
+    const was = this.vy;
+    this.vy = want < was - G * dt ? was - G * dt : want;
+    if (this.airborne) this.land(was);
+    this.airborne = false;
+    this.airT = 0;
+    this.vyCmd = this.vy;
+    return this.vy;
   }
 
-  // Launched off a ramp: a proper ballistic arc until the wheels find the ground again.
-  flight(dt) {
-    const a = this.air, sb = this.game.portSandbox;
-    a.vy -= 16 * dt;
-    const hit = sb.world.castRay(new RAPIER.Ray({ x: this.pos.x, y: this.pos.y + 1, z: this.pos.z }, { x: 0, y: -1, z: 0 }), 80, true, undefined, undefined, undefined, undefined, (col) => sb.staticColliders.has(col.handle));
-    const ground = hit ? this.pos.y + 1 - hit.timeOfImpact : -50;
-    if (a.vy < 0 && this.pos.y <= ground + 0.1) {
-      a.landed = true;
-      this.groundY = ground; this.groundT = 0;
-      const g = this.game;
-      if (g.vehicles?.active === this) { g.shake = Math.max(g.shake || 0, Math.min(1, -a.vy / 14)); g.sfx.play('thud'); }
-      if (a.vy < -16) this.damage((-a.vy - 16) * 2);
-      return 0;
-    }
-    if (ground < LAND_Y - 3 && this.pos.y < LAND_Y - 1) { this.air = null; return this.sinkInto(dt); } // into the sea
-    return a.vy;
+  // the road straight down from just above the car (a long way, for jumps and drops), or null
+  probe(x, z) {
+    const sb = this.game.portSandbox, fromY = this.pos.y + 2.2;
+    const hit = sb.world.castRay(new RAPIER.Ray({ x, y: fromY, z }, { x: 0, y: -1, z: 0 }), 90, true, undefined, undefined, undefined, undefined, (col) => sb.staticColliders.has(col.handle));
+    return hit ? fromY - hit.timeOfImpact : null;
   }
 
-  // Is there something solid under us (a bridge deck) even though we're over water?
-  overDeck() {
-    this.groundAt(this.pos.x, this.pos.z);
-    return this.lastGroundHit;
+  // touchdown after some air: a thump, and a hard landing hurts
+  land(vy) {
+    const g = this.game;
+    if ((this.airT || 0) < 0.25 || vy > -6) return;
+    if (g.vehicles?.active === this) { g.shake = Math.max(g.shake || 0, Math.min(1.1, -vy / 16)); g.sfx.play(vy < -14 ? 'crash' : 'thud'); }
+    if (vy < -17) this.damage((-vy - 17) * 2.2);
+    this.landed = { vy, t: g.time };
   }
 
   // Driven off the edge: it goes down like a stone (and you swim for it).
@@ -255,7 +302,8 @@ export class Car {
     const k = Math.max(0, 1 - dt * (this.wreck ? 2.5 : 1.6));
     const vy = this.hover(dt);
     if (Math.hypot(v.x, v.z) < 0.05 && Math.abs(vy) < 0.05) return;
-    this.body.setLinvel({ x: v.x * k, y: vy, z: v.z * k }, true);
+    const kk = this.airborne ? 1 : k; // (no friction in the air)
+    this.body.setLinvel({ x: v.x * kk, y: vy, z: v.z * kk }, true);
     const av = this.body.angvel();
     this.body.setAngvel({ x: 0, y: av.y * k, z: 0 }, true);
   }
@@ -269,10 +317,13 @@ export class Car {
     const v = this.body.linvel();
     const f = this.forward, r = new THREE.Vector3(-f.z, 0, f.x);
     let vf = v.x * f.x + v.z * f.z, vr = v.x * r.x + v.z * r.z;
-    const want = THREE.MathUtils.clamp(targetSpeed, -9, maxSpeed);
+    // a steep climb takes it out of the engine; downhill it'll run on a little
+    const climb = this.airborne ? 0 : Math.max(0, (this.slope || 0) * Math.sign(targetSpeed || 1));
+    const want = THREE.MathUtils.clamp(targetSpeed * (1 - Math.min(0.55, climb * 0.9)), -9, maxSpeed);
     const slowing = Math.abs(want) < Math.abs(vf) || Math.sign(want) !== Math.sign(vf);
     vf += THREE.MathUtils.clamp(want - vf, -(slowing ? brake : accel) * dt, (slowing ? brake : accel) * dt);
-    if (this.air && !this.air.landed) { vf = v.x * f.x + v.z * f.z; vr = v.x * r.x + v.z * r.z; steerAngle = 0; grip = 0; } // no traction in the air
+    if (this.airborne) { vf = v.x * f.x + v.z * f.z; vr = v.x * r.x + v.z * r.z; steerAngle *= 0.15; grip = 0; } // no traction in the air
+    else if (this.slope) vf -= 9.8 * (this.slope / Math.hypot(1, this.slope)) * dt * 0.9; // hills: slower up, quicker down
     vr *= Math.max(0, 1 - grip * dt);
     const vy = this.hover(dt);
     const nv = { x: f.x * vf + r.x * vr, y: vy, z: f.z * vf + r.z * vr };
@@ -307,7 +358,7 @@ export class Car {
     let target = vf;
     if (throttle > 0) target = vf < -0.5 ? 0 : Math.min(max, vf + (nos ? 20 : 12));
     else if (throttle < 0) target = vf > 0.5 ? 0 : -9;
-    else target = vf * 0.97;
+    else target = vf - Math.sign(vf) * Math.min(Math.abs(vf), (0.35 + 0.0025 * vf * vf) * dt); // off the throttle: it rolls on (and runs away down a hill)
     // tight, direct steering: plenty of lock even at speed, and the tyres bite hard
     const lock = 0.62 / (1 + Math.abs(vf) * 0.022) * (handbrake ? 1.35 : 1);
     this.apply(dt, handbrake ? vf * 0.9 : target, steer * lock, {

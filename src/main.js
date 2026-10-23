@@ -94,6 +94,7 @@ class Game {
     const loadingEl = document.getElementById('loading');
     await this.loadStep('Starting physics…', 3);
     await RAPIER.init();
+    this.RAPIER = RAPIER; // (handy from the console)
 
     // ---------- renderer / scene ----------
     const r = (this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: !!this.settings.antialias, powerPreference: 'high-performance' }));
