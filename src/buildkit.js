@@ -209,7 +209,7 @@ const carCache = new Map();
 const hx = (c) => '#' + c.toString(16).padStart(6, '0');
 const shadeC = (c, k) => { const f = (v) => Math.max(0, Math.min(255, Math.round(v * k))); return (f((c >> 16) & 255) << 16) | (f((c >> 8) & 255) << 8) | f(c & 255); };
 const R = { side: [0, 0, 32, 8], front: [0, 8, 16, 6], rear: [16, 8, 16, 6], win: [0, 16, 16, 6], screen: [16, 16, 16, 6], top: [0, 24, 4, 4], under: [4, 24, 2, 2], tyre: [8, 24, 8, 8] };
-function carAtlas(paint, police) {
+export function carAtlas(paint, police) {
   const key = `${paint}|${police}`;
   if (carCache.has(key)) return carCache.get(key);
   const c = document.createElement('canvas');

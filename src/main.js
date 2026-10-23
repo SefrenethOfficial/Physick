@@ -41,6 +41,9 @@ import { Hood } from './hood.js';
 import { Gangs } from './gangs.js';
 import { Stores } from './stores.js';
 import { Bridge } from './bridge.js';
+import { Highway } from './highway.js';
+import { Homes } from './homes.js';
+import { Garage } from './garage.js';
 import { Airport } from './airport.js';
 import { Bank } from './bank.js';
 import { Vehicles } from './vehicles.js';
@@ -207,6 +210,9 @@ class Game {
     document.querySelector('#overlay .play').disabled = false;
     this.hud.showOverlay(true, true);
     this.sfx.unlock(); // (you've already clicked, so the browser allows it)
+    this.highway = new Highway(this);
+    this.homes = new Homes(this);
+    this.garage = new Garage(this);
     this.title = new TitleScene(this);
     this.title.start();
 
@@ -352,7 +358,7 @@ class Game {
 
   // Shooting a car: your own takes damage; a driver under fire bails out and runs.
   shootCar(car, dmg, hitPoint = null) {
-    if (car.monster && hitPoint) { this.fx.flash(hitPoint, 0xffe0a0, 0.6, 0.05); return; } // bulletproof: it just sparks
+    if ((car.monster || car.bulletproof) && hitPoint) { this.fx.flash(hitPoint, 0xffe0a0, 0.6, 0.05); return; } // bulletproof: it just sparks
     car.damage(dmg * 0.45);
     if (hitPoint) { // a little dent where the round went in
       const local = hitPoint.clone().sub(car.pos).setY(0).normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), -car.heading);
@@ -639,6 +645,8 @@ class Game {
     this.sinkingBoat = null;
     this.clearHand();
     this.police.clearWanted();
+    const home = this.homes?.spawnHome;
+    if (home) { this.placeOnShore(home.spawn.clone(), home.yaw); this.hud.toast(`You come round at home: ${home.name}`, 0x7be08a); return; }
     this.placeOnShore(this.city.hospital.clone(), 0);
     const bill = Math.round(this.economy.money * 0.1);
     if (bill) this.economy.addMoney(-bill, 'hospital bill');
@@ -933,6 +941,8 @@ class Game {
     const pos = this.shorePlayer.body.translation();
     const sa = this.story.action(pos);
     if (sa) return sa;
+    const home = this.homes?.action(pos);
+    if (home) return home;
     const jet = this.jets.nearby(pos);
     if (jet) return { label: 'Fly the jet', run: () => this.jets.enter(jet) };
     if (this.near(this.city.pawnCounter, 3.5)) return { label: 'Pawn shop — sell loot', run: () => this.economy.openPawn() };
@@ -1055,6 +1065,7 @@ class Game {
       // on the title screen, only the Play button starts; anywhere else just turns the sound on
       if (!this.started && this.title?.active && !e.target.closest('.play')) return; // only the Play button starts
       if (this.title?.active) { this.title.stop(); document.getElementById('overlay').classList.remove('title'); }
+      if (!this.started && this.homes?.spawnHome) { const h = this.homes.spawnHome; this.placeOnShore(h.spawn.clone(), h.yaw); }
       this.started = true;
       this.lock();
       if (!this.story.state.introSeen) setTimeout(() => this.story.showIntro(), 400);
@@ -1133,6 +1144,8 @@ class Game {
       if (e.code === 'KeyE') {
         if (this.flying) { this.jets.exit(); return; }
         if (this.boats.active) { this.boats.exit(); return; }
+        if (this.vehicles.active?.isHeli) { this.vehicles.active.exit(); return; }
+        if (this.vehicles.active && this.garage.inBay()) { this.garage.open(this.vehicles.active); return; }
         if (this.vehicles.active) {
           const chop = this.underworld.chopZone(this.vehicles.active.pos);
           if (chop && Math.abs(this.vehicles.active.speed) < 3) this.chopCar();
@@ -1187,8 +1200,11 @@ class Game {
     }
     if (this.vehicles.active) {
       const v = this.vehicles.active;
+      if (v.isHeli) return v.altitude < 2.5 ? '<kbd>E</kbd> Get out · <kbd>Space</kbd> Climb' : '<kbd>Space</kbd> Climb · <kbd>Shift</kbd> Descend · <kbd>W</kbd>/<kbd>S</kbd> Tilt';
       if (this.underworld.chopZone(v.pos)) return `<kbd>E</kbd> Sell to the chop shop ($${this.underworld.carPrice(v)})`;
-      return Math.abs(v.speed) < 5 ? '<kbd>E</kbd> Get out · <kbd>Space</kbd> Handbrake · <kbd>H</kbd> Horn' : null;
+      if (this.garage.inBay()) return '<kbd>E</kbd> Underpass Customs: upgrades, repairs, paint';
+      const nos = v.nitro ? ` · <kbd>Shift</kbd> Nitro ${Math.round((v.nitroTank ?? 1) * 100)}%` : '';
+      return Math.abs(v.speed) < 5 ? '<kbd>E</kbd> Get out · <kbd>Space</kbd> Handbrake · <kbd>H</kbd> Horn' + nos : '<kbd>E</kbd> Bail out' + nos;
     }
     if (this.onShore && this.bank.heist) {
       const bp = this.bank.prompt(this.shorePlayer.body.translation());
@@ -1272,6 +1288,7 @@ class Game {
     for (const a of this.bank.atms) P(a.pos, a.broken ? '#666' : '#2fd38a', 'ATM', false, 3);
     P(c.dealerCounter, '#7fd3ff', 'Boat sales', true);
     P(c.hospital, '#ff6a6a', 'Hospital');
+    for (const h of this.homes?.list || []) P(h.door, this.homes.owns(h.id) ? '#7be08a' : '#f2d23a', this.homes.owns(h.id) ? `⌂ ${h.name}` : `⌂ For sale ${h.price >= 1e6 ? '$' + h.price / 1e6 + 'M' : '$' + Math.round(h.price / 1000) + 'k'}`, h.id === 'mansion', 4);
     P(c.policeStation, '#4a7dff', 'Police station');
     P(c.plaza, '#e8e2d4', 'Plaza');
     for (const d of this.underworld.dealers) P(d.pos, d.color, d.title.split('—')[0].replace(/"/g, '').trim());
@@ -1387,6 +1404,9 @@ class Game {
     this.boats.update(dt, alive ? k : new Set());
     this.vehicles.update(dt, alive ? k : new Set());
     this.breakables.update(dt);
+    this.highway?.update(dt);
+    this.homes?.update(dt);
+    this.garage?.update(dt);
     this.title?.update(dt);
     this.pragdoll.update(dt);
     this.underworld.update(dt);

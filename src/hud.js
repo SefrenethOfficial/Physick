@@ -261,7 +261,7 @@ export class Hud {
     const $ = (id) => this.boatEl.querySelector('#' + id);
     $('bname').textContent = b.type.name;
     const rows = this.boatEl.querySelectorAll('.row');
-    rows[0].querySelector('span').textContent = b.type.car ? 'Car' : 'Boat';
+    rows[0].querySelector('span').textContent = b.isHeli ? 'Aircraft' : b.type.car ? 'Car' : 'Boat';
     rows[2].querySelector('span').textContent = b.type.car ? 'Body' : 'Hull';
     $('bspd').textContent = `${Math.round(Math.abs(b.speed) * 1.944)} kn`;
     const f = Math.max(b.hp, 0) / b.type.hp;

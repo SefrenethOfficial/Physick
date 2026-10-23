@@ -248,17 +248,28 @@ export class Car {
   }
 
   // Player controls: throttle -1..1, steer -1 (right) .. 1 (left), handbrake.
-  driveInput(dt, throttle, steer, handbrake) {
-    const max = this.maxSpeed ?? (this.police ? 36 : 30);
+  driveInput(dt, throttle, steer, handbrake, boost = false) {
+    let max = this.maxSpeed ?? (this.police ? 36 : 30);
+    // nitrous: a few seconds of shove, refilling when you're off it
+    const nos = this.nitro && boost && this.nitroTank > 0.02 && throttle > 0;
+    if (this.nitro) this.nitroTank = Math.min(1, Math.max(0, (this.nitroTank ?? 1) + (nos ? -dt / 4 : dt / 12)));
+    if (nos) {
+      max += 16;
+      const f = this.forward, g = this.game;
+      for (let i = 0; i < 2; i++) {
+        const p = this.pos.clone().addScaledVector(f, -2.4).add(new THREE.Vector3((i - 0.5) * 0.9, 0.45, 0));
+        g.fx.emit(p, f.clone().multiplyScalar(-6 - Math.random() * 4).add(new THREE.Vector3(0, 0.6, 0)), Math.random() < 0.5 ? 0x5ab0ff : 0xffa040, 0.18, 0, 0.5);
+      }
+    }
     const vf = this.speed;
     let target = vf;
-    if (throttle > 0) target = vf < -0.5 ? 0 : Math.min(max, vf + 12);
+    if (throttle > 0) target = vf < -0.5 ? 0 : Math.min(max, vf + (nos ? 20 : 12));
     else if (throttle < 0) target = vf > 0.5 ? 0 : -9;
     else target = vf * 0.97;
     // tight, direct steering: plenty of lock even at speed, and the tyres bite hard
     const lock = 0.62 / (1 + Math.abs(vf) * 0.022) * (handbrake ? 1.35 : 1);
     this.apply(dt, handbrake ? vf * 0.9 : target, steer * lock, {
-      accel: 10 - Math.abs(vf) * 0.12, brake: handbrake ? 6 : 20, grip: handbrake ? 1.8 : 16, maxSpeed: max, steerRate: 16, yawResponse: handbrake ? 2 : 3,
+      accel: (10 - Math.abs(vf) * 0.12) * (this.accelMul || 1) + (nos ? 9 : 0), brake: handbrake ? 6 : 20, grip: handbrake ? 1.8 : 16, maxSpeed: max, steerRate: 16, yawResponse: handbrake ? 2 : 3,
     });
   }
 

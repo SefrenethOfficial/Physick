@@ -229,6 +229,8 @@ export function suburbanHome(group, sb, x, y0, z, yaw, lotW, lotD, R = Math.rand
     drive: W(drive, 0, 2.5 - setback / 2),
     driveYaw: yaw,
     garage,
+    floors,
+    door: W(doorX, 0, front + 2.8),
     frontYard: W(hx + (R() < 0.5 ? -1 : 1) * (total / 2 - 2), 0, -setback / 2),
     backYard: W((R() - 0.5) * (lotW - 6), 0, back + 5),
   };

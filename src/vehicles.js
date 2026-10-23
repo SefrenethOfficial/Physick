@@ -1,3 +1,4 @@
+import { chopperCamera } from './homes.js';
 import * as THREE from 'three';
 import { LAND_Y, blocked, islandAt } from './world.js';
 import { runOver } from './carphys.js';
@@ -15,7 +16,7 @@ export class Vehicles {
   }
 
   // Every car in the world (traffic, police, parked, stolen).
-  get all() { return [...this.game.traffic.cars, ...this.game.police.cars, ...this.parked, ...this.list, ...(this.game.story?.extraCars || []), ...(this.game.title?.cars || [])]; }
+  get all() { return [...this.game.traffic.cars, ...this.game.police.cars, ...this.parked, ...this.list, ...(this.game.story?.extraCars || []), ...(this.game.title?.cars || []), ...(this.game.highway?.cars || [])]; }
 
   // A car you could get into from where you're standing.
   nearby(pos) {
@@ -30,6 +31,7 @@ export class Vehicles {
     for (const c of this.parked) consider(c, 'parked');
     for (const c of g.traffic.cars) if (Math.abs(c.speed) < 6) consider(c, 'traffic');
     for (const c of g.police.cars) if (Math.abs(c.speed) < 6) consider(c, 'police');
+    for (const c of g.highway?.cars || []) if (Math.abs(c.speed) < 6) consider(c, 'highway');
     return best;
   }
 
@@ -40,6 +42,7 @@ export class Vehicles {
     const police = car.police;
     if (kind === 'police') g.police.cars.splice(g.police.cars.indexOf(car), 1);
     else if (kind === 'traffic') g.traffic.cars.splice(g.traffic.cars.indexOf(car), 1);
+    else if (kind === 'highway') { g.highway.cars.splice(g.highway.cars.indexOf(car), 1); car.hw = false; car.maxSpeed = undefined; kind = 'traffic'; }
     else this.parked.splice(this.parked.indexOf(car), 1);
     car.base = 350 + Math.floor(Math.random() * 6) * 70;
     car.type = { name: police ? 'Police car' : 'Stolen car', hp: car.maxHp, car: true };
@@ -129,7 +132,7 @@ export class Vehicles {
       if (v !== this.active) { v.coast(dt); continue; }
       const throttle = (keys.has('KeyW') ? 1 : 0) - (keys.has('KeyS') ? 1 : 0);
       const steer = (keys.has('KeyA') ? 1 : 0) - (keys.has('KeyD') ? 1 : 0);
-      v.driveInput(dt, throttle, steer, keys.has('Space'));
+      v.driveInput(dt, throttle, steer, keys.has('Space'), keys.has('ShiftLeft') || keys.has('ShiftRight'));
       runOver(g, v, true);
       // ramming a police car is asking for trouble
       for (const c of g.police.cars) if (c.hitT > 0.2 && c.pos.distanceTo(v.pos) < 5.5 && !g.police.wanted) g.police.report(1, v.pos.clone(), true, 'ramcop');
@@ -142,6 +145,7 @@ export class Vehicles {
   }
 
   cameraPose(camera, dt, v = this.active) {
+    if (v.isHeli) { chopperCamera(camera, dt, v, this.camQuat); return; }
     const k = 1 - Math.exp(-dt * 5);
     this.camQuat.slerp(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, v.heading, 0)), k);
     const big = v.monster;

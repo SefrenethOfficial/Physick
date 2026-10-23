@@ -4,6 +4,7 @@ import { ISLANDS, LAND_Y } from './world.js';
 import { canvasTex, speckle, std, sign, lamp, tree, solidBox } from './buildkit.js';
 import { suburbanHome } from './suburb.js';
 import { islandSlab, flat, pier } from './city.js';
+import { addPier } from './world.js';
 
 // Saltmarsh Key: a leafy suburb of family homes on a street grid, a market square and a fishing dock.
 // Lots of stuff lying around, and townspeople with wallets worth taking.
@@ -115,6 +116,9 @@ export class Saltmarsh {
     // street lights at the corners
     for (const x of this.xs) for (const z of this.zs) lamp(g, sb, x + 6.1, Y, z + 6.1);
 
+    // ---- the beach: a strip of sand all down the west shore, sloping into the sea ----
+    this.buildBeach();
+
     // church + lighthouse landmarks
     solidBox(g, sb, 14, 10, 22, -667, Y, -1650, std({ color: 0xece6da }));
     const steeple = new THREE.Mesh(new THREE.ConeGeometry(3.5, 12, 4), std({ color: 0x4b5563 }));
@@ -155,9 +159,65 @@ export class Saltmarsh {
 
   addHome(x, z, yaw, lotW, lotD) {
     const h = suburbanHome(this.group, this.sb, x, Y, z, yaw, lotW, lotD);
+    (this.homes ||= []).push({ ...h, yaw: yaw + Math.PI }); // (yaw: facing out of the front door)
     if (Math.random() < 0.55) this.lootSpots.push({ pos: h.porch, kind: 'porch' });
     // a car in some driveways
     if (h.garage && Math.random() < 0.45) this.parkedSpots.push({ x: h.drive.x, z: h.drive.z, heading: yaw === 0 ? 0 : Math.PI, color: [0xc23b2a, 0x2f7fd8, 0xe0e0e0, 0x3aa760, 0x2a2a2a, 0x8a8f96][Math.floor(Math.random() * 6)] });
     if (Math.random() < 0.5) tree(this.group, this.sb, h.backYard.x, Y, h.backYard.z, 1 + Math.random() * 0.4);
+  }
+
+  buildBeach() {
+    const g = this.group, sb = this.sb, isl = this.isl;
+    const x0 = isl.x0, xIn = x0 + 40, z0 = isl.z0 + 6, z1 = -1290; // (north of here the bridge comes down)
+    const sand = canvasTex(128, 128, (c, w, h) => {
+      c.fillStyle = '#e3cf9a'; c.fillRect(0, 0, w, h);
+      for (let i = 0; i < 2500; i++) { c.fillStyle = Math.random() < 0.5 ? 'rgba(160,130,80,.25)' : 'rgba(255,245,215,.35)'; c.fillRect(Math.random() * w, Math.random() * h, 1.5, 1.5); }
+    }, [10, (z1 - z0) / 8]);
+    const sandM = std({ map: sand, roughness: 1, polygonOffset: true, polygonOffsetFactor: -1 });
+    // dry sand on top of the island's edge, fading into the grass
+    flat(g, xIn - x0, z1 - z0, (x0 + xIn) / 2, (z0 + z1) / 2, sandM, Y + 0.03);
+    // and a slope down into the water, walkable out into the shallows
+    const slopeW = 22, drop = 4.5;
+    const geo = new THREE.PlaneGeometry(slopeW, z1 - z0);
+    geo.rotateX(-Math.PI / 2);
+    const ang = Math.atan2(drop, slopeW);
+    geo.rotateZ(ang); // high (dry) on the island side, low out in the water
+    const slope = new THREE.Mesh(geo, std({ map: sand, roughness: 1, color: 0xe8d8b0 }));
+    slope.position.set(x0 - slopeW / 2 + 0.2, Y - drop / 2 - 0.02, (z0 + z1) / 2);
+    slope.receiveShadow = true;
+    g.add(slope);
+    const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), ang);
+    const hl = Math.hypot(slopeW, drop) / 2;
+    sb.addStaticCollider(RAPIER.ColliderDesc.cuboid(hl, 0.2, (z1 - z0) / 2).setTranslation(x0 - slopeW / 2, Y - drop / 2 - 0.2, (z0 + z1) / 2).setRotation(q));
+    addPier(x0 - 12, x0, z0, z1); // the shallows count as land (people, cars)
+    // umbrellas, towels, loungers, a lifeguard tower, a volleyball net
+    const cols = [0xe53935, 0x1e88e5, 0xfdd835, 0x43a047, 0xfb8c00, 0xffffff, 0x8e24aa];
+    const pole = std({ color: 0xdddddd, metalness: 0.4 });
+    for (let z = z0 + 15; z < z1 - 10; z += 14 + Math.random() * 10) {
+      const x = x0 + 8 + Math.random() * 20;
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.6, 6), pole); p.position.set(x, Y + 1.3, z); g.add(p);
+      const canopy = new THREE.Mesh(new THREE.ConeGeometry(1.6, 0.6, 10), std({ color: cols[Math.floor(Math.random() * cols.length)], roughness: 0.8 }));
+      canopy.position.set(x, Y + 2.7, z); canopy.castShadow = true; g.add(canopy);
+      for (let k = 0; k < 2; k++) {
+        const towel = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.8), std({ color: cols[Math.floor(Math.random() * cols.length)], roughness: 1, polygonOffset: true, polygonOffsetFactor: -2 }));
+        towel.rotation.set(-Math.PI / 2, 0, Math.random() * 0.4); towel.position.set(x - 1.2 + k * 2.4, Y + 0.05, z + 1.6); g.add(towel);
+      }
+      if (Math.random() < 0.6) this.lootSpots.push({ pos: new THREE.Vector3(x + 1, Y + 0.3, z + 1.6), kind: 'misc' });
+    }
+    // lifeguard tower
+    const lx = x0 + 14, lz = (z0 + z1) / 2, wood = std({ color: 0xf2f2ee });
+    for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) solidBox(g, sb, 0.2, 3, 0.2, lx + dx, Y, lz + dz, wood);
+    solidBox(g, sb, 2.8, 0.2, 2.8, lx, Y + 3, lz, wood);
+    solidBox(g, sb, 2.6, 2, 2.6, lx, Y + 3.2, lz, std({ color: 0xe53935 }), { collide: false });
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.6), std({ color: 0xe53935, side: THREE.DoubleSide })); flag.position.set(lx + 0.5, Y + 6.3, lz); g.add(flag);
+    const fp = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2, 6), pole); fp.position.set(lx, Y + 5.6, lz); g.add(fp);
+    for (let i = 0; i < 9; i++) solidBox(g, sb, 1.6, 0.15, 0.35, lx - 1.6 - i * 0.0, Y + i * 0.33, lz + 1.4 + (8 - i) * 0.3, wood, { collide: false });
+    // volleyball net
+    const vz = z0 + 60, vx = x0 + 22;
+    for (const s of [-1, 1]) { const np = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.6, 6), pole); np.position.set(vx, Y + 1.3, vz + s * 4.5); g.add(np); }
+    const net = new THREE.Mesh(new THREE.PlaneGeometry(9, 1), std({ color: 0xffffff, transparent: true, opacity: 0.55, side: THREE.DoubleSide }));
+    net.rotation.y = Math.PI / 2; net.position.set(vx, Y + 2.1, vz); net.userData.noMerge = true; g.add(net);
+    sign(g, 'SALTMARSH BEACH', x0 + 36, Y + 2.6, z0 + 30, -Math.PI / 2, { w: 6, h: 1.1, bg: '#1e88e5', fg: '#ffffff', post: Y });
+    this.beach = new THREE.Vector3(x0 + 20, Y, (z0 + z1) / 2);
   }
 }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { LAND_Y } from './world.js';
+import { LAND_Y, ISLANDS } from './world.js';
 import { canvasTex, speckle, std, sign, worldBox } from './buildkit.js';
 import { pier } from './city.js';
 import { mergeStatic } from './merge.js';
@@ -154,7 +154,7 @@ export class CargoShip {
     this.padPos = this.w(0, DECK, 52);
 
     // ---- the pier you board from, with a ladder up the hull ----
-    const isl0 = -1050;
+    const isl0 = ISLANDS.find((i) => i.id === 'town').x0; // (it runs out over the beach)
     pier(g, sb, SHIP.x + B + 0.6, isl0 + 2, SHIP.z - 3, SHIP.z + 3);
     const ladderM = std({ color: 0x3a3c40, metalness: 0.5 });
     for (let y = LAND_Y; y < DECK; y += 0.35) {

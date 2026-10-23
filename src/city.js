@@ -221,6 +221,7 @@ export class City {
     this.pawnDoor = pawn.door;
     place(pq[1], 'n', { type: 'brick', floors: 4, interior: 'diner', name: 'SCOOPS ICE CREAM', signBg: '#e8789f', signFg: '#ffffff' }); // closed since the bombing
     place(pq[2], 's', { type: 'apartment', floors: 7 });
+    this.penthouse = { door: new THREE.Vector3((pq[2].x0 + pq[2].x1) / 2, y0, pq[2].z1 + 1.6), yaw: Math.PI }; // for sale: the top floor
     place(pq[3], 'w', { type: 'brick', floors: 3, interior: 'shop', name: 'MINI MART', signBg: '#1f5f3a' });
 
     // diner and a shop facing the plaza from the north

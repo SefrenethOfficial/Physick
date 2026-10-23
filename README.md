@@ -32,9 +32,9 @@ Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **
 
 - **Verian City** (where you start): a compact 5 × 5 block downtown with kerbed pavements, brick walk-ups with shopfronts and fire escapes, apartment blocks with balconies and glass towers on stone podiums. Plenty of ground floors are walk-in: shops with shelves of stuff, diners, office and police/hospital lobbies, and the **pawn shop** (sell anything at its counter with `E`). Cars drive the streets (they queue, turn, stop for people and honk at you) and pedestrians walk the pavements and cross at the corners. There's a plaza with a fountain, a pocket park, the **boat dealer** at the marina, a police station and a hospital.
 - **Verian International Airport** (south-west of the city, over a causeway): closed. The gate's chained shut, the runway is coned off and marked with big yellow crosses, and three airliners sit parked on the apron.
-- **Cherry Estate National Park** (behind Verian City, to the west): forested mountains, with peaks over 80 m out west. A road climbs from the city's west side up through the hills to the **Saltmarsh Gate Bridge**, an international-orange suspension bridge (two towers, sweeping cables, a 940 m deck 30 m above the water) that crosses the strait to Saltmarsh Key. Off the road: dirt trails over the hills, a ranger station at the trailhead, three campsites with tents and picnic tables (and stuff to steal), boulders, fallen logs, and a lookout tower on a hilltop. Hikers and a ranger wander the trails.
+- **Cherry Estate National Park** (behind Verian City, to the west): forested mountains, with peaks over 80 m out west. A road climbs from the city's west side up through the hills to the **Saltmarsh Gate Bridge**, an international-orange suspension bridge (two towers, sweeping cables, a 940 m deck 30 m above the water) that crosses the strait to Saltmarsh Key. Traffic runs both ways the whole length of it, from Verian City up through the hills, over the bridge and down into Saltmarsh. Off the road: dirt trails over the hills, a ranger station at the trailhead, three campsites with tents and picnic tables (and stuff to steal), boulders, fallen logs, and a lookout tower on a hilltop. Hikers and a ranger wander the trails. On a hill of its own sits **Cherry Crest**, a glass-and-cedar mansion with a pool and a helipad (for sale). Down in the gloom under the bridge's first span, a **dirt lane** that no traffic uses runs back towards Verian City; at its end is **Underpass Customs** (see below).
 - **The Hollows** (east of Saltmarsh Key, over a short road bridge): the rough part of town. Cracked streets with potholes, boarded-up walk-ups and graffiti, two grim project towers, a liquor store and laundromat, dumped couches and burned-out cars. Two crews hold turf here: the **Eastside Kings** (red) at the basketball court and the **Hollow Boys** (green) in the burned-out lot. Act suspicious around them — get in their faces, come round waving a gun, speed at them, start trouble or drag a body past — and the "?" over their heads turns to "!": they come for you and the whole neighbourhood erupts in a **gang war**, with the crews pushing into each other's turf and shooting it out. It calms down once you've been gone a while. Gang members carry cash and sometimes a pistol.
-- **Saltmarsh Key** (north of the city): a leafy suburb. Asphalt streets with kerbs, grass verges, footpaths, street trees and corner street lights, lined with family homes: one- and two-storey houses in lap siding with pitched shingle roofs, porches, shuttered windows, attached garages, driveways (some with a car in them), mailboxes, hedges and fenced back yards. In the middle is a market square full of stalls, with a church, a lighthouse, a general store and a fishing dock round the edge. Lots of stuff lying around on porches and stalls, and townspeople with cash in their pockets. The container ship **MV Halvard** is tied up off its west pier.
+- **Saltmarsh Key** (north of the city): a leafy suburb. Asphalt streets with kerbs, grass verges, footpaths, street trees and corner street lights, lined with family homes: one- and two-storey houses in lap siding with pitched shingle roofs, porches, shuttered windows, attached garages, driveways (some with a car in them), mailboxes, hedges and fenced back yards. In the middle is a market square full of stalls, with a church, a lighthouse, a general store and a fishing dock round the edge. Lots of stuff lying around on porches and stalls, and townspeople with cash in their pockets. A strip of **beach** runs down the whole west shore, with umbrellas, towels, a lifeguard tower and a volleyball net, sloping gently into the shallows. The container ship **MV Halvard** is tied up off its west pier.
 - **NAS Halyard** (east): the naval air station with the destroyer moored alongside and fighter jets on the apron.
 
 ## Money, the bag and boats
@@ -43,18 +43,33 @@ Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **
 - Sell at the **pawn shop**; cash bundles go straight into your pocket.
 - Buy boats at **Boat sales** on the marina: Fishing Skiff, Speedboat, Patrol RIB, Cabin Cruiser and the Super Yacht. Bought boats wait at the marina berths; a sunk boat is back at the marina after a while.
 - Boats: walk up to yours and press `E`; `W` / `S` throttle, `A` / `D` steer, `E` to get off at a pier or the coast. Ramming does damage both ways (tougher boats come off better).
-- Your money, bag and boats are saved in your browser.
+- Your money, bag, boats and homes are saved in your browser.
+
+## Homes
+
+Houses with a red **FOR SALE** board out front are on the market; walk up and press `E` for details. You pay from your pocket first, then your bank account. Once you own a place it's **home**: you start there when you load the game, and after a bad day you come round there instead of at the hospital (no hospital bill). If you own more than one, pick which is home from its panel; you can also rest there to heal.
+
+| Home | Where | Price |
+|---|---|---|
+| Walk-up in the Hollows | The Hollows | $4,500 |
+| Saltmarsh bungalow | Saltmarsh Key | $85,000 |
+| Saltmarsh family home | Saltmarsh Key | $160,000 |
+| Plaza Tower penthouse | Verian City, by the plaza | $750,000 |
+| **Cherry Crest** mansion | Cherry Estate | $10,000,000 |
+
+Cherry Crest comes with a **helicopter** on its pad. Walk up and press `E`: `W` / `S` tilt forward and back, `A` / `D` turn, `Space` climb, `Shift` descend, and `E` to get out once you're on the ground. Fly it into a hillside or the sea and it's wrecked; a new one turns up on the pad later.
 
 ## Cars, guns and the back alleys
 
 - **Smash the scenery:** trees and street lamps snap off and go flying when a car hits them at speed. Your car loses some speed and takes a little damage (El Monstruo barely notices). They're quietly put back a few minutes later when you're well away. Cars never spawn inside buildings, walls, trees or lamps.
-- **Bailing out:** press `E` in a moving car to dive out: you go flying as a ragdoll in third person (the car keeps rolling) and take damage at high speed. Once you stop tumbling, press `Space` to get up. **Dying** on land works the same way: you crumple as a ragdoll in third person until you come round at the hospital. Move the mouse to look around your body.
+- **Bailing out:** press `E` in a moving car to dive out: you go flying as a ragdoll in third person (the car keeps rolling) and take damage at high speed. Once you stop tumbling, press `Space` to get up. **Dying** on land works the same way: you crumple as a ragdoll in third person until you come round at the hospital (or at home, if you own one). Move the mouse to look around your body.
 - **Grand theft auto:** walk up to any car in traffic and press `E` to drag the driver out and take it, or smash your way into a parked one (police cars included). `W` / `S` drive and reverse, `A` / `D` steer, `Space` handbrake, `H` horn, `E` to get out. The driver runs off and calls the police; a cop car is a much bigger deal. Cars are physical: they shove each other, spin out, bounce off walls and push loose stuff around. Hits dent the bodywork and smash the glass; a beaten-up car smokes, then catches fire, then blows up. Drive off the edge and it sinks. You can run people over (that's murder if anyone sees).
 - **The alleys:** three blocks have a grimy service alley through the middle, and each has someone in it:
   - **Vic** (arms dealer): pistol, shotgun, SMG, ammo, grenades and body armour.
   - **Rosa** (the fence): buys your whole bag for 30% more than the pawn shop, makes the heat go away for $500 a star, and sells a police scanner (every cop on your minimap; you lose them faster).
   - **Dimitri's chop shop:** park a stolen car in his alley and press `E` for cash. Cop cars pay best.
 - **Guns:** hold one and `LMB` fires (hold for the SMG); `RMB` throws it. Ammo is per weapon type and shown next to the gun. Gunfire sends everyone running and counts as a crime if anyone sees. **Grenades:** `RMB` to throw, then run. **Armour:** hold it and press `F` to put it on; it soaks up most damage until it's shot through.
+- **Underpass Customs:** drive down the dirt lane under the Saltmarsh Gate Bridge, roll into the shed and press `E` (while stopped). The mechanics fit three engine stages, armour plating, bulletproof glass and tyres (gunfire just sparks off, and you're safe inside), and **nitrous** (hold `Shift` while driving; it refills when you're off it). They also do repairs and resprays in eight colours. Upgrades stay with that car.
 - **Chase music:** *Chase on Foot* plays at one or two stars, *Starvation Pursuer* takes over at three or more (toggle in Settings).
 
 ## The bank
@@ -175,6 +190,9 @@ src/
   traffic.js   cars driving the street grids
   park.js      Cherry Estate National Park: terrain, road, trails, forest
   bridge.js    the Saltmarsh Gate suspension bridge
+  highway.js   traffic over the bridge between Verian City and Saltmarsh
+  homes.js     houses for sale, home spawns, the Cherry Crest helicopter
+  garage.js    Underpass Customs: car upgrades, repairs, paint
   hood.js      the Hollows
   gangs.js     the two crews and gang wars
   airport.js   Verian International Airport (closed)

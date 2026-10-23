@@ -71,6 +71,28 @@ export class Park {
     }
     this.roadLength = L;
     this.roadLine = this.road.filter((_, i) => i % 6 === 0).map((r) => [r.x, r.z]);
+    // under the bridge, by the shore: a hidden garage, and a dirt track back along the coast to the city
+    const bt = 55; // metres out along the bridge from its start
+    this.underBridge = new THREE.Vector3(S.x + dir.x * bt, LAND_Y, S.y + dir.y * bt);
+    const g0 = this.underBridge;
+    this.lanes = [
+      { kind: 'dirt', width: 6, pts: this.spline([[g0.x + 6, g0.z + 6], [g0.x + 40, -398], [-1330, -402], [-1240, -400], [-1170, -390], [-1132, -330], [-1128, -250], [-1124, -190], [-1104, -176], [-1090, -175]]) },
+      { kind: 'drive', width: 7, pts: this.spline([[-1185, -40], [-1200, -10], [-1214, 8]]) },
+    ];
+    this.mansionAt = new THREE.Vector3(-1228, 0, 36);
+  }
+
+  spline(pts) {
+    const curve = new THREE.CatmullRomCurve3(pts.map(([x, z]) => new THREE.Vector3(x, 0, z)), false, 'centripetal');
+    const n = Math.ceil(curve.getLength() / 3);
+    return curve.getSpacedPoints(n).map((p) => ({ x: p.x, z: p.z }));
+  }
+
+  // nearest point on the hidden lanes (dirt road, driveway)
+  nearestLane(x, z) {
+    let best = null, bd = Infinity;
+    for (const l of this.lanes || []) for (const p of l.pts) { const d = (p.x - x) ** 2 + (p.z - z) ** 2; if (d < bd) { bd = d; best = { p, l }; } }
+    return best ? { ...best, d: Math.sqrt(bd) } : null;
   }
 
   nearestRoad(x, z) {
@@ -99,6 +121,9 @@ export class Park {
     }
     const { r, d } = this.nearestRoad(x, z);
     if (d < 34) h = r.y - 0.05 + (h - r.y + 0.05) * smooth(13, 34, d);
+    // the lanes run on their own graded bed (heights fixed once, below)
+    const ln = this.lanesReady && this.nearestLane(x, z);
+    if (ln && ln.d < ln.l.width + 12) h = ln.p.y + (h - ln.p.y) * smooth(ln.l.width * 0.6, ln.l.width + 12, ln.d);
     return h;
   }
 
@@ -117,6 +142,17 @@ export class Park {
     const camps = [[-1380, -262], [-1420, 240], [-1605, -62]].map(([x, z]) => [x, z, flatSpot(x, z, 16)]);
     const yLook = flatSpot(-1650, 330, 12);
     const yBunker = flatSpot(-1392, 92, 11);
+    const yMansion = flatSpot(this.mansionAt.x, this.mansionAt.z, 34);
+    this.mansionAt.y = yMansion;
+    const yGarage = flatSpot(this.underBridge.x + 8, this.underBridge.z + 4, 12, LAND_Y + 0.2);
+    // grade the lanes: follow the ground, smoothed, with no lumps
+    for (const l of this.lanes) {
+      const raw = l.pts.map((p) => this.heightAt(p.x, p.z));
+      l.pts.forEach((p, i) => { let a = 0, n = 0; for (let k = -6; k <= 6; k++) { const q = raw[i + k]; if (q != null) { a += q; n++; } } p.y = a / n; });
+      if (l.kind === 'drive') { l.pts[l.pts.length - 1].y = yMansion; }
+    }
+    this.lanesReady = true;
+    void yGarage;
 
     // ---- terrain: a sculpted mesh with a matching collider; grass with rocky steep slopes ----
     const bank = std({ map: photoTex(`${base}assets/textures/dirt.jpg`, w / 10, 1.4), roughness: 1 });
@@ -192,6 +228,8 @@ export class Park {
       ribbon(pts, 4, (p, x, z) => this.heightAt(x, z) + 0.1, dirtM, 5);
     }
     this.trailPts = this.trails;
+    // the hidden dirt road under the bridge, and the mansion's driveway
+    for (const l of this.lanes) ribbon(l.pts, l.width, (p, x, z) => this.heightAt(x, z) + 0.12, l.kind === 'dirt' ? dirtM : std({ color: 0x3c3f43, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -2 }), l.kind === 'dirt' ? 6 : 20);
     const clearing = (x, z, r, y) => {
       const m = new THREE.Mesh(new THREE.CircleGeometry(r, 28), std({ map: photoTex(`${base}assets/textures/dirt.jpg`, r / 4, r / 4), roughness: 1, polygonOffset: true, polygonOffsetFactor: -1 }));
       m.rotation.x = -Math.PI / 2;
@@ -293,6 +331,57 @@ export class Park {
       this.bunker = { door: new THREE.Vector3(bx + 2.6, Yb, bz), out: new THREE.Vector3(bx + 4.5, Yb, bz), yaw: -Math.PI / 2 };
     }
 
+    // ---- Underpass Customs: a mechanics' shed in the shadow of the bridge ----
+    {
+      const u = this.underBridge, gx = u.x + 8, gz = u.z + 4, Yg = this.heightAt(gx, gz);
+      const tin = std({ map: canvasTex(64, 64, (c, w, h) => { c.fillStyle = '#6e7378'; c.fillRect(0, 0, w, h); for (let x = 0; x < w; x += 6) { c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(x, 0, 2, h); } speckle(c, w, h, 200, 0.12); }, [3, 1]), roughness: 0.6, metalness: 0.5 });
+      // three walls and a roof, open to the dirt lane on the east side
+      solidBox(g, sb, 16, 5.5, 0.3, gx, Yg, gz - 6, tin);
+      solidBox(g, sb, 0.3, 5.5, 12, gx - 8, Yg, gz, tin);
+      solidBox(g, sb, 16, 5.5, 0.3, gx, Yg, gz + 6, tin);
+      solidBox(g, sb, 16.6, 0.3, 12.6, gx, Yg + 5.5, gz, tin);
+      const conc = new THREE.Mesh(new THREE.PlaneGeometry(16, 12), std({ color: 0x6a6660, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2 }));
+      conc.rotation.x = -Math.PI / 2; conc.position.set(gx, Yg + 0.06, gz); g.add(conc);
+      for (let i = 0; i < 3; i++) solidBox(g, sb, 1.8, 0.9, 0.6, gx - 6 + i * 2.2, Yg, gz - 5.4, std({ color: [0xb3261e, 0x2f5a8a, 0x3a3c40][i] })); // tool chests
+      solidBox(g, sb, 0.6, 1.2, 0.6, gx - 6.8, Yg, gz - 1, std({ color: 0x2a2c30 })); // compressor
+      for (let i = 0; i < 4; i++) { const t = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.16, 8, 16), std({ color: 0x151515 })); t.rotation.x = Math.PI / 2; t.position.set(gx - 6.6, Yg + 0.2 + i * 0.32, gz + 4); g.add(t); }
+      sign(g, 'UNDERPASS CUSTOMS', gx + 8.2, Yg + 4.6, gz, Math.PI / 2, { w: 8, h: 1.1, bg: '#151515', fg: '#ffb020', glow: true });
+      this.garage = { bay: new THREE.Vector3(gx + 1, Yg, gz), pos: new THREE.Vector3(gx, Yg, gz), mechanics: [new THREE.Vector3(gx - 5, Yg, gz - 3.5), new THREE.Vector3(gx + 4, Yg, gz - 4)] };
+    }
+
+    // ---- Cherry Crest: a modern mansion on its own hill, with a helipad (for sale) ----
+    {
+      const M = this.mansionAt, Ym = M.y, mx = M.x, mz = M.z;
+      const white = std({ color: 0xf2f0ea, roughness: 0.5 });
+      const stone = std({ color: 0x8d877c, roughness: 0.9 });
+      const glass = std({ color: 0x2c4a5e, roughness: 0.1, metalness: 0.6, emissive: 0x0c1a24, emissiveIntensity: 0.5 });
+      const wood = std({ color: 0x7a5236, roughness: 0.7 });
+      // lawn and terrace
+      const lawn = new THREE.Mesh(new THREE.CircleGeometry(32, 40), std({ color: 0x5f8f3f, roughness: 1, polygonOffset: true, polygonOffsetFactor: -1 }));
+      lawn.rotation.x = -Math.PI / 2; lawn.position.set(mx, Ym + 0.05, mz); g.add(lawn);
+      solidBox(g, sb, 30, 0.4, 20, mx, Ym, mz - 2, stone);
+      // ground floor: glass all round between white slabs
+      solidBox(g, sb, 26, 0.5, 15, mx, Ym + 0.4, mz - 3, white);
+      solidBox(g, sb, 24, 3.2, 13, mx, Ym + 0.9, mz - 3, glass);
+      solidBox(g, sb, 28, 0.6, 17, mx, Ym + 4.1, mz - 3, white);
+      // upper floor, cantilevered out over the pool, wood-clad
+      solidBox(g, sb, 18, 3.4, 12, mx + 4, Ym + 4.7, mz - 1, wood);
+      solidBox(g, sb, 16, 2.2, 0.1, mx + 4, Ym + 5.3, mz + 5.06, glass, { collide: false });
+      solidBox(g, sb, 20, 0.5, 14, mx + 4, Ym + 8.1, mz - 1, white);
+      // pool
+      const pool = new THREE.Mesh(new THREE.PlaneGeometry(14, 5), std({ color: 0x3fb8e8, roughness: 0.05, metalness: 0.2, emissive: 0x0a3a5a, emissiveIntensity: 0.6 }));
+      pool.rotation.x = -Math.PI / 2; pool.position.set(mx + 5, Ym + 0.45, mz + 10); g.add(pool);
+      solidBox(g, sb, 15, 0.45, 0.4, mx + 5, Ym, mz + 7.3, stone); solidBox(g, sb, 15, 0.45, 0.4, mx + 5, Ym, mz + 12.7, stone);
+      for (let i = 0; i < 3; i++) solidBox(g, sb, 0.8, 0.4, 2, mx - 4 + i * 1.4, Ym + 0.4, mz + 9.5, std({ color: 0xffffff }), { collide: false }); // loungers
+      // helipad on the lawn
+      const pad = new THREE.Mesh(new THREE.CircleGeometry(7, 32), std({ map: canvasTex(128, 128, (c, w, h) => {
+        c.fillStyle = '#2f3438'; c.fillRect(0, 0, w, h); c.strokeStyle = '#f2d23a'; c.lineWidth = 6; c.beginPath(); c.arc(64, 64, 56, 0, 7); c.stroke();
+        c.fillStyle = '#f2f2ee'; c.font = 'bold 72px Arial'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('H', 64, 68);
+      }), roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -2 }));
+      pad.rotation.x = -Math.PI / 2; pad.position.set(mx - 16, Ym + 0.08, mz + 14); g.add(pad);
+      this.mansion = { door: new THREE.Vector3(mx - 6, Ym, mz + 4.8), spawn: new THREE.Vector3(mx - 6, Ym + 1, mz + 7), pad: new THREE.Vector3(mx - 16, Ym, mz + 14), sign: new THREE.Vector3(mx - 26, Ym, mz - 18) };
+    }
+
     // ---- the forest: pines everywhere that isn't a road, trail or clearing ----
     this.plantPines();
 
@@ -335,6 +424,9 @@ export class Park {
       const z = isl.z0 + 6 + Math.random() * (isl.z1 - isl.z0 - 12);
       if (this.clearings.some((c) => Math.hypot(x - c.x, z - c.z) < c.r + margin)) continue;
       if (this.nearestRoad(x, z).d < 14 + margin) continue;
+      if (this.garage && Math.hypot(x - this.garage.pos.x - 10, z - this.garage.pos.z) < 20 + margin) continue; // the garage's yard
+      const ln = this.nearestLane(x, z);
+      if (ln && ln.d < ln.l.width + 3 + margin) continue;
       const b = this.bridge;
       if (b) { const t = (x - b.start.x) * b.dir.x + (z - b.start.z) * b.dir.z; const lat = Math.abs((x - b.start.x) * b.dir.z - (z - b.start.z) * b.dir.x); if (t > -10 && lat < 16) continue; }
       let ok = true;

@@ -101,6 +101,7 @@ export class Hood {
       // row houses back to back
       const mid = (inner.z0 + inner.z1) / 2;
       place({ ...inner, z1: mid - 1, streets: new Set(['n', 'e', 'w']) }, 'n', { ...drab, floors: 1 + Math.floor(Math.random() * 3) });
+      if (key === '1,2') this.flat = { door: new THREE.Vector3((inner.x0 + inner.x1) / 2, Y, inner.z0 - 1.6), yaw: 0 }; // a walk-up for sale (yaw: facing out of the door)
       place({ ...inner, z0: mid + 1, streets: new Set(['s', 'e', 'w']) }, 's', { type: Math.random() < 0.3 ? 'apartment' : 'brick', floors: 2 + Math.floor(Math.random() * 3) });
     }
 
