@@ -39,7 +39,7 @@ Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **
 
 ## Things to do
 
-- **Street races:** chequered flags mark three starts: **City Sprint** (2 laps round downtown, starting by Verian Motors), **Bridge Run** (point to point over the Saltmarsh Gate Bridge) and **Hollows Dash** (2 laps). Stop in any car on the start and press `E`: $500 to enter, and you can **bet on yourself** to win ($500 / $2,000 / $10,000 at 3 to 1). A countdown, then four other drivers and a string of checkpoints (the blue beacon is the next one). Prizes for the top three; your best times are kept.
+- **Street races:** chequered flags mark three starts: **City Sprint** (2 laps round downtown, starting by Verian Motors), **Bridge Run** (point to point over the Saltmarsh Gate Bridge) and **Hollows Dash** (2 laps). Stop in any car on the start and press `E`: $500 to enter, and you can **bet on yourself** to win ($500 / $2,000 / $10,000 at 3 to 1). A countdown, then four other drivers and a string of checkpoints (the blue beacon is the next one). Prizes for the top three; your best times are kept. The music switches to *Time Trial* for the race.
 - **Vehicle jobs:** press `Y` in a **taxi** (three in city traffic, one at the plaza rank), the **ambulance** or the **fire engine** (both outside the hospital) to go on duty, and `Y` again to clock off.
   - Taxi: pick up the fare waving at the kerb (stop next to them), drive them to where they're going. Faster pays more.
   - Paramedic: get to the patient on the pavement, then back to the hospital's front door.
