@@ -423,3 +423,36 @@ h3.kih { margin: 16px 0 4px; font-size: 13px; letter-spacing: .12em; text-transf
 #admin input { background: #0e0f12; color: #eee; border: 1px solid #3a3e4a; border-radius: 5px; padding: 4px 6px; font: inherit; }
 #admin-debug { position: fixed; left: 12px; bottom: 210px; z-index: 40; display: none; font: 12px/1.4 ui-monospace, monospace; color: #b8ffb8; background: rgba(0,0,0,.55); padding: 6px 9px; border-radius: 6px; pointer-events: none; text-shadow: 0 1px 1px #000; }
 .admin-flash { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 70; background: #1f2128; color: #ffd166; border: 1px solid #c0442c; padding: 8px 14px; border-radius: 8px; font: 600 14px system-ui, sans-serif; }
+
+/* ---- stocks, business, TV, pool ---- */
+.up { color: #7be08a; } .down { color: #ff6a5a; }
+.ph-sub { padding: 6px 12px 0; font-size: 12px; opacity: .85; }
+.ph-tick { cursor: pointer; } .ph-tick svg { flex: none; }
+.ph-px { text-align: right; font-size: 12px; font-weight: 700; min-width: 62px; }
+.ph-stock { padding: 12px; display: flex; flex-direction: column; gap: 8px; overflow: auto; }
+.ph-stock small { opacity: .75; font-size: 11px; line-height: 1.35; }
+.ph-price { font-size: 22px; font-weight: 800; } .ph-price span { font-size: 13px; }
+.ph-btnrow { display: flex; gap: 6px; } .ph-btnrow button, .ph-back { flex: 1; font: 700 12px var(--font, sans-serif); border: 0; border-radius: 14px; padding: 7px 8px; background: #4fa3ff; color: #fff; cursor: pointer; }
+.ph-btnrow button:disabled { opacity: .35; cursor: default; } .ph-back { background: rgba(255,255,255,.12); flex: none; }
+.ph-alert { margin: 8px 8px 0; padding: 8px 10px; border-radius: 10px; background: #8a1a1a; font-size: 12px; animation: phBlink 1s steps(2) infinite; }
+@keyframes phBlink { 50% { background: #b3261e; } }
+#raid-timer { position: absolute; top: 84px; left: 50%; transform: translateX(-50%); background: rgba(140,20,20,.85); color: #fff; font: 700 14px/1 inherit; padding: 6px 12px; border-radius: 10px; pointer-events: none; text-shadow: 0 1px 2px #000; }
+#raid-timer.hidden { display: none; }
+.tv-tab { font: 700 12px var(--font, sans-serif); border: 0; border-radius: 8px; padding: 6px 12px; margin: 0 4px 8px 0; background: rgba(255,255,255,.1); color: #fff; cursor: pointer; }
+.tv-tab.on { background: #c0442c; }
+.tv-screen { position: relative; background: linear-gradient(180deg, #0e1a2a, #1a2c46); border: 6px solid #111; border-radius: 10px; padding: 34px 14px 12px; max-height: 52vh; overflow: auto; }
+.tv-bug { position: absolute; top: 8px; left: 10px; background: #c0442c; color: #fff; font: 800 11px/1 sans-serif; padding: 4px 7px; letter-spacing: 1px; }
+.tv-item { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.08); font-size: 13px; line-height: 1.4; }
+.tv-item small { display: block; opacity: .6; font-size: 10px; letter-spacing: .5px; }
+.tv-item.top { font-size: 16px; font-weight: 700; }
+.tv-row { display: grid; grid-template-columns: 52px 1fr 70px 70px; gap: 6px; padding: 6px 0; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,.06); }
+.tv-row span:nth-child(n+3) { text-align: right; }
+.tv-foot { display: block; opacity: .6; margin-top: 8px; }
+#pool { position: fixed; inset: 0; z-index: 6; display: grid; place-items: center; background: rgba(0,0,0,.6); padding: 12px; }
+.pool-box { background: #15171b; border-radius: 14px; padding: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.6); max-width: 100%; }
+.pool-top { display: flex; align-items: center; gap: 12px; color: #fff; margin-bottom: 8px; font-size: 14px; }
+.pool-top b { color: #ffd166; letter-spacing: 1px; } .pool-msg { flex: 1; }
+.pool-box canvas { display: block; width: min(828px, 94vw); height: auto; border-radius: 8px; cursor: crosshair; }
+.pool-info { color: #cfd3d8; font-size: 13px; margin-top: 8px; min-height: 18px; }
+.pool-x, .pool-again { font: 700 12px var(--font, sans-serif); border: 0; border-radius: 8px; padding: 6px 12px; background: rgba(255,255,255,.12); color: #fff; cursor: pointer; }
+.pool-again { background: #2a8a4a; }

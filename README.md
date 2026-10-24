@@ -86,6 +86,19 @@ Press `E` at the bed in a home you own to sleep: you heal up and it becomes home
 
 To choose where you spawn, open the **Home** app on your phone (`J`): pick any home you own, or **Verian Plaza** to go back to the default (you start at the plaza and come round at the hospital).
 
+### Life at home
+
+Every home you own has a few extras inside (press `E` at them):
+
+- **Wall safe:** stash cash. Money in the safe can't be lost to hospital bills, cops or muggers. It's one safe shared between all your homes.
+- **Weapon locker:** put away guns, grenades, armour and ammo, and take them back out (or **Gear up** to grab the lot). Also shared between your homes.
+- **TV:** VNN with the latest headlines (mostly about you), the stock market, and the weather.
+- **Pool table** (family home and penthouse): eight-ball against Tony from next door, for fun or for a bet. Aim with the mouse, hold the button to build power, let go to shoot. Pot your group (spots or stripes) and then the black; pot the black early and you lose. The world waits while you play.
+
+### Parking at home
+
+Your cars from Verian Motors can live at your homes. Get out of one of your own cars near a home you own and it's parked there: next time you play it's waiting outside. You can also pick a home for each car at the Verian Motors desk (**Park at…**). The bungalow and family home have two spaces, the penthouse three (on the kerb outside the tower) and the Hollows one; if they're full, the car goes to the lot. A wrecked car's replacement is delivered to its home too.
+
 ## Cars, guns and the back alleys
 
 - **Smash the scenery:** trees and street lamps snap off and go flying when a car hits them at speed. Your car loses some speed and takes a little damage (El Monstruo barely notices). They're quietly put back a few minutes later when you're well away. Cars never spawn inside buildings, walls, trees or lamps.
@@ -125,11 +138,30 @@ To choose where you spawn, open the **Home** app on your phone (`J`): pick any h
 - **ATMs** stand on pavements around the city, outside the bank, at the marina, in Saltmarsh market and at the park's ranger station ($5 per withdrawal). Shoot or smash one open and it spills cash bundles (bag them with `B`).
 - **Robbing the bank:** hold a gun at the counter and press `R`. The silent alarm goes off at once (three stars). Get round the end of the counter into the vault and stay there to fill the bag (around $14,000), then get out — that's four stars. The vault needs about ten minutes to refill.
 
+## Businesses
+
+Every corner shop, liquor store, diner, pharmacy, hardware store and electronics shop is for sale: ask at the counter. A business puts money in its till every minute (about 0.6% of its price a minute; the till fills up after half an hour). Collect at the counter, or use the **Business** app on your phone to wire everything to the bank for a 20% cut.
+
+| Kind | Price |
+|---|---|
+| Corner shop | $60,000 |
+| Liquor store | $75,000 |
+| Diner | $90,000 |
+| Pharmacy | $110,000 |
+| Hardware store | $120,000 |
+| Electronics store | $180,000 |
+
+The **Ashen Hand** don't like the competition. Every so often they raid one of your places: you get a text, it flashes on the map and a timer starts. Get there and take them out in time and the staff give you a bonus; miss it and they empty the till and the place shuts for five minutes. Buy **cameras and shutters** or an **armed guard** at the counter to make raids rarer. (There are no raids while you're on a story job or wanted.) The side streets are different every time you play, so the shops you own are the first, second… of their kind: the landmark shops like the Mini Mart are always the same.
+
+## The stock market
+
+The **Stocks** app on your phone trades eight Verian companies: Verian Motors, Verian National Bank, GoMart, Yellowline Cabs, Oceanic Freight, Verian Air, Kestrel Arms and Saltmarsh Pharma. Prices drift all day, jump on company news (it's on the radio and TV), and react to what you do: rob a shop and GoMart dips, hit the bank and Verian National tumbles, buy a car and Verian Motors goes up, drive a taxi and Yellowline does a little better, and when the SWAT come out Kestrel Arms has a very good day. Buying uses cash then your bank; sales go into your bank. Holdings are saved.
+
 ## Shops, clerks and hostages
 
 - **Every shop, diner and front desk is staffed.** Walk up to the counter and press `E` to buy (snacks and drinks heal you), pay for what you've picked up, see the doctor at the hospital, pay off fines at the police station, or sell at the pawn shop.
 - **Shelves are stocked with what that shop sells:** groceries in the corner store, bottles in the liquor store, phones, consoles and laptops in the electronics shop, tools in the hardware store, pills and medkits in the pharmacy. Pick anything up and, if the clerk can see you, they'll tell you what you owe. Walk out without paying and it's shoplifting: the clerk gets angry, calls it in and won't serve you for a while. Some clerks (always in the liquor store and the pawn shop) keep a gun under the counter and will use it.
-- **Hold-ups:** with a gun out at the counter, press `R` to empty the till. The clerk puts their hands up and the police are on the way.
+- **Hold-ups:** with a gun out at the counter, press `R` to empty the till (not in your own shops). The clerk puts their hands up and the police are on the way.
 - **Hostages:** look at a clerk or any passer-by up close and press `G` to grab them as a human shield. The police won't shoot or cuff you while you've got one; they keep their distance instead. You move slower, and `G` again lets them go (they run straight to the police).
 - **Signs** all fit their text now, and the freestanding ones stand on posts.
 
@@ -233,6 +265,9 @@ Pushing to `main` deploys to GitHub Pages through the included workflow.
 ```
 src/
   main.js      setup, camera, input, main loop
+  business.js  buying shops, takings, gang raids, the Business app
+  stocks.js    the stock market and the Stocks app
+  homelife.js  the safe, weapon locker, TV and pool minigame in your homes
   ocean.js     Gerstner wave shader + CPU wave sampler + wake foam
   ship.js      procedural warship, interior, colliders, helm and ship motion
   guns.js      manning guns, shells/tracers, splashes, explosions, target rafts
@@ -291,4 +326,4 @@ src/
 
 On the title screen, hold **Alt** and click the very top-left corner of the screen to unlock admin commands (remembered in this browser). In game, press **F8** (or **`**) to open the panel; **Esc** closes it.
 
-Tabs: **Player** (god mode, health/armour, money, wanted 0–20, police off, infinite ammo, debug overlay), **Teleport** (landmarks, homes, where you're looking, coordinates), **Items** (any weapon or item, max ammo), **Vehicles** (spawn any car, bike, helicopter, police car or El Monstruo; repair, max upgrades, bulletproof, clear/freeze traffic), **World** (time, clock speed, weather, game speed), **Story** (start/pass/fail missions, key items), **Activities** (races, jobs, packages, ramps, bounty hunters, roadblocks) and **Save data** (wipe individual saves, or hide the admin panel again).
+Tabs: **Player** (god mode, health/armour, money, wanted 0–20, police off, infinite ammo, debug overlay), **Teleport** (landmarks, homes, where you're looking, coordinates), **Items** (any weapon or item, max ammo), **Vehicles** (spawn any car, bike, helicopter, police car or El Monstruo; repair, max upgrades, bulletproof, clear/freeze traffic), **World** (time, clock speed, weather, game speed), **Story** (start/pass/fail missions, key items), **Activities** (races, jobs, packages, ramps, bounty hunters, roadblocks, business raids and tills, stock market crashes and booms) and **Save data** (wipe individual saves, or hide the admin panel again).

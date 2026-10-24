@@ -409,7 +409,7 @@ class VehicleJobs {
         }
       } else if (job.stage === 'drop' && near(job.dest, 8) && stopped) {
         const pay = 40 + job.dist * 0.35 + job.timeLeft * 4;
-        g.economy.addMoney(pay, 'fare');
+        g.economy.addMoney(pay, 'fare'); g.stocks?.event('YLC', 0.004);
         job.earned += pay; job.level++;
         g.stats?.add?.('fares', 1);
         this.nextCall(job);

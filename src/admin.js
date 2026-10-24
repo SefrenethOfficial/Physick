@@ -14,7 +14,7 @@ import { islandAt, LAND_Y } from './world.js';
 // (Option on a Mac) and click the very top-left corner. After that, F8 (or `) opens it any time.
 
 const UNLOCK = 'physick.admin';
-const SAVES = ['physick.save.v1', 'physick.story.v1', 'physick.stunts.v1', 'physick.clock.v1'];
+const SAVES = ['physick.save.v1', 'physick.story.v1', 'physick.stunts.v1', 'physick.clock.v1', 'physick.biz.v1', 'physick.stocks.v1', 'physick.homelife.v1'];
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 export class Admin {
@@ -148,9 +148,11 @@ export class Admin {
         <h4>Odd jobs</h4><div class="row">${A.odd.list.map((j) => btn('odd', esc(j.name), { id: j.id })).join('')}${A.cur ? btn('endAct', 'End current activity') : ''}</div>
         <h4>Vehicle jobs (spawns the vehicle and starts the shift)</h4><div class="row">${btn('vjob', 'Taxi', { k: 'taxi' })}${btn('vjob', 'Ambulance', { k: 'ambulance' })}${btn('vjob', 'Fire engine', { k: 'firetruck' })}</div>
         <h4>Hidden packages: ${S.found.size}/${S.total} · Stunt jumps: ${S.done.size}/${S.ramps.length}</h4><div class="row">${btn('nextPkg', 'Teleport to the nearest package')}${btn('nextRamp', 'Teleport to a ramp')}${btn('resetStunts', 'Reset jumps + packages')}</div>
-        <h4>Police tests</h4><div class="row">${btn('bounty', 'Send bounty hunters')}${btn('roadblock', 'Roadblock ahead (driving)')}</div>`;
+        <h4>Police tests</h4><div class="row">${btn('bounty', 'Send bounty hunters')}${btn('roadblock', 'Roadblock ahead (driving)')}</div>
+        <h4>Businesses: ${g.business.mine().length}/${g.business.list.length} owned</h4><div class="row">${btn('bizAll', 'Own every business')}${btn('bizFill', 'Fill every till')}${btn('bizRaid', 'Start a raid now')}${btn('bizTp', 'Teleport to a business')}</div>
+        <h4>Stock market</h4><div class="row">${btn('stockNews', 'Random company news')}${btn('stockCrash', 'Crash the market')}${btn('stockBoom', 'Boom the market')}</div>`;
     } else if (t === 'save') {
-      body = `<p>These wipe saved progress in this browser, then reload the game.</p><div class="row">${btn('wipe', 'Wipe money, homes and cars', { k: 'save' })}${btn('wipe', 'Wipe story progress', { k: 'story' })}${btn('wipe', 'Wipe stunts + packages', { k: 'stunts' })}</div>
+      body = `<p>These wipe saved progress in this browser, then reload the game.</p><div class="row">${btn('wipe', 'Wipe money, homes, cars, businesses + stocks', { k: 'save' })}${btn('wipe', 'Wipe story progress', { k: 'story' })}${btn('wipe', 'Wipe stunts + packages', { k: 'stunts' })}</div>
         <div class="row">${btn('wipe', 'Wipe EVERYTHING', { k: 'all' }, 'danger')}${btn('lock', 'Hide admin again')}</div>`;
     }
     this.el.innerHTML = `<div class="adm-box"><div class="adm-head"><b>ADMIN</b><span>F8 / Esc to close</span><button data-a="close">✕</button></div>
@@ -301,8 +303,15 @@ export class Admin {
       case 'resetStunts': { const S = g.stunts; S.done.clear(); S.found.clear(); S.save(); this.flash('Reset: reload to put the packages back'); return; }
       case 'bounty': { const E = P.esc; E.peak = Math.max(E.peak, 8); E.startBounty(); this.close(); return; }
       case 'roadblock': { if (v && !v.isHeli) { this.setStars(Math.max(P.wanted, 4)); P.esc.placeRoadblock(v); } else this.flash('Get in a car and drive first'); this.close(); return; }
+      case 'bizAll': { const B = g.business; for (const st of B.list) if (!B.owns(st)) B.owned[st.biz.key] = { till: 0, sec: 0, closed: 0, earned: 0 }; B.save(); this.flash(`You own all ${B.list.length} businesses`); break; }
+      case 'bizFill': { const B = g.business; for (const st of B.mine()) B.owned[st.biz.key].till = B.cap(st); B.save(); this.flash('Tills full'); break; }
+      case 'bizRaid': { if (g.business.raid) g.business.endRaid(true); if (!g.business.startRaid()) this.flash('Buy a business first'); else this.close(); return; }
+      case 'bizTp': { const B = g.business, l = B.mine().length ? B.mine() : B.list; const st = l[(this.bizI = ((this.bizI ?? -1) + 1) % l.length)]; this.tp(st.it.door.clone().setY(st.it.door.y + 1.3)); this.close(); return; }
+      case 'stockNews': g.stocks.storyT = 0; this.flash('Check the news'); break;
+      case 'stockCrash': for (const c of g.stocks.list) g.stocks.event(c.sym, -0.25); this.flash('Market crashed 25%'); break;
+      case 'stockBoom': for (const c of g.stocks.list) g.stocks.event(c.sym, 0.25); this.flash('Market up 25%'); break;
       case 'wipe': {
-        const keys = d.k === 'all' ? SAVES : d.k === 'save' ? ['physick.save.v1'] : d.k === 'story' ? ['physick.story.v1'] : ['physick.stunts.v1'];
+        const keys = d.k === 'all' ? SAVES : d.k === 'save' ? ['physick.save.v1', 'physick.biz.v1', 'physick.stocks.v1', 'physick.homelife.v1'] : d.k === 'story' ? ['physick.story.v1'] : ['physick.stunts.v1'];
         if (!confirmWipe(d.k)) return;
         for (const k of keys) try { localStorage.removeItem(k); } catch { /* ignore */ }
         location.reload();

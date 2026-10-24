@@ -154,7 +154,7 @@ export class Stores {
       const row = (label, small, btn) => `<div class="erow"><div><b>${label}</b><small>${small}</small></div><div class="btns">${btn}</div></div>`;
       const owed = this.unpaid.filter((u) => u.st === st);
       const total = owed.reduce((t, u) => t + price(u.def), 0);
-      let html = e.header();
+      let html = e.header() + (g.business?.owns(st) ? g.business.counterRows(st) : '');
       if (total) html += row(`Pay for ${owed.length} item${owed.length > 1 ? 's' : ''}`, owed.map((u) => u.def.name).join(', '), `<button data-a="pay" ${e.money >= total ? '' : 'disabled'}>$${total}</button>`);
       if (st.theme === 'hospital') {
         const cost = 150;
@@ -176,9 +176,11 @@ export class Stores {
           html += row(def.name, def.heal ? `+${def.heal} health` : `resells for ~$${def.value}`, `<button data-a="buy" data-id="${id}" ${e.money >= price(def) ? '' : 'disabled'}>$${price(def)}</button>`);
         }
       }
+      if (!g.business?.owns(st)) html += g.business?.counterRows(st) || '';
       e.open(st.label.charAt(0) + st.label.slice(1).toLowerCase(), html, (body) => body.addEventListener('click', (ev) => {
         const b = ev.target.closest('button[data-a]');
         if (!b) return;
+        if (b.dataset.a.startsWith('biz')) g.business?.counterAct(st, b.dataset.a);
         if (b.dataset.a === 'pay') this.pay(st);
         if (b.dataset.a === 'buy') { const def = ITEM_BY_ID[b.dataset.id]; if (e.money >= price(def)) { e.addMoney(-price(def), `bought ${def.name.toLowerCase()}`); g.giveItem(def); g.sfx.play('cash'); } }
         if (b.dataset.a === 'heal') { e.addMoney(-150, 'doctor'); g.health.hp = g.health.max; g.sfx.play('freeze'); }
@@ -190,11 +192,13 @@ export class Stores {
   }
 
   // ---- hold-ups ----
-  canRob(st) { return this.clerkOK(st) && this.game.time - st.robbedAt > 300 && !['police', 'office', 'hospital', 'bank'].includes(st.theme); }
+  canRob(st) { return this.clerkOK(st) && !this.game.business?.owns(st) && this.game.time - st.robbedAt > 300 && !['police', 'office', 'hospital', 'bank'].includes(st.theme); }
 
   rob(st) {
     const g = this.game;
+    if (g.business?.owns(st)) { g.hud.toast('Clerk: "Boss? Is this a test?"', 0xffd166); return; }
     if (!this.canRob(st)) { g.hud.toast(this.clerkOK(st) ? 'The till\'s empty' : 'Nobody here'); return; }
+    g.stocks?.event('GOMT', -0.04, Math.random() < 0.5 ? `Another hold-up in Verian: ${st.label.toLowerCase()} robbed at gunpoint. GoMart shares slip on the crime wave.` : null);
     st.robbedAt = g.time;
     const n = st.clerk;
     n.handsUp = 8;

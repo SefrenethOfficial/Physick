@@ -116,6 +116,7 @@ export class Bank {
     g.police.report(4, p, true, 'bank'); // the tellers hit the silent alarm
     g.citizens.alarm(p, 60);
     g.hud.flashBanner('BANK JOB', '#ff5a4a');
+    g.stocks?.event('VNB', -0.12, 'Armed raid on Verian National Bank! Its shares tumble as the alarm sounds downtown.');
     g.hud.toast('Get behind the counter and into the vault!', 0xffd166);
     g.sfx.play('scream');
   }

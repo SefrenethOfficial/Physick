@@ -498,6 +498,50 @@ function radiator(k, x, z, facing, y0 = 0) {
   k.item(x, z, facing, (b) => { for (let i = 0; i < 8; i++) b(0.06, 0.55, 0.08, -0.35 + i * 0.1, 0.12, 0, M.white); b(0.8, 0.04, 0.06, 0, 0.12, 0, M.white); }, null, y0);
 }
 
+
+// ---------------------------------------------------------------- home extras: a safe, a gun locker, a pool table
+function safeBox(k, x, z, rotY, y0 = 0) {
+  const body = std({ color: 0x3a3e44, roughness: 0.35, metalness: 0.7 });
+  k.item(x, z, rotY, (b, c, grp) => {
+    b(0.56, 0.62, 0.5, 0, 0.02, 0, body);
+    b(0.48, 0.52, 0.02, 0, 0.07, 0.255, std({ color: 0x2c2f34, roughness: 0.3, metalness: 0.8 }));
+    const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.03, 20), M.chrome); dial.rotation.x = Math.PI / 2; dial.position.set(-0.08, 0.38, 0.275); grp.add(dial);
+    b(0.03, 0.14, 0.04, 0.14, 0.28, 0.28, M.chrome);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) b(0.06, 0.02, 0.06, sx * 0.22, 0, sz * 0.19, M.black);
+  }, [0.56, 0.64, 0.5], y0);
+}
+function gunLocker(k, x, z, rotY, y0 = 0) {
+  const steel = std({ color: 0x55664f, roughness: 0.45, metalness: 0.5 });
+  k.item(x, z, rotY, (b) => {
+    b(0.9, 1.9, 0.45, 0, 0, 0, steel);
+    b(0.4, 1.7, 0.02, -0.215, 0.1, 0.23, std({ color: 0x34423a, roughness: 0.4, metalness: 0.6 }));
+    b(0.4, 1.7, 0.02, 0.215, 0.1, 0.23, std({ color: 0x34423a, roughness: 0.4, metalness: 0.6 }));
+    b(0.32, 0.9, 0.01, -0.215, 0.85, 0.242, std({ color: 0x111316, roughness: 0.2, metalness: 0.4, transparent: true, opacity: 0.7 }));
+    for (let i = 0; i < 3; i++) b(0.05, 0.75, 0.03, -0.32 + i * 0.1, 0.92, 0.2, M.black); // guns stood behind the glass
+    b(0.03, 0.18, 0.04, -0.03, 0.95, 0.25, M.chrome); b(0.03, 0.18, 0.04, 0.03, 0.95, 0.25, M.chrome);
+    b(0.12, 0.08, 0.02, 0.215, 1.4, 0.245, std({ color: 0xe0a030, emissive: 0x6a4a10, emissiveIntensity: 0.6 })); // a keypad
+  }, [0.9, 1.9, 0.45], y0);
+}
+function poolTable(k, x, z, rotY, { len = 2.4, y0 = 0 } = {}) {
+  const w = len / 2 + 0.24, L = len + 0.24, felt = std({ color: 0x1f6a3a, roughness: 0.95 }), rail = std({ color: 0x4a2a18, roughness: 0.45 });
+  k.item(x, z, rotY, (b, c, grp) => {
+    b(L - 0.1, 0.5, w - 0.1, 0, 0.25, 0, rail); // apron
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) b(0.14, 0.32, 0.14, sx * (L / 2 - 0.16), 0, sz * (w / 2 - 0.16), rail);
+    b(len, 0.04, len / 2, 0, 0.74, 0, felt);
+    b(L, 0.08, 0.12, 0, 0.74, w / 2 - 0.06, rail); b(L, 0.08, 0.12, 0, 0.74, -w / 2 + 0.06, rail);
+    b(0.12, 0.08, w, L / 2 - 0.06, 0.74, 0, rail); b(0.12, 0.08, w, -L / 2 + 0.06, 0.74, 0, rail);
+    for (const px of [-1, 0, 1]) for (const pz of [-1, 1]) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.02, 12), M.black); m.position.set(px * len / 2, 0.785, pz * len / 4); grp.add(m); }
+    const cols = [0xf2d23a, 0x2f5fd8, 0xc0442c, 0x6a2a8a, 0xe07a20, 0x2a8a4a, 0x8a2a2a, 0x111111, 0xf2f0ea];
+    cols.forEach((col, i) => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.028, 10, 8), std({ color: col, roughness: 0.2 })); const r = Math.floor((Math.sqrt(8 * i + 1) - 1) / 2), j = i - (r * (r + 1)) / 2; m.position.set(i === 8 ? -len * 0.25 : len * 0.22 + r * 0.05, 0.788, i === 8 ? 0 : (j - r / 2) * 0.058); grp.add(m); });
+    const cue = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.014, 1.45, 8), std({ color: 0xd8b070 })); cue.rotation.z = Math.PI / 2; cue.position.set(-0.1, 0.82, w / 2 - 0.04); grp.add(cue);
+  }, [L, 0.82, w], y0);
+}
+// a hanging light over the table
+function poolLamp(k, x, z, y, len) {
+  k.box(len * 0.7, 0.12, 0.3, x, y - 0.7, z, std({ color: 0x1f5a3a, roughness: 0.5 }), { collide: false });
+  k.box(len * 0.66, 0.02, 0.26, x, y - 0.71, z, M.glow, { collide: false });
+}
+
 // ---------------------------------------------------------------- the four homes
 // Each builder works in local coordinates: origin at the middle of the ground floor, the front
 // door in the +z wall. Returns where you appear, the door out, the bed and the lights.
@@ -528,6 +572,8 @@ function hollowsStudio(k) {
   // a bare bulb
   k.cyl(0.006, 0.006, 0.45, 0, H - 0.45, 0, M.black, 6);
   const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), M.bulb); bulb.position.set(0, H - 0.5, 0); k.g.add(bulb);
+  safeBox(k, -3.15, 0.45, Math.PI / 2); gunLocker(k, 2.1, -2.75, 0);
+  r_extras = { safe: new THREE.Vector3(-2.5, 0, 0.45), locker: new THREE.Vector3(2.1, 0, -2.0), tv: new THREE.Vector3(0.6, 0, 1.1) };
   return { spawn: new THREE.Vector3(-2, 1.1, 2.0), exit: new THREE.Vector3(-2, 0, 2.6), bed: new THREE.Vector3(-2.95, 0, -2.0), wake: new THREE.Vector3(-1.9, 1.1, -1.6), lights: [new THREE.Vector3(0, H - 0.6, 0)], tint: 0xffd8a0, power: 0.75 };
 }
 
@@ -576,6 +622,8 @@ function bungalow(k) {
   picture(k, 5.98, 1.6, 0, -Math.PI / 2, { w: 0.9, h: 0.6, map: artTex(4) });
   door(k, 0.8, 4.5, Math.PI, { color: 0x2f4f6f });
   ceilingLight(k, -3.5, H, 2.2); ceilingLight(k, 2.6, H, -2.4); ceilingLight(k, -3.5, H, -2.1);
+  safeBox(k, -1.45, -4.0, 0); gunLocker(k, -5.72, -0.25, Math.PI / 2);
+  r_extras = { safe: new THREE.Vector3(-1.45, 0, -3.3), locker: new THREE.Vector3(-4.95, 0, -0.25), tv: new THREE.Vector3(-3.5, 0, 1.5) };
   return { spawn: new THREE.Vector3(0.8, 1.1, 3.3), exit: new THREE.Vector3(0.8, 0, 4.1), bed: new THREE.Vector3(-3.5, 0, -3.4), wake: new THREE.Vector3(-2.1, 1.1, -2.6), lights: [new THREE.Vector3(-3, 2.3, 2.0), new THREE.Vector3(2.5, 2.3, -1.5)], tint: 0xffe8c8, power: 1 };
 }
 
@@ -666,6 +714,8 @@ function familyHome(k) {
   k.item(2.0, 4.65, Math.PI, (b) => { b(1.2, 0.45, 0.4, 0, 0, 0, M.oak); b(1.15, 0.1, 0.38, 0, 0.45, 0, fabric(0x6a7a8a)); }, [1.2, 0.55, 0.4], Y); // window seat
   picture(k, -3.8, Y + 1.6, 4.98, Math.PI, { w: 0.9, h: 0.6, map: artTex(6) });
   ceilingLight(k, -2.0, H, 2.4); ceilingLight(k, 3.6, H, -2.6); ceilingLight(k, -2.3, Y + H2, -1.8); ceilingLight(k, 3.6, Y + H2, -1.6); ceilingLight(k, 0, Y + H2, 3.7, { r: 0.2 });
+  safeBox(k, -4.75, -4.55, 0, Y); gunLocker(k, 0.42, -2.0, -Math.PI / 2, Y); poolTable(k, 4.2, 3.9, 0, { len: 2.0, y0: Y }); poolLamp(k, 4.2, 3.9, Y + H2, 2.0);
+  r_extras = { safe: new THREE.Vector3(-4.75, Y, -3.85), locker: new THREE.Vector3(-0.35, Y, -2.0), tv: new THREE.Vector3(-2.0, 0, 3.7), pool: new THREE.Vector3(4.2, Y, 2.9) };
   return { spawn: new THREE.Vector3(2.5, 1.1, 3.8), exit: new THREE.Vector3(2.5, 0, 4.6), bed: new THREE.Vector3(-2.3, Y, -3.85), wake: new THREE.Vector3(-0.8, Y + 1.1, -3.2), lights: [new THREE.Vector3(0, 2.5, 0), new THREE.Vector3(0.5, Y + 2.4, -1.5)], tint: 0xffe8c8, power: 1.1 };
 }
 
@@ -738,9 +788,12 @@ function penthouse(k) {
   k.item(-3.0, 2.5, 0, (b, c, grp) => { c(0.3, 0.3, 0.9, 0, 0, 0, M.white, 20); const t = new THREE.Mesh(new THREE.TorusKnotGeometry(0.22, 0.06, 64, 8), brass); t.position.y = 1.25; grp.add(t); }, [0.6, 1.4, 0.6]);
   door(k, -2.0, 7, Math.PI, { lift: true });
   for (const [x, z] of [[-6.5, -2], [-1.6, 2.0], [7.0, -3.4], [3.6, 3.9], [-6.4, 5.0]]) ceilingLight(k, x, H, z, { r: 0.18 });
+  safeBox(k, 9.65, -0.3, -Math.PI / 2); gunLocker(k, 7.2, -6.75, 0); poolTable(k, 1.0, 0.7, 0, { len: 2.5 }); poolLamp(k, 1.0, 0.7, H, 2.5);
+  r_extras = { safe: new THREE.Vector3(8.95, 0, -0.3), locker: new THREE.Vector3(7.2, 0, -6.0), tv: new THREE.Vector3(-8.5, 0, -2.0), pool: new THREE.Vector3(1.0, 0, 2.0) };
   return { spawn: new THREE.Vector3(-2.0, 1.1, 5.8), exit: new THREE.Vector3(-2.0, 0, 6.5), bed: new THREE.Vector3(6.6, 0, -3.6), wake: new THREE.Vector3(6.4, 1.1, -1.9), lights: [new THREE.Vector3(-4, 2.9, 0.5), new THREE.Vector3(6.5, 2.9, -2.5)], tint: 0xffe2c0, power: 1.2 };
 }
 
+let r_extras = {};
 const BUILDERS = { hollows: hollowsStudio, ranch: bungalow, family: familyHome, penthouse };
 
 // Build the inside of home `h` (below its own front door). Returns the room's anchor points in world space.
@@ -750,5 +803,6 @@ export function buildInterior(game, h) {
   const r = BUILDERS[h.id](k);
   const W = (v) => v.clone().add(origin);
   k.g.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.matrixAutoUpdate = true; } });
-  return { group: k.g, origin, spawn: W(r.spawn), exit: W(r.exit), bed: W(r.bed), wake: W(r.wake), lights: r.lights.map(W), tint: r.tint, power: r.power };
+  const ex = Object.fromEntries(Object.entries(r_extras).map(([key, v]) => [key, W(v)])); r_extras = {};
+  return { extras: ex, group: k.g, origin, spawn: W(r.spawn), exit: W(r.exit), bed: W(r.bed), wake: W(r.wake), lights: r.lights.map(W), tint: r.tint, power: r.power };
 }

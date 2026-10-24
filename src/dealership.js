@@ -180,7 +180,12 @@ export class Dealership {
     if (m.vehicle === 'heli') return this.deliverHeli(rec, quiet);
     const sx = m.scale[0], sz = m.scale[2];
     const half = m.vehicle === 'bike' ? { x: 0.42, y: 0.5, z: 1.1 } : { x: BASE_HALF.x * sx, y: BASE_HALF.y * m.scale[1], z: BASE_HALF.z * sz };
-    const bay = this.bays.find((p) => !g.vehicles.all.some((c) => Math.hypot(c.pos.x - p.x, c.pos.z - p.z) < 2.6) && clearSpot(g, p.x, p.z, p.heading, half, Y)) || this.bays[0];
+    // parked at one of your homes, if it lives there (and there's a space); otherwise the lot
+    const free = (p, y) => !g.vehicles.all.some((c) => c.ownedUid !== rec.uid && Math.hypot(c.pos.x - p.x, c.pos.z - p.z) < 2.6) && clearSpot(g, p.x, p.z, p.heading, half, y);
+    const home = rec.home && g.homes?.owns(rec.home) ? g.homes.list.find((h) => h.id === rec.home) : null;
+    const spot = home ? g.homes.parking(home).find((p) => free(p, p.y)) : null;
+    if (home && !spot && !quiet) g.hud.toast(`No room outside ${home.name}: it's on the lot at Verian Motors instead`, 0xffd166);
+    const bay = spot || this.bays.find((p) => free(p, Y)) || this.bays[0];
     const opts = { color: rec.color, x: bay.x, z: bay.z, heading: bay.heading, hp: m.hp, maxSpeed: m.maxSpeed };
     const car = m.vehicle === 'bike' ? g.fleet.makeBike({ ...opts, sport: m.sport })
       : m.vehicle === 'tow' ? g.fleet.makeTow(opts)
@@ -195,7 +200,7 @@ export class Dealership {
     g.vehicles.list.push(car);
     this.cars.set(rec.uid, car);
     this.respawnT.delete(rec.uid);
-    if (!quiet) g.hud.toast(`Your ${m.name} is waiting in the customer bays at Verian Motors`, 0x7be08a);
+    if (!quiet) g.hud.toast(spot ? `Your ${m.name} is parked outside ${home.name}` : `Your ${m.name} is waiting in the customer bays at Verian Motors`, 0x7be08a);
     return car;
   }
 
@@ -210,6 +215,26 @@ export class Dealership {
     if (this.heliDisplay) this.heliDisplay.visible = false;
     if (!quiet) g.hud.toast('Your Skylark is on the helipad behind Verian Motors', 0x7be08a);
     return c;
+  }
+
+  // You got out of one of your own cars: left by a home you own, it lives there now.
+  parked(car) {
+    const g = this.game, rec = g.economy.ownedCars.find((r) => r.uid === car?.ownedUid);
+    if (!rec || car.isHeli) return;
+    const h = g.homes?.ownedNear(car.pos);
+    if (!h || rec.home === h.id) return;
+    rec.home = h.id;
+    g.economy.save();
+    g.hud.toast(`${MODEL[rec.model].name} parked at ${h.name}: it'll be waiting here`, 0x7be08a);
+  }
+
+  sendHome(rec, id) {
+    const g = this.game;
+    rec.home = id || null;
+    g.economy.save();
+    const car = this.cars.get(rec.uid);
+    if (car && g.vehicles.active === car) { g.hud.toast('You\'re in it! It\'ll stay where you leave it', 0xffd166); return; }
+    this.deliver(rec);
   }
 
   // the garage just changed something on one of your cars: remember it
@@ -232,6 +257,7 @@ export class Dealership {
     e.save();
     g.sfx.play('cash');
     g.news?.add(`Verian Motors says business is booming after another ${m.name} drove off the lot.`, 'money');
+    g.stocks?.event('VMTR', Math.min(0.06, m.price / 3e6));
     this.deliver(rec);
     return rec;
   }
@@ -260,7 +286,7 @@ export class Dealership {
         const m = MODEL[r.model], car = this.cars.get(r.uid), mods = Object.entries(r.mods || {}).map(([k, v]) => k === 'engine' ? `engine ${v + 1}` : k).join(', ');
         const status = car?.isHeli ? (car.dead ? 'wrecked: a new one is on its way' : g.vehicles.active === car ? 'you\'re flying it' : 'on the pad') : !car || car.wreck ? (this.respawnT.has(r.uid) ? 'wrecked: a new one is on its way' : 'wrecked') : g.vehicles.active === car ? 'you\'re driving it' : 'parked';
         return `<div class="erow"><div><b>${m.name}</b> <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#${r.color.toString(16).padStart(6, '0')}"></span><small>${status}${mods ? ' · ' + mods : ''}</small></div>
-          <div class="btns"><button data-a="bring" data-uid="${r.uid}">Bring to the lot</button><button data-a="sell" data-uid="${r.uid}">Sell ($${Math.round(m.price * 0.5).toLocaleString()})</button></div></div>`;
+          <div class="btns">${m.vehicle === 'heli' ? '' : g.homes.list.filter((h) => g.homes.owns(h.id)).map((h) => `<button data-a="home" data-h="${h.id}" data-uid="${r.uid}" ${r.home === h.id ? 'class="on"' : ''}>${r.home === h.id ? 'Lives at' : 'Park at'} ${h.short}</button>`).join('')}<button data-a="bring" data-uid="${r.uid}">Bring to the lot</button><button data-a="sell" data-uid="${r.uid}">Sell ($${Math.round(m.price * 0.5).toLocaleString()})</button></div></div>`;
       }).join('') || '<p class="empty">You don\'t own any cars yet.</p>';
       e.open('Verian Motors', e.header() + `<p class="lede">Cars you buy here are yours to keep: they're saved with their paint and any upgrades from Underpass Customs, and wait for you in the customer bays out back.</p>
         <div class="erow"><div><b>Paint</b><small>${this.selColor == null ? 'Showroom colour' : 'Your pick'}</small></div><div class="btns">${PAINTS.map(swatch).join('')}</div></div>` + rows + '<h3 class="kih">Your cars</h3>' + mine,
@@ -270,7 +296,8 @@ export class Dealership {
         if (b.dataset.a === 'col') { const c = PAINTS[+b.dataset.i]; this.selColor = this.selColor === c ? null : c; }
         if (b.dataset.a === 'buy') { const m = MODEL[b.dataset.id]; if (this.buy(m, this.selColor)) g.hud.toast(`You bought a ${m.name}! It's in the customer bays out back`, 0x7be08a); }
         const rec = e.ownedCars.find((r) => r.uid === b.dataset.uid);
-        if (b.dataset.a === 'bring' && rec) { const car = this.cars.get(rec.uid); if (car && g.vehicles.active === car) g.hud.toast('You\'re in it!', 0xffd166); else this.deliver(rec); }
+        if (b.dataset.a === 'bring' && rec) { const car = this.cars.get(rec.uid); if (car && g.vehicles.active === car) g.hud.toast('You\'re in it!', 0xffd166); else { rec.home = null; e.save(); this.deliver(rec); } }
+        if (b.dataset.a === 'home' && rec) this.sendHome(rec, b.dataset.h);
         if (b.dataset.a === 'sell' && rec) this.sell(rec);
         render();
       }));

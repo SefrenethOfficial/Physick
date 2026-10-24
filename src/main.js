@@ -53,6 +53,9 @@ import { Fleet } from './fleet.js';
 import { Activities } from './activities.js';
 import { Stunts } from './stunts.js';
 import { Admin } from './admin.js';
+import { HomeLife } from './homelife.js';
+import { Stocks } from './stocks.js';
+import { Business } from './business.js';
 import { Airport } from './airport.js';
 import { Bank } from './bank.js';
 import { Vehicles } from './vehicles.js';
@@ -231,6 +234,9 @@ class Game {
     this.ambient = new Ambient(this);
     this.activities = new Activities(this);
     this.stunts = new Stunts(this);
+    this.homelife = new HomeLife(this);
+    this.stocks = new Stocks(this);
+    this.business = new Business(this);
     this.admin = new Admin(this);
     this.title = new TitleScene(this);
     this.title.start();
@@ -242,7 +248,7 @@ class Game {
     this.story = new Story(this);
     this.graphics = new Graphics(this);
     this.graphics.apply();
-    this.renderer.setAnimationLoop((now) => { if (this.graphics.shouldRender(now)) this.tick(); });
+    this.renderer.setAnimationLoop((now) => { if (this.poolGame) { this.timer.update(); return; } if (this.graphics.shouldRender(now)) this.tick(); }); // (the world waits while you play pool)
     window.physick = this;
     this.signs = SIGNS;
     this.itemDefs = ITEM_BY_ID;
@@ -1189,7 +1195,7 @@ class Game {
         if (this.vehicles.active) {
           const chop = this.underworld.chopZone(this.vehicles.active.pos);
           if (chop && Math.abs(this.vehicles.active.speed) < 3 && !this.vehicles.active.ownedUid) this.chopCar();
-          else this.vehicles.exit();
+          else { const v = this.vehicles.active; if (this.vehicles.exit() && !this.vehicles.active) this.dealer?.parked(v); }
           return;
         }
         if (this.atHelm) this.leaveHelm();
@@ -1338,6 +1344,7 @@ class Game {
     P(c.dealerCounter, '#7fd3ff', 'Boat sales', true);
     P(c.hospital, '#ff6a6a', 'Hospital');
     if (this.dealer) P(this.dealer.desk, '#e8c547', 'Verian Motors (cars)', true, 5);
+    for (const m of this.business?.marks() || []) if (m.name) P(m, m.color, m.name, m.label === '!', m.label === '!' ? 6 : 4);
     for (const h of this.homes?.list || []) P(h.door, this.homes.owns(h.id) ? '#7be08a' : '#f2d23a', this.homes.owns(h.id) ? `⌂ ${h.name}` : `⌂ For sale ${h.price >= 1e6 ? '$' + h.price / 1e6 + 'M' : '$' + Math.round(h.price / 1000) + 'k'}`, false, 4);
     P(c.policeStation, '#4a7dff', 'Police station');
     P(c.plaza, '#e8e2d4', 'Plaza');
@@ -1394,6 +1401,7 @@ class Game {
     if (this.story.active?.id === 'm4') for (const p of this.portSandbox.props) if (p.def.bombPart) { const t = p.body.translation(); marks.push({ x: t.x, z: t.z, color: '#ff3030', r: 3.5 }); }
     if (wp) marks.push({ x: wp.x, z: wp.z, color: '#ffd166', r: 5.5, label: '★' });
     for (const m of this.activities?.marks() || []) marks.push(m);
+    for (const m of this.business?.marks() || []) marks.push(m);
     marks.push({ x: this.city.pawnCounter.x, z: this.city.pawnCounter.z, color: '#ffd166', r: 4, label: '$' });
     marks.push({ x: this.city.dealerCounter.x, z: this.city.dealerCounter.z, color: '#7fd3ff', r: 4, label: 'Boats' });
     marks.push({ x: this.city.hospital.x, z: this.city.hospital.z, color: '#ff6a6a', r: 3, label: '+' });
@@ -1465,6 +1473,8 @@ class Game {
     this.fleet?.update(dt);
     this.activities?.update(dt);
     this.stunts?.update(dt);
+    this.stocks?.update(dt);
+    this.business?.update(dt);
     this.admin?.update(dt);
     this.title?.update(dt);
     this.pragdoll.update(dt);

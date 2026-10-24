@@ -3,6 +3,7 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import { canvasTex, std } from './buildkit.js';
 import { Heli } from './cargo.js';
 import { buildInterior } from './interiors.js';
+import { clearSpot } from './carphys.js';
 
 // Places to live. Buy one and you wake up there (in bed) instead of at the hospital, and the
 // hospital doesn't bill you. Every home has a furnished inside: press E at the front door to go in
@@ -28,7 +29,9 @@ export class Homes {
       { id: 'penthouse', name: 'Plaza Tower penthouse', area: 'Verian City', price: 750000, door: g.city.penthouse.door, yaw: g.city.penthouse.yaw,
         desc: 'The top floor over the plaza: marble floors, a wall of glass onto the city skyline, a grand piano, a backlit bar and a bedroom suite.' },
     ].filter(Boolean);
+    const SHORT = { hollows: 'the Hollows', ranch: 'the bungalow', family: 'the family home', penthouse: 'the penthouse' };
     for (const h of this.list) {
+      h.short = SHORT[h.id] || h.name;
       h.inner = buildInterior(game, h);
       h.spawn = h.inner.wake;
       h.sign = this.forSale(h);
@@ -90,6 +93,7 @@ export class Homes {
     const h = this.inside;
     if (h) {
       if (near(h.inner.exit, 1.8)) return { label: 'Go outside', run: () => this.leave() };
+      if (this.owns(h.id)) { const hl = this.game.homelife?.action(h, pos); if (hl) return hl; }
       if (near(h.inner.bed, 2.0)) return this.owns(h.id) ? { label: 'Sleep (heal up)', run: () => this.sleep(h) } : { label: `Buy the place to sleep here (${money(h.price)})`, run: () => this.open(h) };
       return null;
     }
@@ -184,6 +188,41 @@ export class Homes {
     this.refresh();
     g.hud.toast(e.homeSpawn ? `${h.name} is home now: you'll wake up here` : 'Spawn reset: you\'ll start at the plaza (and come round at the hospital)', 0x7be08a);
   }
+
+  // Parking spaces out front for your own cars: found once, on clear flat ground near the door
+  // (a car you leave by a home you own is parked there next time you play).
+  parking(h) {
+    if (h.parking) return h.parking;
+    const g = this.game, out = [];
+    const cap = { hollows: 1, ranch: 2, family: 2, penthouse: 3 }[h.id] || 2;
+    const f = new THREE.Vector3(-Math.sin(h.yaw), 0, -Math.cos(h.yaw)), side = new THREE.Vector3(-f.z, 0, f.x);
+    const along = Math.atan2(-side.x, -side.z);
+    const half = { x: 1.05, y: 0.7, z: 2.5 };
+    // (not out in the traffic: anywhere on a road is off limits)
+    const onRoad = (x, z) => [g.city, g.saltmarsh, g.hood].some((R) => {
+      if (!R?.xs) return false;
+      const w = (R === g.city ? 16 : 10) / 2 + 0.6;
+      const inX = x > R.xs[0] - w && x < R.xs.at(-1) + w, inZ = z > R.zs[0] - w && z < R.zs.at(-1) + w;
+      const kerb = (o) => R === g.city && Math.abs(o) > 5.6 && Math.abs(o) < 7.2; // (the city's kerbside parking lane is fine)
+      return (inZ && R.xs.some((rx) => Math.abs(x - rx) < w && !kerb(x - rx))) || (inX && R.zs.some((rz) => Math.abs(z - rz) < w && !kerb(z - rz)));
+    });
+    for (const d of [7, 9.5, 5.5, 12, 4, 14.5, 4.2]) {
+      for (const s of [3, -3, 6.5, -6.5, 0, 10, -10, 13.5, -13.5, 17, -17]) {
+        if (out.length >= cap) break;
+        const p = h.door.clone().addScaledVector(f, d).addScaledVector(side, s);
+        if (onRoad(p.x, p.z)) continue;
+        if (out.some((q) => Math.hypot(q.x - p.x, q.z - p.z) < 5.6)) continue;
+        for (const heading of [along, along + Math.PI / 2]) {
+          if (clearSpot(g, p.x, p.z, heading, half, h.door.y)) { out.push({ x: p.x, z: p.z, heading, y: h.door.y }); break; }
+        }
+      }
+    }
+    h.parking = out;
+    return out;
+  }
+
+  // a home you own near this point (for parking)
+  ownedNear(p, r = 30) { return this.list.find((h) => this.owns(h.id) && Math.hypot(p.x - h.door.x, p.z - h.door.z) < r && Math.abs(p.y - h.door.y) < 6) || null; }
 
   // the phone's Home app: pick where you spawn from anywhere
   app() {
