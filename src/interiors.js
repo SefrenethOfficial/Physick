@@ -215,6 +215,7 @@ class Kit {
   window(along, at, op, y0, inward) {
     const yb = y0 + op.y0, frameM = std({ color: 0xf2f0ea, roughness: 0.5 });
     const view = new THREE.Mesh(new THREE.PlaneGeometry(op.w + 3, op.h + 2), new THREE.MeshBasicMaterial({ map: viewTex(op.view), fog: false }));
+    (this.views ||= []).push(view.material); // (dimmed at night by the homes)
     const out = -inward * (T / 2 + 0.9);
     // frame, sill and glazing bars
     if (along === 'x') {
@@ -804,5 +805,5 @@ export function buildInterior(game, h) {
   const W = (v) => v.clone().add(origin);
   k.g.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.matrixAutoUpdate = true; } });
   const ex = Object.fromEntries(Object.entries(r_extras).map(([key, v]) => [key, W(v)])); r_extras = {};
-  return { extras: ex, group: k.g, origin, spawn: W(r.spawn), exit: W(r.exit), bed: W(r.bed), wake: W(r.wake), lights: r.lights.map(W), tint: r.tint, power: r.power };
+  return { extras: ex, views: k.views || [], group: k.g, origin, spawn: W(r.spawn), exit: W(r.exit), bed: W(r.bed), wake: W(r.wake), lights: r.lights.map(W), tint: r.tint, power: r.power };
 }

@@ -189,6 +189,18 @@ export class Business {
     else if (r.t > r.limit + 90) this.endRaid(false);
   }
 
+  // time passing while you sleep: the shops keep taking money (the tills still fill up)
+  skip(sec) {
+    for (const st of this.mine()) {
+      const o = this.owned[st.biz.key];
+      if (o.closed > 0) { const c = Math.min(o.closed, sec); o.closed -= c; }
+      const add = Math.min(this.rate(st) * sec / 60, this.cap(st) - o.till);
+      if (add > 0) { o.till += add; o.earned = (o.earned || 0) + add; }
+    }
+    this.raidT = Math.max(this.raidT, 120); // (nobody raids you the second you wake up)
+    this.save();
+  }
+
   get raidLeft() { return this.raid ? Math.max(0, this.raid.limit - this.raid.t) : 0; }
 
   // the minimap / big map

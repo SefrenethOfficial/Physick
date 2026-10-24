@@ -138,6 +138,13 @@ export class Stocks {
     this.wasDead = !!g.health?.dead;
   }
 
+  // the market moves on while you sleep
+  skip(hours) {
+    const n = Math.min(60, Math.round(hours * 10));
+    for (let k = 0; k < n; k++) for (const c of this.list) { const r = (Math.random() + Math.random() + Math.random() - 1.5) * c.vol + (c.open - c.price) / c.open * 0.004; c.price = Math.max(1, c.price * (1 + r)); c.hist.push(c.price); if (c.hist.length > 40) c.hist.shift(); }
+    this.save();
+  }
+
   // ---------------------------------------------------------------- the phone app
   spark(c, w = 120, h = 30) {
     const pts = c.hist.slice(-30), lo = Math.min(...pts), hi = Math.max(...pts), span = hi - lo || 1;

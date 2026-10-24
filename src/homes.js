@@ -94,7 +94,7 @@ export class Homes {
     if (h) {
       if (near(h.inner.exit, 1.8)) return { label: 'Go outside', run: () => this.leave() };
       if (this.owns(h.id)) { const hl = this.game.homelife?.action(h, pos); if (hl) return hl; }
-      if (near(h.inner.bed, 2.0)) return this.owns(h.id) ? { label: 'Sleep (heal up)', run: () => this.sleep(h) } : { label: `Buy the place to sleep here (${money(h.price)})`, run: () => this.open(h) };
+      if (near(h.inner.bed, 2.0)) return this.owns(h.id) ? { label: 'Sleep (heal up, choose when to wake)', run: () => this.sleep(h) } : { label: `Buy the place to sleep here (${money(h.price)})`, run: () => this.open(h) };
       return null;
     }
     const d = this.nearDoor(pos);
@@ -131,12 +131,37 @@ export class Homes {
     });
   }
 
+  // Pick when to wake up: the clock jumps on (your businesses keep trading while you sleep).
   sleep(h) {
-    const g = this.game, e = g.economy;
+    const g = this.game, e = g.economy, dn = g.daynight;
+    const fmt = (x) => `${Math.floor(x) % 24}:${String(Math.round((x % 1) * 60)).padStart(2, '0')}`;
+    const opts = [['Morning', 7], ['Midday', 12], ['Afternoon', 15], ['Evening', 18.5], ['Night', 22], ['Midnight', 0]];
+    const hrsTo = (t) => { const d = ((t - (dn?.hour ?? 0)) % 24 + 24) % 24; return d < 0.25 ? d + 24 : d; };
+    const btn = (label, add) => `<button data-add="${add}">${label}</button>`;
+    e.open('Sleep', e.header() + `<p class="lede">It's ${dn?.timeText || ''}. Sleeping heals you up${e.homeSpawn !== h.id ? ` and makes ${h.name} home` : ''}. When do you want to wake up?</p>
+      <div class="btns sleep-btns">${opts.map(([n, t]) => btn(`${n} (${fmt(t)})`, hrsTo(t).toFixed(3))).join('')}</div>
+      <div class="btns sleep-btns" style="margin-top:8px">${[1, 3, 6, 12].map((n) => btn(`+${n} hour${n > 1 ? 's' : ''}`, n)).join('')}${btn('Just a nap (no time)', 0)}</div>`,
+    (el) => el.addEventListener('click', (ev) => {
+      const b = ev.target.closest('button[data-add]');
+      if (!b) return;
+      e.close();
+      this.doSleep(h, +b.dataset.add);
+    }));
+  }
+
+  doSleep(h, hours) {
+    const g = this.game, e = g.economy, dn = g.daynight;
     g.story.fade(() => {
       g.health.heal(100);
       if (e.homeSpawn !== h.id) { e.homeSpawn = h.id; e.save(); this.refresh(); }
-      g.hud.toast(`You sleep like a log. ${h.name} is home: you'll wake up here.`, 0x7be08a);
+      if (hours > 0 && dn) {
+        dn.hour = (dn.hour + hours) % 24;
+        dn.nextChange -= hours; // (the weather may have turned overnight)
+        dn.saveT = 0;
+        g.business?.skip?.(hours * 60); // (a game hour is a real minute)
+        g.stocks?.skip?.(hours);
+      }
+      g.hud.toast(hours > 0 ? `You sleep until ${dn?.timeText}. ${h.name} is home: you'll wake up here.` : `A quick nap. ${h.name} is home: you'll wake up here.`, 0x7be08a);
     });
   }
 
@@ -257,6 +282,10 @@ export class Homes {
       if (!this.game.onShore || Math.hypot(p.x - h.inner.origin.x, p.z - h.inner.origin.z) > 30 || Math.abs(p.y - h.inner.origin.y) > 12) this.inside = null;
     }
     const cur = this.inside;
+    if (cur && this.game.daynight) { // the painted view out of the windows follows the time of day
+      const dn = this.game.daynight, n = dn.night, k = (1 - n * 0.82) * (1 - Math.min(1, dn.w?.cloud || 0) * 0.3);
+      for (const m of cur.inner.views) m.color.setRGB(k * (1 - n * 0.25), k * (1 - n * 0.12), k);
+    }
     for (const [i, l] of this.lamps.entries()) l.intensity = cur && cur.inner.lights[i] ? 26 * cur.inner.power : 0;
   }
 }

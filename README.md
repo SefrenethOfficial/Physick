@@ -82,7 +82,7 @@ Every home has a furnished **inside**. Press `E` at the front door to go in (you
 - **Saltmarsh family home:** downstairs, a living room, a dining table for six and a big kitchen with an island; up the stairs, a master bedroom, a kid's room with a desk, toys and a bean bag, and a landing with a window seat.
 - **Plaza Tower penthouse:** marble floors, a wall of glass onto the city skyline at dusk, a sectional sofa and a huge TV, a grand piano, a glass dining table for eight, a backlit bar, a designer kitchen, and a bedroom suite.
 
-Press `E` at the bed in a home you own to sleep: you heal up and it becomes home. You wake up in that bed after a bad day.
+Press `E` at the bed in a home you own to sleep: you heal up, it becomes home, and you **choose when to wake up** (morning, midday, afternoon, evening, night, midnight, a few hours from now, or just a nap). The clock jumps on, the weather may have changed, your businesses keep taking money while you sleep and the stock market moves. You also wake up in that bed after a bad day. The view out of the windows follows the time of day.
 
 To choose where you spawn, open the **Home** app on your phone (`J`): pick any home you own, or **Verian Plaza** to go back to the default (you start at the plaza and come round at the hospital).
 
