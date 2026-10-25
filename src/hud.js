@@ -326,7 +326,7 @@ export class Hud {
     const rect = (r, col) => { g.fillStyle = col; g.fillRect(X(r.x0), Z(r.z0), Math.max((r.x1 - r.x0) * s, 1), Math.max((r.z1 - r.z0) * s, 1)); };
     const ICOL = { city: '#9a968e', town: '#6f9a4f', park: '#2f5a2a', airport: '#6c8a55', naval: '#7d7a70', hood: '#5f594d' };
     for (const isl of info.islands) { g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(X(isl.x0) + 3, Z(isl.z0) + 3, (isl.x1 - isl.x0) * s, (isl.z1 - isl.z0) * s); }
-    for (const isl of info.islands) rect(isl, ICOL[isl.id] || '#7d7a70');
+    for (const isl of info.islands) rect(isl, ICOL[isl.id] || isl.color || '#7d7a70');
     for (const r of info.rects || []) rect(r, r.color);
     for (const p of info.piers) rect(p, '#a07d55');
     for (const r of info.roads) rect(r, '#55585e');
@@ -373,7 +373,7 @@ export class Hud {
     g.beginPath(); g.arc(W / 2, W / 2, W / 2 - 2, 0, Math.PI * 2); g.clip();
     g.fillStyle = '#1d4a6b'; g.fillRect(0, 0, W, W);
     for (const isl of info.islands) {
-      g.fillStyle = isl.id === 'town' ? '#5f8a45' : isl.id === 'city' ? '#8f8b84' : isl.id === 'park' ? '#2f5a2a' : isl.id === 'airport' ? '#5f7a4a' : isl.id === 'hood' ? '#5a5448' : '#7d7a70';
+      g.fillStyle = isl.id === 'town' ? '#5f8a45' : isl.id === 'city' ? '#8f8b84' : isl.id === 'park' ? '#2f5a2a' : isl.id === 'airport' ? '#5f7a4a' : isl.id === 'hood' ? '#5a5448' : isl.color || '#7d7a70';
       g.fillRect(X(isl.x0), Z(isl.z0), (isl.x1 - isl.x0) / S, (isl.z1 - isl.z0) / S);
     }
     g.fillStyle = '#55585e';

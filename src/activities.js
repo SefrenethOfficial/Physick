@@ -125,7 +125,8 @@ class Races {
       { id: 'city', name: 'City Sprint', laps: 2, prize: [2500, 900, 400], pts: withMids(nodes(C, [[0, 4], [3, 4], [3, 1], [1, 1], [1, 3], [0, 3]], LAND_Y + KERB)) },
       { id: 'bridge', name: 'Bridge Run', laps: 1, loop: false, prize: [4000, 1500, 600], pts: hw.route.filter((p, k) => k % 5 === 0 || k === hw.route.length - 1).map((p) => new THREE.Vector3(p.x, hw.groundY(p), p.z)) },
       { id: 'hood', name: 'Hollows Dash', laps: 2, prize: [1800, 700, 300], pts: withMids(nodes(H, [[0, 0], [3, 0], [3, 2], [1, 2], [1, 4], [0, 4]])) },
-    ];
+      g.pelican?.race, g.ridgeback?.race, // (the new areas bring their own)
+    ].filter(Boolean);
     // a chequered flag on a pole at each start
     for (const r of this.routes) {
       r.start = r.pts[0].clone();
@@ -156,7 +157,7 @@ class Races {
     const render = () => {
       const funds = e.money + e.bank;
       const best = g.stats?.best?.(`race-${r.id}`);
-      e.open(`Street race: ${r.name}`, e.header() + `<p class="lede">${r.loop === false ? 'Point to point: the long road over the Saltmarsh Gate Bridge to Saltmarsh Key.' : `${r.laps} laps.`} Four other drivers. Entry $500. Prizes: 1st ${money(r.prize[0])}, 2nd ${money(r.prize[1])}, 3rd ${money(r.prize[2])}.${best ? ` Your best: ${best.toFixed(1)}s.` : ''}</p>
+      e.open(`Street race: ${r.name}`, e.header() + `<p class="lede">${r.desc || (r.loop === false ? 'Point to point: the long road over the Saltmarsh Gate Bridge to Saltmarsh Key.' : `${r.laps} laps.`)} Four other drivers. Entry $500. Prizes: 1st ${money(r.prize[0])}, 2nd ${money(r.prize[1])}, 3rd ${money(r.prize[2])}.${best ? ` Your best: ${best.toFixed(1)}s.` : ''}</p>
         <div class="erow"><div><b>Bet on yourself to win</b><small>Pays 3 to 1 if you finish first</small></div><div class="btns">${[0, 500, 2000, 10000].map((b) => `<button data-a="bet" data-b="${b}" ${bet === b ? 'class="on" style="outline:2px solid #ffd166"' : ''} ${b + 500 > funds ? 'disabled' : ''}>${b ? money(b) : 'No bet'}</button>`).join('')}</div></div>
         <div class="btns"><button data-a="go" ${funds < 500 + bet ? 'disabled' : ''}>Race! (${money(500 + bet)})</button></div>`,
       (el) => el.addEventListener('click', (ev) => {
@@ -210,7 +211,7 @@ class Races {
   update(race, dt) {
     const A = this.A, g = A.game, r = race.r, v = g.vehicles.active;
     const N = r.pts.length, finishLap = r.loop === false ? 1 : r.laps;
-    const ptAt = (k) => r.pts[k % N];
+    const ptAt = (k) => (r.loop === false ? r.pts[Math.min(k, N - 1)] : r.pts[k % N]); // (point to point: past the finish is the finish)
     // countdown: everybody held on the line
     if (race.countdown > 0) {
       const before = Math.ceil(race.countdown);
@@ -247,14 +248,23 @@ class Races {
         if (r.loop !== false && c.cp > N) { c.cp = 1; c.lap++; if (c.lap > finishLap) { c.done = true; race.finished.push(c); continue; } }
       }
       // aim a little towards the following checkpoint as we arrive, and brake for sharp turns
-      const aim = tgt.clone().lerp(nxt, THREE.MathUtils.clamp(1 - d / 30, 0, 0.5));
+      const aim = tgt.clone().lerp(nxt, THREE.MathUtils.clamp(1 - d / 30, 0, nxt.distanceTo(tgt) < 45 ? 0.22 : 0.5)); // (close-set checkpoints: a bend; don't cut it)
       const a1 = Math.atan2(tgt.x - c.pos.x, tgt.z - c.pos.z), a2 = Math.atan2(nxt.x - tgt.x, nxt.z - tgt.z);
-      const turn = Math.abs(angDiff(a1, a2));
+      const n2 = ptAt(c.cp + 2), a3 = Math.atan2(n2.x - nxt.x, n2.z - nxt.z);
+      // how much the road bends over the next couple of checkpoints (close-set ones on hairpins add up)
+      const turn = Math.abs(angDiff(a1, a2)) + (nxt.distanceTo(tgt) < 45 ? Math.abs(angDiff(a2, a3)) * 0.8 : 0);
       let want = c.top * c.skill;
-      if (d < 40) want *= 1 - 0.6 * Math.min(1, turn / 1.6);
+      if (d < 40 + (turn > 1 ? 20 : 0)) want *= 1 - 0.68 * Math.min(1, turn / 1.6);
       // rubber band: keep it a race
       const gap = this.progress(c, race) - myProg;
       want *= gap > 2 ? 0.86 : gap < -2 ? 1.12 : 1;
+      // don't ram the car in front: tuck in behind it (everyone, you included)
+      const f = c.forward;
+      for (const o of [...race.racers, v]) {
+        if (!o || o === c || o.wreck) continue;
+        const dx = o.pos.x - c.pos.x, dz = o.pos.z - c.pos.z, ahead = dx * f.x + dz * f.z, side = Math.abs(dx * f.z - dz * f.x);
+        if (ahead > 2 && ahead < 7 + Math.abs(c.speed) * 0.45 && side < 2.4) want = Math.min(want, Math.max(7, o.speed * 0.95)); // (never to a standstill: no traffic jams)
+      }
       // stuck on something? back off and come again
       if (Math.abs(c.speed) < 1.2 && want > 4) c.stuckT = (c.stuckT || 0) + dt; else c.stuckT = 0;
       if (c.stuckT > 1.2) { c.reverseT = 1.1; c.stuckT = 0; }

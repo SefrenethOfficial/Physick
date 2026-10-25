@@ -3,7 +3,7 @@ import { islandAt } from './world.js';
 // Verian's news: things that happened (mostly things you did), for the talk radio and the TV.
 // Headlines are added as they happen and kept for a while; the newest come first.
 
-const PLACES = { city: 'downtown Verian', town: 'Saltmarsh Key', hood: 'the Hollows', park: 'Cherry Estate', naval: 'the naval air station' };
+const PLACES = { city: 'downtown Verian', town: 'Saltmarsh Key', hood: 'the Hollows', park: 'Cherry Estate', naval: 'the naval air station', point: 'Pelican Point', hills: 'Ridgeback Hills', scorch: 'the Scorch' };
 
 export class News {
   constructor(game) {

@@ -103,6 +103,8 @@ export class Story {
 
   save() { try { localStorage.setItem(KEY, JSON.stringify(this.state)); } catch { /* storage unavailable */ } }
   passed(id) { return this.state.passed.includes(id); }
+  // Act II: finishing Act I takes you into it (and opens the Scorch)
+  get act2() { return this.passed('m5') || !!this.state.act2; }
   has(id) { return this.state.keyItems.includes(id); }
   giveKeyItem(id) {
     if (!this.has(id)) this.state.keyItems.push(id);
@@ -887,6 +889,7 @@ export class Story {
       <h1>ACT ${['', 'I', 'II', 'III'][n]}</h1><h2>complete</h2>
       <p>Verian Central Square is still standing. The bomb is at the bottom of the harbour, the Courier is dead in a truck that's now a metal pancake, and the Ashen Hand have lost their first man.</p>
       <p>They know someone is coming for them now. They don't know it's you. Not yet.</p>
+      ${n === 1 ? '<p><b>New area open:</b> the barricade\'s off the causeway south of the city. Route 9 runs out into <b>the Scorch</b>.</p>' : ''}
       <div class="btns"><button data-a="ok">Continue</button></div></div>`;
     e.open('The Ashen Hand', html, (body) => body.addEventListener('click', (ev) => { if (ev.target.closest('button[data-a]')) e.close(); }));
   }

@@ -53,6 +53,9 @@ import { Fleet } from './fleet.js';
 import { Activities } from './activities.js';
 import { Stunts } from './stunts.js';
 import { Admin } from './admin.js';
+import { Pelican } from './pelican.js';
+import { Ridgeback } from './ridgeback.js';
+import { Scorch } from './scorch.js';
 import { HomeLife } from './homelife.js';
 import { Stocks } from './stocks.js';
 import { Business } from './business.js';
@@ -156,6 +159,14 @@ class Game {
     await this.loadStep('Closing the airport…', 80);
     this.airport = new Airport(this, this.portSandbox);
     mergeStatic(this.airport.group);
+    await this.loadStep('Raising Ridgeback Hills…', 82);
+    this.pelican = new Pelican(this, this.portSandbox);
+    mergeStatic(this.pelican.group);
+    this.ridgeback = new Ridgeback(this, this.portSandbox);
+    mergeStatic(this.ridgeback.group);
+    await this.loadStep('Baking the Scorch…', 85);
+    this.scorch = new Scorch(this, this.portSandbox);
+    mergeStatic(this.scorch.group);
     mergeStatic(this.port.group);
     mergeStatic(this.city.group);
     mergeStatic(this.saltmarsh.group);
@@ -504,6 +515,8 @@ class Game {
     for (const p of this.city.lootSpots) if (Math.random() < 0.6) place(pick(Math.random() < 0.1 ? LOOT_RARE : LOOT_COMMON), p);
     for (const p of this.hood.lootSpots) place(pick(Math.random() < 0.12 ? LOOT_RARE : LOOT_COMMON), p);
     for (const p of this.park.lootSpots) place(pick(Math.random() < 0.15 ? LOOT_RARE : LOOT_COMMON), p);
+    for (const p of [...this.pelican.lootSpots, ...this.ridgeback.lootSpots]) if (Math.random() < 0.7) place(pick(Math.random() < 0.12 ? LOOT_RARE : LOOT_COMMON), p);
+    for (const p of this.scorch.lootSpots) place(pick(Math.random() < 0.25 ? LOOT_RARE : LOOT_COMMON), p);
     for (const s of this.saltmarsh.lootSpots) {
       const rare = s.kind === 'porch' ? 0.3 : s.kind === 'stall' ? 0.2 : 0.08;
       place(pick(Math.random() < rare ? LOOT_RARE : LOOT_COMMON), s.pos);
@@ -1375,6 +1388,8 @@ class Game {
     const bounds = { x0: Infinity, x1: -Infinity, z0: Infinity, z1: -Infinity };
     for (const i of ISLANDS) { bounds.x0 = Math.min(bounds.x0, i.x0 - 60); bounds.x1 = Math.max(bounds.x1, i.x1 + 60); bounds.z0 = Math.min(bounds.z0, i.z0 - 80); bounds.z1 = Math.max(bounds.z1, i.z1 + 60); }
     const lines = [{ pts: this.park.roadLine, color: '#55585e', w: 10 }, { pts: this.bridge.mapLine, color: '#c0442c', w: 22 }];
+    for (const A of [this.pelican, this.ridgeback, this.scorch]) for (const r of A?.roads || []) lines.push({ pts: r.pts.filter((_, i) => i % 5 === 0).map((p) => [p.x, p.z]).concat(r.loop ? [[r.pts[0].x, r.pts[0].z]] : []), color: r.kind === 'dirt' ? '#8a6a3a' : '#55585e', w: r.width });
+    lines.push({ pts: this.park.lanes[1].pts.filter((_, i) => i % 5 === 0).map((p) => [p.x, p.z]), color: '#55585e', w: 9 });
     this.hud.drawBigMap({ lines, bounds, x: pos.x, z: pos.z, yaw, islands: ISLANDS, piers: PIERS, roads: this.roadsCache || [], trails: this.park.trails, rects: this.airport.mapRects, pois, marks });
   }
 
@@ -1418,7 +1433,8 @@ class Game {
       }
     }
     const far = this.boats.active || this.flying || (this.vehicles.active && Math.abs(this.vehicles.active.speed) > 12);
-    this.hud.drawMap({ lines: [{ pts: this.park.roadLine, color: '#55585e', w: 10 }, { pts: this.bridge.mapLine, color: '#c0442c', w: 22 }], roads: this.roadsCache, x: c.x, z: c.z, yaw, scale: this.flying ? 12 : far ? 5 : 2.2, islands: ISLANDS, piers: PIERS, marks });
+    this.areaLines ||= [this.pelican, this.ridgeback, this.scorch].flatMap((A) => (A?.roads || []).map((r) => ({ pts: r.pts.filter((_, i) => i % 5 === 0).map((p) => [p.x, p.z]).concat(r.loop ? [[r.pts[0].x, r.pts[0].z]] : []), color: r.kind === 'dirt' ? '#8a6a3a' : '#55585e', w: r.width }))).concat([{ pts: this.park.lanes[1].pts.filter((_, i) => i % 5 === 0).map((p) => [p.x, p.z]), color: '#55585e', w: 9 }]);
+    this.hud.drawMap({ lines: [{ pts: this.park.roadLine, color: '#55585e', w: 10 }, { pts: this.bridge.mapLine, color: '#c0442c', w: 22 }, ...this.areaLines], roads: this.roadsCache, x: c.x, z: c.z, yaw, scale: this.flying ? 12 : far ? 5 : 2.2, islands: ISLANDS, piers: PIERS, marks });
   }
 
   // ---------- loop ----------
@@ -1474,6 +1490,8 @@ class Game {
     this.activities?.update(dt);
     this.stunts?.update(dt);
     this.stocks?.update(dt);
+    this.pelican?.update(dt);
+    this.scorch?.update(dt);
     this.business?.update(dt);
     this.admin?.update(dt);
     this.title?.update(dt);

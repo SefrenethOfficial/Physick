@@ -77,6 +77,8 @@ export class Park {
     const g0 = this.underBridge;
     this.lanes = [
       { kind: 'dirt', width: 6, pts: this.spline([[g0.x + 6, g0.z + 6], [g0.x + 40, -398], [-1330, -402], [-1240, -400], [-1170, -390], [-1132, -330], [-1128, -250], [-1124, -190], [-1104, -176], [-1090, -175]]) },
+      // the coast road west to Ridgeback Hills
+      { kind: 'road', width: 9, pts: this.spline([[g0.x + 2, g0.z + 6], [g0.x - 30, -405], [-1540, -407], [-1610, -411], [-1650, -416], [-1662, -421]]) },
     ];
   }
 

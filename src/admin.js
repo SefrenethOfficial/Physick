@@ -97,6 +97,9 @@ export class Admin {
       ['Trailhead', P.entrance?.clone().add(v(0, 1.2, 0))], ['Underpass Customs', P.garage?.bay.clone().add(v(4, 1.2, 0))], ['Bunker (lab)', P.bunker?.out.clone().add(v(0, 1.2, 0))],
       ['Bridge (middle)', (() => { const b = g.bridge, p = b.at(b.length / 2, 6); return v(p.x, b.deckAt(b.length / 2) + 1.2, p.z); })()],
       ['Airport (stunt park)', v(-1600, LAND_Y + 1.2, 600)], ['Naval air station', v(400, LAND_Y + 1.2, 0)],
+      ['Pelican Point', g.pelican?.entrance.clone().add(v(10, 1.4, 0))], ['Lighthouse', g.pelican && v(g.pelican.hill.x - 6, g.pelican.flats[1].y + 1.4, g.pelican.hill.z - 8)],
+      ['Ridgeback Hills (gas)', g.ridgeback && v(g.ridgeback.flats[0].x, g.ridgeback.flats[0].y + 1.4, g.ridgeback.flats[0].z + 14)], ['Ridgeback summit', g.ridgeback?.summit.clone().add(v(6, 1.4, 6))],
+      ['Scorch gate', g.scorch?.gate.clone().add(v(0, 1.4, -10))], ['Scorch: Copper Gulch', g.scorch && v(g.scorch.town.x + 25, g.scorch.flats[1].y + 1.6, g.scorch.town.z)],
     ];
     for (const h of g.homes?.list || []) list.push([`Home: ${h.name}`, h.door.clone().add(v(0, 1.1, 0))]);
     return list.filter(([, p]) => p);
@@ -141,7 +144,7 @@ export class Admin {
     } else if (t === 'story') {
       const s = g.story;
       body = `<h4>Missions${s.active ? ` (playing: ${esc(s.active.m.title)})` : ''}</h4>${MISSIONS.filter((m) => !m.locked).map((m) => `<div class="row"><b style="flex:1">${esc(m.title)}${s.passed(m.id) ? ' ✓' : ''}</b>${btn('mStart', 'Start', { id: m.id })}${btn('mPass', s.passed(m.id) ? 'Un-pass' : 'Mark done', { id: m.id })}</div>`).join('')}
-        <div class="row">${s.active ? btn('mEnd', 'Pass the current mission') + btn('mFail', 'Fail it') : ''}${btn('allPassed', 'Mark all done')}${btn('keys', 'Give all key items')}</div>`;
+        <div class="row">${s.active ? btn('mEnd', 'Pass the current mission') + btn('mFail', 'Fail it') : ''}${btn('allPassed', 'Mark all done')}${btn('keys', 'Give all key items')}${btn('act2', g.story.state.act2 ? 'Act II areas: forced open' : 'Open Act II areas (the Scorch)', {}, g.story.state.act2 ? 'on' : '')}</div>`;
     } else if (t === 'fun') {
       const A = g.activities, S = g.stunts;
       body = `<h4>Street races (puts you in a car on the start)</h4><div class="row">${A.races.routes.map((r, i) => btn('race', esc(r.name), { i })).join('')}</div>
@@ -265,6 +268,7 @@ export class Admin {
       case 'mEnd': g.story.end(true, 'Mission passed (admin)'); return;
       case 'mFail': g.story.end(false, 'Mission failed (admin)'); return;
       case 'allPassed': { const st = g.story.state; for (const m of MISSIONS) if (!m.locked && !st.passed.includes(m.id)) st.passed.push(m.id); st.introSeen = true; g.story.save(); return; }
+      case 'act2': { const st = g.story.state; st.act2 = !st.act2; g.story.save(); this.flash(g.story.act2 ? 'The Scorch is open' : 'The Scorch is closed again (unless Act I is done)'); return; }
       case 'keys': { const st = g.story.state; for (const k of Object.keys(KEY_ITEMS)) if (!st.keyItems.includes(k)) st.keyItems.push(k); g.story.save(); return; }
       case 'race': {
         const r = g.activities.races.routes[+d.i];
