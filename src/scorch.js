@@ -3,7 +3,8 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ISLANDS, LAND_Y, addPier } from './world.js';
 import { std, sign, solidBox, canvasTex, speckle } from './buildkit.js';
-import { fbm, smooth, rng, makeRoad, RoadIndex, buildTerrain, ribbon, scatter } from './terrain.js';
+import { fbm, smooth, rng, makeRoad, RoadIndex, buildTerrain, ribbon, scatter, besideRoad } from './terrain.js';
+import { gasStation } from './gasstation.js';
 
 // The Scorch: a huge desert south of the city, out past the airport. Sand dunes in the west,
 // red mesas standing up out of the scrub, a salt flat as white and flat as a table, Route 9
@@ -61,18 +62,18 @@ export class Scorch {
     this.roads = [this.route, this.track];
     this.index = new RoadIndex(this.roads);
     this.flats = [
-      { x: -835, z: 1160, r: 32, y: null }, // Last Chance Gas
+      { ...besideRoad(this.route, -860, 1150, 28), r: 31, blend: 30 }, // Last Chance Gas
       { x: this.town.x, z: this.town.z, r: this.town.r, y: null }, // Copper Gulch
       { x: -1480, z: 2300, r: 45, y: null }, // the crashed airliner
     ];
     // the gas station and the town sit at road level; the wreck where it fell
     const roadY = (x, z) => this.route.pts.reduce((b, p) => ((p.x - x) ** 2 + (p.z - z) ** 2 < (b.x - x) ** 2 + (b.z - z) ** 2 ? p : b)).y;
-    this.flats.forEach((f, i) => { f.y = i < 2 ? roadY(f.x, f.z) : Math.max(Y + 0.3, this.natural(f.x, f.z)); });
+    this.flats.forEach((f, i) => { if (i === 1) f.y = roadY(f.x, f.z); else if (i === 2) f.y = Math.max(Y + 0.3, this.natural(f.x, f.z)); });
   }
 
   heightAt(x, z) {
     let h = this.natural(x, z);
-    for (const f of this.flats) { const d = Math.hypot(x - f.x, z - f.z); if (d < f.r + 30) h = f.y + (h - f.y) * smooth(f.r, f.r + 30, d); }
+    for (const f of this.flats) { const b = f.blend || 30, d = Math.hypot(x - f.x, z - f.z); if (d < f.r + b) h = f.y + (h - f.y) * smooth(f.r, f.r + b, d); }
     const n = this.index.nearest(x, z, 36);
     if (n) { const w = n.r.width / 2; h = n.p.y - 0.05 + (h - n.p.y + 0.05) * smooth(w + 1, w + 22, n.d); }
     return h;
@@ -82,7 +83,7 @@ export class Scorch {
     const isl = this.isl;
     if (x < isl.x0 + 5 || x > isl.x1 - 5 || z < isl.z0 + 5 || z > isl.z1 - 5) return false;
     if (this.index.nearest(x, z, 10 + m)) return false;
-    if (this.flats.some((f) => Math.hypot(x - f.x, z - f.z) < f.r + m)) return false;
+    if (this.flats.some((f) => Math.hypot(x - f.x, z - f.z) < f.r + 8 + m)) return false;
     if (Math.hypot(x - this.salt.x, z - this.salt.z) < this.salt.r + 10) return false;
     return true;
   }
@@ -157,21 +158,11 @@ export class Scorch {
     this.entrance = new THREE.Vector3(-740, Y, isl.z0 + 30);
     sign(g, 'WELCOME TO THE SCORCH · NEXT GAS 0 MI', -755, Y + 3.2, isl.z0 + 20, -Math.PI / 2 - 0.2, { w: 9, h: 1.2, bg: '#7a3a1a', fg: '#f2e2c0', post: Y });
 
-    // ---- Last Chance Gas ----
-    const gs = this.flats[0], yG = gs.y;
-    const pad = new THREE.Mesh(new THREE.PlaneGeometry(50, 40), std({ color: 0x8a8274, roughness: 1, polygonOffset: true, polygonOffsetFactor: -1 }));
-    pad.rotation.x = -Math.PI / 2; pad.position.set(gs.x, yG + 0.05, gs.z); pad.receiveShadow = true; g.add(pad);
-    const rust = std({ color: 0x9a5a34, roughness: 0.9 }), cream = std({ color: 0xe8dcc0, roughness: 0.9 });
-    solidBox(g, sb, 14, 4.2, 9, gs.x - 12, yG, gs.z - 8, cream);
-    solidBox(g, sb, 14.8, 0.4, 9.8, gs.x - 12, yG + 4.2, gs.z - 8, rust, { collide: false });
-    solidBox(g, sb, 12, 0.5, 8, gs.x + 6, yG + 5, gs.z + 2, rust, { collide: false });
-    for (const [px, pz] of [[1, -1], [11, -1], [1, 5], [11, 5]]) solidBox(g, sb, 0.35, 5, 0.35, gs.x + px, yG, gs.z + pz, cream);
-    for (const px of [3, 9]) solidBox(g, sb, 0.9, 1.5, 0.6, gs.x + px, yG, gs.z + 2, std({ color: 0xc23b2a }));
-    sign(g, 'LAST CHANCE GAS', gs.x - 12, yG + 3.3, gs.z - 3.45, 0, { w: 9, h: 1.1, bg: '#9a5a34', fg: '#f2e2c0' });
-    const tall = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.25, 12, 8), std({ color: 0x5a5c60 })); tall.position.set(gs.x + 20, yG + 6, gs.z - 14); g.add(tall);
-    sign(g, 'GAS · FOOD · LAST FOR 60 MI', gs.x + 20, yG + 13, gs.z - 14, Math.PI / 2 + 0.4, { w: 5, h: 2, bg: '#f2e2c0', fg: '#9a5a34', glow: true });
-    this.lootSpots.push(new THREE.Vector3(gs.x - 6, yG + 0.4, gs.z - 2.5), new THREE.Vector3(gs.x + 6, yG + 0.4, gs.z + 6));
-    this.wreckCar(gs.x - 22, yG, gs.z + 10, 0.6);
+    // ---- Last Chance Gas: an old roadside stop, sun-bleached and a bit rusty ----
+    const gs = this.flats[0];
+    const st = gasStation(g, sb, gs.x, gs.y, gs.z, gs.yaw, { name: 'LAST CHANCE GAS', sub: 'COLD BEER · JERKY · ICE', brand: 0x9a5a34, brand2: 0xf2e2c0, old: true, prices: ['4.89', '5.19', '5.39'], loot: this.lootSpots });
+    { const f = st.front, fx = Math.sin(gs.yaw), fz = Math.cos(gs.yaw); this.wreckCar(gs.x - fz * 26 - fx * 6, gs.y, gs.z + fx * 26 - fz * 6, gs.yaw + 0.6); void f; }
+    { const b = besideRoad(this.route, gs.x + Math.cos(gs.yaw) * 60, gs.z - Math.sin(gs.yaw) * 60, 10); sign(g, 'LAST CHANCE GAS ½ MI · NEXT GAS 140 MI', b.x, b.y + 3, b.z, b.yaw, { w: 8, h: 1.2, bg: '#f2e2c0', fg: '#9a5a34', post: b.y }); }
 
     // ---- Copper Gulch: a ghost town on Route 9 ----
     const tw = this.town, yT = tw.y ?? this.flats[1].y;
@@ -277,6 +268,7 @@ export class Scorch {
     const plank = canvasTex(64, 64, (c, cw, ch) => { c.fillStyle = '#' + color.toString(16).padStart(6, '0'); c.fillRect(0, 0, cw, ch); for (let i = 0; i < cw; i += 8) { c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(i, 0, 1.5, ch); } speckle(c, cw, ch, 200, 0.12); }, [w / 3, h / 3]);
     const wallM = std({ map: plank, roughness: 1 });
     const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallM); body.position.y = h / 2; grp.add(body);
+    const base = new THREE.Mesh(new THREE.BoxGeometry(w + 0.3, 1.5, d + 3.4), std({ color: 0x7a6a58, roughness: 1 })); base.position.set(0, -0.55, 1.5); grp.add(base); // (footing: no daylight under it)
     const front = new THREE.Mesh(new THREE.BoxGeometry(w + 0.4, 2.4, 0.3), wallM); front.position.set(0, h + 1.0, d / 2); grp.add(front);
     const porch = new THREE.Mesh(new THREE.BoxGeometry(w, 0.2, 3), std({ color: 0x6a4a30 })); porch.position.set(0, 0.3, d / 2 + 1.5); grp.add(porch);
     const awning = new THREE.Mesh(new THREE.BoxGeometry(w, 0.15, 3.2), std({ color: 0x5a3a24 })); awning.position.set(0, 3.2, d / 2 + 1.5); awning.rotation.x = 0.12; grp.add(awning);

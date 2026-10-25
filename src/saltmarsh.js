@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { generalStore } from './gasstation.js';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { ISLANDS, LAND_Y } from './world.js';
 import { canvasTex, speckle, std, sign, lamp, tree, solidBox } from './buildkit.js';
@@ -133,9 +134,7 @@ export class Saltmarsh {
     sb.addStaticCollider(RAPIER.ColliderDesc.cylinder(11, 3).setTranslation(-655, Y + 11, -1215));
 
     // general store + parked cars
-    solidBox(g, sb, 14, 6, 20, -667, Y, -1350, std({ color: 0xd9c08a }));
-    sign(g, 'GENERAL STORE', -674.1, Y + 5, -1350, -Math.PI / 2, { w: 10, h: 1.6, bg: '#2f4f2f', fg: '#ffe7a0' });
-    for (let n = 0; n < 4; n++) this.lootSpots.push({ pos: new THREE.Vector3(-676, Y + 0.3, -1356 + n * 4), kind: 'porch' });
+    { const gl = []; generalStore(g, sb, -666, Y + 0.15, -1350, -Math.PI / 2, gl); for (const p of gl) this.lootSpots.push({ pos: p, kind: 'porch' }); }
     // cars parked on the street
     for (let n = 0; n < 8; n++) {
       const z = this.zs[Math.floor(Math.random() * this.zs.length)];

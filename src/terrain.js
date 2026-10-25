@@ -46,6 +46,19 @@ export function makeRoad(ctrl, { width = 10, kind = 'asphalt', loop = false, yOf
   return { pts, width, kind, loop, length: L, name };
 }
 
+// A plot beside a road: `off` metres to one side of the road sample nearest (x, z), on the
+// side towards (x, z). yaw turns a building's local +z to face the road; y is the road's height.
+export function besideRoad(road, x, z, off) {
+  const P = road.pts;
+  let i = 0, bd = Infinity;
+  P.forEach((p, k) => { const d = (p.x - x) ** 2 + (p.z - z) ** 2; if (d < bd) { bd = d; i = k; } });
+  const a = P[Math.max(0, i - 4)], b = P[Math.min(P.length - 1, i + 4)], p = P[i];
+  const tx = b.x - a.x, tz = b.z - a.z, tl = Math.hypot(tx, tz);
+  let nx = -tz / tl, nz = tx / tl;
+  if ((x - p.x) * nx + (z - p.z) * nz < 0) { nx = -nx; nz = -nz; }
+  return { x: p.x + nx * off, z: p.z + nz * off, y: p.y, yaw: Math.atan2(-nx, -nz) };
+}
+
 // Find the nearest road sample fast: samples bucketed on a 24 m grid.
 export class RoadIndex {
   constructor(roads, cell = 24) {

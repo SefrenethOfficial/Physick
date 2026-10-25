@@ -112,7 +112,10 @@ export class Pelican {
     const yAt = (x, z) => this.heightAt(x, z);
     const cottage = (x, z, faceX, faceZ, w = 7, d = 6) => {
       const yaw = Math.atan2(faceX - x, faceZ - z);
-      const y0 = yAt(x, z);
+      // sit it on the highest corner of its plot, on a stone plinth that runs down into the slope
+      const c = [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([a, b]) => yAt(x + Math.cos(yaw) * a * w / 2 + Math.sin(yaw) * b * d / 2, z - Math.sin(yaw) * a * w / 2 + Math.cos(yaw) * b * d / 2));
+      const y0 = Math.max(...c) + 0.15, low = Math.min(...c);
+      solidBox(g, sb, w + 0.5, y0 - low + 0.8, d + 0.5, x, low - 0.8, z, std({ color: 0x9a948a, roughness: 0.95 }), { collide: false, rotY: yaw });
       this.lootSpots.push(house(g, sb, x, y0, z, yaw, w, d, 3.4));
     };
     for (const [x, z, fx, fz] of [[-100, -1478, -100, -1500], [-80, -1478, -80, -1500], [-100, -1522, -100, -1500], [-80, -1524, -80, -1500],
@@ -189,7 +192,7 @@ export class Pelican {
     this.beam = beam; this.beamM = beamM;
     sb.addStaticCollider(RAPIER.ColliderDesc.cylinder(11, 3).setTranslation(L.x, yL + 11, L.z));
     // the keeper's cottage beside it
-    this.lootSpots.push(house(g, sb, L.x - 10, yL, L.z + 6, Math.PI / 2 + 0.3, 6, 5, 3));
+    { const ky = yAt(L.x - 10, L.z + 6); solidBox(g, sb, 6.5, 2.2, 5.5, L.x - 10, ky - 1.6, L.z + 6, std({ color: 0x9a948a, roughness: 0.95 }), { collide: false, rotY: Math.PI / 2 + 0.3 }); this.lootSpots.push(house(g, sb, L.x - 10, ky + 0.4, L.z + 6, Math.PI / 2 + 0.3, 6, 5, 3)); }
     sign(g, 'PELICAN POINT LIGHT · 1887', L.x - 4.5, yL + 1.4, L.z - 6, -Math.PI / 2, { w: 4, h: 0.6, bg: '#2a2c30', fg: '#f2efe6', post: yL });
     // rocks round the point
     const rockM = std({ color: 0x8a8680, roughness: 0.95, flatShading: true });

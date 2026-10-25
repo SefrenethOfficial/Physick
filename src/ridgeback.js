@@ -3,7 +3,8 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ISLANDS, LAND_Y } from './world.js';
 import { std, sign, solidBox, canvasTex, speckle, lamp } from './buildkit.js';
-import { fbm, smooth, rng, makeRoad, RoadIndex, buildTerrain, ribbon, scatter } from './terrain.js';
+import { fbm, smooth, rng, makeRoad, RoadIndex, buildTerrain, ribbon, scatter, besideRoad } from './terrain.js';
+import { gasStation } from './gasstation.js';
 import { photoTex } from './park.js';
 
 // Ridgeback Hills: the mountains north-west of Cherry Estate. Drive west along the coast road
@@ -43,7 +44,7 @@ export class Ridgeback {
     // The pass follows the mountainside, never steeper than 12%, with wide hairpins.
     this.pass = makeRoad([[-1662, -421], [-1690, -495], [-1770, -545], [-1870, -570], [-1945, -600], [-1990, -640], [-2012, -688], [-2000, -728], [-1965, -752],
       [-1915, -772], [-1880, -805], [-1878, -845], [-1905, -868], [-1975, -872], [-2060, -852], [-2125, -852], [-2165, -875], [-2175, -912], [-2150, -940], [-2105, -940], [-2075, -960]],
-    { width: 12, yOf: (s, x, z) => Math.max(Y + 0.1, s < 60 ? Y + 0.1 : this.natural(x, z) - 1.5), smoothN: 12, maxGrade: 0.12, name: 'pass' });
+    { width: 12, yOf: (s, x, z) => Math.max(Y + 0.1, s < 150 ? Y + 0.1 : this.natural(x, z) - 1.5), smoothN: 12, maxGrade: 0.12, name: 'pass' });
     this.summitY = this.pass.pts.at(-1).y;
     const q = this.quarry;
     const passY = (x, z) => this.pass.pts.reduce((b, p) => ((p.x - x) ** 2 + (p.z - z) ** 2 < (b.x - x) ** 2 + (b.z - z) ** 2 ? p : b)).y;
@@ -52,9 +53,10 @@ export class Ridgeback {
     this.roads = [this.pass, this.quarryRoad];
     this.index = new RoadIndex(this.roads);
     const P = this.pass.pts.at(-1);
+    const gas = besideRoad(this.pass, -1700, -470, 27);
     this.flats = [
-      { x: -1720, z: -470, r: 26, y: Y + 0.25 }, // the gas station
-      { x: -1880, z: -640, r: 34, y: Y + 0.6 }, // the meadow with the cabins
+      { ...gas, r: 30, blend: 26 }, // the gas station, level with the road
+      { x: -1880, z: -640, r: 34, y: passY(-1880, -640), blend: 45 }, // the meadow with the cabins (at road level, sloping gently up to the hills)
       { x: P.x + 8, z: P.z - 12, r: 30, y: P.y }, // the summit car park and observatory
     ];
     for (const f of this.flats) if (f.y == null) f.y = this.natural(f.x, f.z);
@@ -74,7 +76,7 @@ export class Ridgeback {
     // the summit is the top: nothing round the observatory rises much above it
     const sm = this.flats[2], dsm = Math.hypot(x - sm.x, z - sm.z);
     if (dsm < 260) h = Math.min(h, sm.y + Math.max(0, dsm - sm.r) * 0.32);
-    for (const fl of this.flats) { const d = Math.hypot(x - fl.x, z - fl.z); if (d < fl.r + 20) h = fl.y + (h - fl.y) * smooth(fl.r, fl.r + 20, d); }
+    for (const fl of this.flats) { const b = fl.blend || 20, d = Math.hypot(x - fl.x, z - fl.z); if (d < fl.r + b) h = fl.y + (h - fl.y) * smooth(fl.r, fl.r + b, d); }
     const n = this.index.nearest(x, z, 40);
     if (n) { const w = n.r.width / 2; h = n.p.y - 0.05 + (h - n.p.y + 0.05) * smooth(w + 3.5, w + 28, n.d); } // (a flat verge, then the bank)
     return h;
@@ -138,20 +140,9 @@ export class Ridgeback {
     }
 
     // ---- the gas station at the foot of the pass ----
-    const gs = this.flats[0], yG = gs.y;
-    const conc = std({ map: canvasTex(64, 64, (c, w, h) => { c.fillStyle = '#a8a59e'; c.fillRect(0, 0, w, h); speckle(c, w, h, 300, 0.06); }, [8, 8]), roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -1 });
-    const pad = new THREE.Mesh(new THREE.PlaneGeometry(44, 34), conc); pad.rotation.x = -Math.PI / 2; pad.position.set(gs.x, yG + 0.05, gs.z); pad.receiveShadow = true; g.add(pad);
-    const canopy = std({ color: 0xf2efe6 }), red = std({ color: 0xc23b2a });
-    solidBox(g, sb, 16, 0.6, 10, gs.x - 4, yG + 5, gs.z + 4, canopy, { collide: false });
-    solidBox(g, sb, 16.1, 0.5, 10.1, gs.x - 4, yG + 4.9, gs.z + 4, red, { collide: false });
-    for (const [px, pz] of [[-10, 0], [2, 0], [-10, 8], [2, 8]]) solidBox(g, sb, 0.4, 5, 0.4, gs.x + px, yG, gs.z + pz, canopy);
-    for (const px of [-8, 0]) { solidBox(g, sb, 1, 1.6, 0.6, gs.x + px, yG, gs.z + 4, std({ color: 0x2a2c30 })); solidBox(g, sb, 0.8, 0.5, 0.05, gs.x + px, yG + 1.0, gs.z + 4.31, red, { collide: false }); }
-    solidBox(g, sb, 14, 4, 9, gs.x + 10, yG, gs.z - 9, std({ color: 0xd8d0bc }));
-    solidBox(g, sb, 14.6, 0.4, 9.6, gs.x + 10, yG + 4, gs.z - 9, red, { collide: false });
-    sign(g, 'RIDGEBACK GAS & GROCERY', gs.x + 10, yG + 3.2, gs.z - 4.45, 0, { w: 9, h: 1, bg: '#c23b2a', fg: '#ffffff' });
-    sign(g, 'RIDGEBACK HILLS · SUMMIT 3 MI', gs.x - 20, yG + 3.2, gs.z + 18, Math.PI / 2 + 0.6, { w: 7, h: 1.1, bg: '#1f5a2a', fg: '#ffffff', post: yG });
-    this.lootSpots.push(new THREE.Vector3(gs.x + 4, yG + 0.5, gs.z - 3.5), new THREE.Vector3(gs.x - 8, yG + 0.4, gs.z + 6));
-    lamp(g, sb, gs.x - 18, yG, gs.z - 12); lamp(g, sb, gs.x + 18, yG, gs.z + 12);
+    const gs = this.flats[0];
+    gasStation(g, sb, gs.x, gs.y, gs.z, gs.yaw, { name: 'RIDGEBACK GAS & GROCERY', sub: 'GROCERY · BAIT · FIREWOOD', brand: 0xc23b2a, brand2: 0xf2f0ea, prices: ['3.59', '3.89', '4.19'], loot: this.lootSpots });
+    { const b = besideRoad(this.pass, -1640, -440, 9); sign(g, 'RIDGEBACK HILLS · SUMMIT 2 MI', b.x, b.y + 3.2, b.z, b.yaw + Math.PI, { w: 7, h: 1.1, bg: '#1f5a2a', fg: '#ffffff', post: b.y }); }
 
     // ---- log cabins in the meadow ----
     const mw = this.flats[1], yM = mw.y;
@@ -162,12 +153,14 @@ export class Ridgeback {
     const logM = std({ map: logTex, roughness: 0.9 }), roofM = std({ color: 0x3f4a3a, roughness: 0.8, flatShading: true });
     for (const [dx, dz, yaw] of [[-20, -14, 0.3], [6, -22, -0.2], [22, 2, -1.4], [-24, 12, 1.2]]) {
       const x = mw.x + dx, z = mw.z + dz;
-      solidBox(g, sb, 8, 3.6, 6.5, x, yM, z, logM, { rotY: yaw });
+      const yc = Math.max(yM, this.heightAt(x, z)) ;
+      solidBox(g, sb, 8.6, 1.8, 7.1, x, yc - 1.6, z, std({ color: 0x7d7a74, roughness: 0.95 }), { rotY: yaw, collide: false }); // stone footing
+      solidBox(g, sb, 8, 3.6, 6.5, x, yc + 0.2, z, logM, { rotY: yaw });
       const roof = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 6.2, 2.6, 4, 1), roofM);
-      roof.rotation.y = Math.PI / 4 + yaw; roof.scale.set(1.1, 1, 0.85); roof.position.set(x, yM + 4.9, z); roof.castShadow = true; g.add(roof);
+      roof.rotation.y = Math.PI / 4 + yaw; roof.scale.set(1.1, 1, 0.85); roof.position.set(x, yc + 5.1, z); roof.castShadow = true; g.add(roof);
       const door = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 0.1), std({ color: 0x3a2618 }));
-      door.position.set(x + Math.sin(yaw) * 3.3, yM + 1, z + Math.cos(yaw) * 3.3); door.rotation.y = yaw; g.add(door);
-      this.lootSpots.push(new THREE.Vector3(x + Math.sin(yaw) * 4.2, yM + 0.4, z + Math.cos(yaw) * 4.2));
+      door.position.set(x + Math.sin(yaw) * 3.3, yc + 1.2, z + Math.cos(yaw) * 3.3); door.rotation.y = yaw; g.add(door);
+      this.lootSpots.push(new THREE.Vector3(x + Math.sin(yaw) * 4.2, this.heightAt(x + Math.sin(yaw) * 4.2, z + Math.cos(yaw) * 4.2) + 0.4, z + Math.cos(yaw) * 4.2));
     }
     const fire = new THREE.Mesh(new THREE.CircleGeometry(1, 12), std({ color: 0x2a1a10, emissive: 0xff5a10, emissiveIntensity: 0.8 }));
     fire.rotation.x = -Math.PI / 2; fire.position.set(mw.x, yM + 0.08, mw.z); g.add(fire);
