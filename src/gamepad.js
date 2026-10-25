@@ -111,20 +111,61 @@ export class Gamepads {
   }
 
   // ---------------------------------------------------------------- each frame
+  // Read every controller the browser reports and merge them into one. (Windows, Steam and
+  // remapping tools often add a "virtual" controller ahead of the real one; testers show them
+  // all, so we listen to them all too.) Some browsers give the Switch Pro a non-standard layout
+  // with the d-pad on a "hat" axis: that's decoded into the usual d-pad buttons.
+  read() {
+    const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter((p) => p && p.connected) : [];
+    this.pads = pads;
+    if (!pads.length) return null;
+    const N = 17, b = new Array(N).fill(false), v = new Array(N).fill(0), axes = [0, 0, 0, 0];
+    let busiest = null, most = 0;
+    for (const p of pads) {
+      let act = 0;
+      p.buttons.forEach((bt, i) => { if (i >= N) return; const on = !!bt && (bt.pressed || bt.value > 0.5); if (on) { b[i] = true; act++; } v[i] = Math.max(v[i], bt?.value ?? 0); });
+      for (let i = 0; i < 4; i++) { const a = p.axes[i] || 0; if (Math.abs(a) > DEAD) act++; if (Math.abs(a) > Math.abs(axes[i])) axes[i] = a; }
+      if (p.mapping !== 'standard') { // a hat switch for the d-pad (any axis past the sticks that reads in eighths, or > 1 when centred)
+        for (let i = 4; i < p.axes.length; i++) {
+          const a = p.axes[i];
+          if (a === undefined || Math.abs(a) > 1.01) continue;
+          const k = Math.round((a + 1) / (2 / 7));
+          if (Math.abs((a + 1) - k * (2 / 7)) > 0.05) continue;
+          const dir = [[1, 0, 0, 0], [1, 0, 0, 1], [0, 0, 0, 1], [0, 1, 0, 1], [0, 1, 0, 0], [0, 1, 1, 0], [0, 0, 1, 0], [1, 0, 1, 0]][k];
+          if (!dir) continue;
+          if (dir[0]) b[B.up] = true; if (dir[1]) b[B.down] = true; if (dir[2]) b[B.left] = true; if (dir[3]) b[B.right] = true;
+          act++;
+          break;
+        }
+      }
+      if (act > most) { most = act; busiest = p; }
+    }
+    if (busiest && busiest !== this.lastPad) { this.lastPad = busiest; this.kind = padKind(busiest.id); }
+    return { b, v, axes, any: most > 0 };
+  }
+
+  // for the pause screen: what the browser can see
+  status() {
+    const pads = this.pads || [];
+    if (!pads.length) return 'No controller detected. Connect one, click this page, then press a button on it.';
+    const names = pads.map((p) => `${p.id.replace(/\s*\(.*$/, '').slice(0, 40) || 'Controller'}${p.mapping === 'standard' ? '' : ' (non-standard layout)'}`);
+    return `Controller${pads.length > 1 ? 's' : ''}: ${names.join(' · ')} — press Start (+ on Switch, Options on PlayStation) to play`;
+  }
+
   update(dt) {
-    const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
-    const pad = pads.find((p) => p.connected);
-    if (!pad) { if (this.active) this.setActive(false); return; }
+    const st = this.read();
+    this.statusT = (this.statusT || 0) - dt;
+    if (this.statusT <= 0) { this.statusT = 0.5; const el = document.getElementById('pad-status'); if (el) el.textContent = this.status(); }
+    if (!st) { if (this.active) this.setActive(false); this.prev = []; return; }
     const g = this.game;
-    const btn = (i) => { const b = pad.buttons[i]; return !!b && (b.pressed || b.value > 0.5); };
-    const val = (i) => pad.buttons[i]?.value ?? 0;
-    const ax = (i) => { const v = pad.axes[i] || 0; return Math.abs(v) < DEAD ? 0 : (v - Math.sign(v) * DEAD) / (1 - DEAD); };
-    const now = pad.buttons.map((_, i) => btn(i));
+    const val = (i) => st.v[i] ?? 0;
+    const ax = (i) => { const v = st.axes[i] || 0; return Math.abs(v) < DEAD ? 0 : (v - Math.sign(v) * DEAD) / (1 - DEAD); };
+    const now = st.b;
     const pressed = (i) => now[i] && !this.prev[i];
     const released = (i) => !now[i] && this.prev[i];
     const lx = ax(0), ly = ax(1), rx = ax(2), ry = ax(3);
     // anything at all wakes controller mode up
-    if (now.some(Boolean) || lx || ly || rx || ry) { if (!this.active) { this.kind = padKind(pad.id); this.setActive(true); } }
+    if (now.some(Boolean) || lx || ly || rx || ry) { if (!this.active) this.setActive(true); }
     if (!this.active) { this.prev = now; return; }
 
     const overlay = document.getElementById('overlay');
@@ -188,7 +229,7 @@ export class Gamepads {
   }
 
   rumble(strength, ms) {
-    const pad = [...(navigator.getGamepads?.() || [])].find(Boolean);
+    const pad = this.lastPad || (this.pads || [])[0];
     pad?.vibrationActuator?.playEffect?.('dual-rumble', { duration: ms, strongMagnitude: strength, weakMagnitude: strength * 0.6 }).catch?.(() => {});
   }
 

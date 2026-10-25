@@ -466,3 +466,4 @@ kbd.pad-xbox { background: #1f2a22; color: #9be08a; }
 kbd.pad-ps { background: #1d2440; color: #c8d4ff; }
 kbd.pad-switch { background: #3a1f22; color: #ffb0b0; }
 body.pad-mode { cursor: none; }
+#pad-status { margin: 8px auto 0; font-size: 12px; opacity: .75; max-width: 420px; text-align: center; }

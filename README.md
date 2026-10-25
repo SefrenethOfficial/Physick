@@ -242,6 +242,7 @@ Shelf stock in the shops is only drawn when you're at the shop. Distant scenery 
 - `Menu/Options/+` pause and resume (and starts the game from the title screen)
 - In menus, the phone, shops and the pool table a yellow cursor appears: left stick (or d-pad) to move it, the bottom button to click, the right button to back out, right stick to scroll.
 - The controller rumbles on crashes and explosions (where the browser supports it).
+- The title and pause screens show which controllers the browser can see. Every connected controller is read, so a "virtual" one added by Windows, Steam or a remapping tool can't get in the way, and a Switch Pro that the browser reports with a non-standard layout still works (d-pad included).
 
 **Going ashore:** while the ship is moored there's an opening in the rail amidships on the side facing the quay. Walk down the gangway (or just jump off) and you're ashore; walk back up the gangway to come aboard. Sail away by ringing up the engines at the helm; to moor again, bring her back alongside the quay, slowly and roughly parallel, and ring STOP.
 
