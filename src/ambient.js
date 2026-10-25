@@ -45,8 +45,11 @@ export class Ambient {
 
   addBusker(at, yaw, shirt, kind) {
     const g = this.game;
-    const fig = buildFigure({ shirt, pants: 0x2c3440, skin: [0xd9a47c, 0x7a4f35][this.buskers.length % 2], hat: kind === 'guitar' ? 'cap' : undefined, hatColor: 0x4a3a2a });
-    fig.root.position.set(at.x, at.y + 0.83, at.z); fig.root.rotation.y = yaw;
+    const look = { shirt, pants: 0x2c3440, skin: [0xd9a47c, 0x7a4f35][this.buskers.length % 2], hat: kind === 'guitar' ? 'cap' : undefined, hatColor: 0x4a3a2a };
+    // the sax player is a real person: shoot him, run him over, punch him, and he goes down
+    let npc = null, fig;
+    if (kind === 'sax') { npc = this.spawnPlayer(at, yaw, look); fig = npc?.fig; }
+    if (!fig) { fig = buildFigure(look); fig.root.position.set(at.x, at.y + 0.83, at.z); fig.root.rotation.y = yaw; }
     const wood = std({ color: 0xb0703a, roughness: 0.5 }), brass = std({ color: 0xd0a040, metalness: 0.8, roughness: 0.3 });
     if (kind === 'guitar') {
       const body = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.42, 0.1), wood); body.position.set(0.05, 0.12, 0.2); body.rotation.z = 0.5;
@@ -56,8 +59,7 @@ export class Ambient {
       const sax = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.09, 0.6, 10), brass); sax.position.set(0, 0.25, 0.22); sax.rotation.x = 0.4;
       fig.root.add(sax);
     }
-    g.scene.add(fig.root);
-    g.portSandbox.addStaticCollider(RAPIER.ColliderDesc.capsule(0.55, 0.3).setTranslation(at.x, at.y + 0.83, at.z));
+    if (!npc) { g.scene.add(fig.root); g.portSandbox.addStaticCollider(RAPIER.ColliderDesc.capsule(0.55, 0.3).setTranslation(at.x, at.y + 0.83, at.z)); }
     // the open case with some coins in it
     const f = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
     const cp = at.clone().addScaledVector(f, 1.0);
@@ -65,7 +67,21 @@ export class Ambient {
     const felt = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.02, 0.3), std({ color: 0x7a1a2a })); felt.position.set(cp.x, at.y + 0.09, cp.z); felt.rotation.y = yaw;
     g.scene.add(casing, felt);
     for (let i = 0; i < 9; i++) { const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.01, 8), brass); coin.position.set(cp.x + (Math.random() - 0.5) * 0.6, at.y + 0.105, cp.z + (Math.random() - 0.5) * 0.2); g.scene.add(coin); }
-    this.buskers.push({ fig, at, kind, case: cp, tips: 0 });
+    this.buskers.push({ fig, at, kind, case: cp, tips: 0, npc, yaw, look });
+  }
+
+  // a busker who's a citizen: stands at his spot facing the plaza (like a clerk at a counter)
+  spawnPlayer(at, yaw, look) {
+    const n = this.game.citizens.spawnCitizen('city', 'clerk', new THREE.Vector3(at.x, at.y + 0.83, at.z), { look });
+    if (!n) return null;
+    Object.assign(n, { post: at.clone(), faceYaw: yaw, heading: yaw, busker: true, armed: false, cash: 20 + Math.floor(Math.random() * 60) });
+    return n;
+  }
+
+  saxGear(fig) {
+    const brass = std({ color: 0xd0a040, metalness: 0.8, roughness: 0.3 });
+    const sax = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.09, 0.6, 10), brass); sax.position.set(0, 0.25, 0.22); sax.rotation.x = 0.4;
+    fig.root.add(sax);
   }
 
   addFisher(at, k) {
@@ -104,7 +120,7 @@ export class Ambient {
   }
 
   near(pos) {
-    for (const b of this.buskers) if (Math.hypot(pos.x - b.case.x, pos.z - b.case.z) < 3.4) return b;
+    for (const b of this.buskers) if (Math.hypot(pos.x - b.case.x, pos.z - b.case.z) < 3.4 && (!b.npc || (this.game.citizens.list.includes(b.npc) && !b.npc.down))) return b;
     return null;
   }
 
@@ -131,9 +147,22 @@ export class Ambient {
     const cp = g.camera.position;
     // buskers play: a strum or a sway, and some notes if you're close
     for (const b of this.buskers) {
+      if (b.npc) {
+        const alive = g.citizens.list.includes(b.npc) && !b.npc.down && b.npc.role === 'clerk'; // (taken hostage and let go: he's not coming back to play)
+        if (!alive) {
+          // dead (or gone): the music stops; somebody new takes the pitch a few minutes later, once you've left
+          if (!b.goneAt) { b.goneAt = this.t; b.tips = 0; }
+          if (this.t - b.goneAt > 180 && Math.hypot(cp.x - b.at.x, cp.z - b.at.z) > 70) {
+            const n = this.spawnPlayer(b.at, b.yaw, b.look);
+            if (n) { b.npc = n; b.fig = n.fig; this.saxGear(n.fig); b.goneAt = 0; }
+          }
+          continue;
+        }
+        if (b.npc.handsUp > 0 || Math.hypot(b.npc.body.translation().x - b.at.x, b.npc.body.translation().z - b.at.z) > 1.2) continue; // scared, or off his spot: no tune
+      }
       const p = b.fig.parts;
       const near = Math.hypot(cp.x - b.at.x, cp.z - b.at.z) < 60;
-      b.fig.root.visible = near;
+      if (!b.npc) b.fig.root.visible = near;
       if (!near) continue;
       if (b.kind === 'guitar') { p.armRPivot.rotation.x = -0.9 + Math.sin(this.t * 9) * 0.25; p.armLPivot.rotation.set(-1.2, 0, 0.5); }
       else { p.armRPivot.rotation.x = -1.3; p.armLPivot.rotation.x = -1.3; b.fig.root.rotation.z = Math.sin(this.t * 2) * 0.05; }

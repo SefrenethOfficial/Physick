@@ -98,8 +98,11 @@ export class Pelican {
     const deck = new THREE.Mesh(new THREE.BoxGeometry(bx1 - bx0, 1.2, 12), std({ color: 0x9a948a }));
     deck.position.set((bx0 + bx1) / 2, Y - 0.6, -1500); deck.receiveShadow = deck.castShadow = true; g.add(deck);
     sb.addStaticCollider(RAPIER.ColliderDesc.cuboid((bx1 - bx0) / 2, 0.6, 6).setTranslation(deck.position.x, Y - 0.6, -1500));
-    const top = new THREE.Mesh(new THREE.PlaneGeometry(bx1 - bx0, 10), std({ map: roadTex.clone(), roughness: 0.9 }));
-    top.material.map.repeat.set(1, 1); top.rotation.set(-Math.PI / 2, 0, Math.PI / 2); top.position.set(deck.position.x, Y + 0.02, -1500); g.add(top);
+    // the road surface along the deck (the texture's lines run along its length, so it's laid lengthways on x)
+    const topGeo = new THREE.PlaneGeometry(10, bx1 - bx0 + 4); topGeo.rotateX(-Math.PI / 2); topGeo.rotateY(Math.PI / 2);
+    const topTex = roadTex.clone(); topTex.needsUpdate = true; topTex.repeat.set(1, (bx1 - bx0 + 4) / 20);
+    const top = new THREE.Mesh(topGeo, std({ map: topTex, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -2 }));
+    top.position.set(deck.position.x, Y + 0.03, -1500); top.receiveShadow = true; top.userData.noMerge = true; g.add(top);
     addPier(bx0, bx1, -1506, -1494);
     const railM = std({ color: 0xe8e4dc, roughness: 0.6 });
     for (const s of [-1, 1]) solidBox(g, sb, bx1 - bx0, 1, 0.3, deck.position.x, Y, -1500 + s * 5.85, railM);

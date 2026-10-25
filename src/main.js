@@ -53,6 +53,7 @@ import { Fleet } from './fleet.js';
 import { Activities } from './activities.js';
 import { Stunts } from './stunts.js';
 import { Admin } from './admin.js';
+import { Gamepads } from './gamepad.js';
 import { Pelican } from './pelican.js';
 import { Ridgeback } from './ridgeback.js';
 import { Scorch } from './scorch.js';
@@ -259,7 +260,7 @@ class Game {
     this.story = new Story(this);
     this.graphics = new Graphics(this);
     this.graphics.apply();
-    this.renderer.setAnimationLoop((now) => { if (this.poolGame) { this.timer.update(); return; } if (this.graphics.shouldRender(now)) this.tick(); }); // (the world waits while you play pool)
+    this.renderer.setAnimationLoop((now) => { if (this.poolGame) { this.timer.update(); this.gamepads?.update(Math.min(this.timer.getDelta(), 0.1)); return; } if (this.graphics.shouldRender(now)) this.tick(); }); // (the world waits while you play pool)
     window.physick = this;
     this.signs = SIGNS;
     this.itemDefs = ITEM_BY_ID;
@@ -1113,11 +1114,13 @@ class Game {
   // ---------- input ----------
   lock() {
     this.sfx.unlock();
+    if (this.gamepads?.active) { this.gamepads.play(); return; } // (a controller doesn't need the mouse captured)
     const p = this.canvas.requestPointerLock?.();
     if (p && p.catch) p.catch(() => this.hud.showOverlay(true));
   }
 
   bindInput() {
+    this.gamepads = new Gamepads(this);
     document.getElementById('overlay').addEventListener('click', (e) => {
       if (document.querySelector('#overlay .play').disabled) return;
       // on the title screen, only the Play button starts; anywhere else just turns the sound on
@@ -1442,6 +1445,7 @@ class Game {
     this.timer.update();
     const dt = Math.min(this.timer.getDelta(), 0.1) * (this.timeScale ?? 1) * (this.adminSpeed ?? 1); // (slowed right down mid-stunt; admin game speed)
     this.time += dt;
+    this.gamepads?.update(Math.min(this.timer.getDelta(), 0.1) || dt);
     const k = this.keys;
     const steer = this.atHelm ? (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0) : 0;
     this.ship.update(dt, this.ocean, steer);
@@ -1594,7 +1598,7 @@ class Game {
     if (this.flying) this.hud.setFlight(this.jets.active, this.camera);
     if (this.boats.active) this.hud.setBoat(this.boats.active);
     if (this.vehicles.active) this.hud.setBoat(this.vehicles.active);
-    this.hud.setPrompt(this.promptText());
+    this.hud.setPrompt(this.gamepads ? this.gamepads.prompt(this.promptText()) : this.promptText());
     if (!this.boats.active && !this.vehicles.active) this.sfx.setEngine(this.started && !this.onShore, 0.15 + Math.abs(this.ship.speed) / 22);
     const inTown = this.onShore && !this.flying && !this.boats.active && islandAt(pt.x, pt.z, -60)?.id !== 'naval';
     this.sfx.setOcean(this.started && !this.story.underground && !this.homes?.inside, inTown ? 0.25 : 0.6 + Math.abs(this.ship.speed) / 20);

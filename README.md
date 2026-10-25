@@ -57,7 +57,7 @@ Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **
 - **Day and night:** a full day takes 24 minutes (one game hour per minute; the clock's under the compass). Pink-orange sunrises and sunsets, moonlit nights full of stars, street lamps throwing pools of light, and every car with its headlights and tail lights on after dark.
 - **Weather** changes every few hours: clear, cloudy, **rain** (slippery roads, the hiss of it), **storms** (lightning and thunder) and thick **fog**.
 - **Car radio:** press `R` while driving to change station. *Verian FM 101.3*, *Pursuit 94.7* (the chase themes), *Static Lab 66.6*, and **Talk Verian 88.9**, where host Dale Marsh reads out the news (mostly what you've been up to: crimes, chases, SWAT call-outs, choppers shot down, houses and cars bought), takes useless calls and complains about the weather. The stations keep playing while you're tuned away. A chase theme drowns the radio out.
-- **Around town:** people walk their dogs (on leads; if something happens to the owner, the dog bolts), joggers run the streets and trails, two **buskers** play in the plaza (press `E` to tip them $5), and fishermen line the end of the Saltmarsh fishing dock.
+- **Around town:** people walk their dogs (on leads; if something happens to the owner, the dog bolts), joggers run the streets and trails, two **buskers** play in the plaza (press `E` to tip them $5; the sax player is a real person, so he can be shot, run over or knocked out like anyone else, and someone new takes his pitch a few minutes after you leave), and fishermen line the end of the Saltmarsh fishing dock.
 
 ## Money, the bag and boats
 
@@ -231,6 +231,18 @@ Shelf stock in the shops is only drawn when you're at the shop. Distant scenery 
 - `H` sound the ship's horn
 - `E` leave the helm
 
+**With a controller** (Xbox, PlayStation DualShock 4 / DualSense, or Nintendo Switch Pro; plug it in or pair it, then press any button)
+- Buttons go by position, so on a Switch Pro the "bottom" button is B. Prompts on screen change to your controller's buttons as soon as you use it, and go back to keys when you touch the mouse or keyboard.
+- Left stick move (in a car: steer) · right stick look · `L3` or `LB/L1/L` run (nitro in a car, descend in the helicopter)
+- `RT/R2/ZR` fire / pick up / punch (in a car: accelerate) · `LT/L2/ZL` throw / grab (in a car: brake and reverse)
+- Bottom button (`A` / `✕` / `B`) jump, handbrake, climb · top button (`Y` / `△` / `X`) interact, get in and out (the `E` key)
+- Right button (`B` / `○` / `A`) use the held item, spray the fire hose · left button (`X` / `□` / `Y`) rob the till, change the radio station
+- `RB/R1/R` hostage (on foot), tow hook (in a car) · `View/Share/−` bag it · `R3` horn
+- D-pad: up phone, down map, left bag, right vehicle job
+- `Menu/Options/+` pause and resume (and starts the game from the title screen)
+- In menus, the phone, shops and the pool table a yellow cursor appears: left stick (or d-pad) to move it, the bottom button to click, the right button to back out, right stick to scroll.
+- The controller rumbles on crashes and explosions (where the browser supports it).
+
 **Going ashore:** while the ship is moored there's an opening in the rail amidships on the side facing the quay. Walk down the gangway (or just jump off) and you're ashore; walk back up the gangway to come aboard. Sail away by ringing up the engines at the helm; to moor again, bring her back alongside the quay, slowly and roughly parallel, and ring STOP.
 
 **Getting below:** the doorways in the middle of the superstructure, on both sides of the main deck.
@@ -273,6 +285,7 @@ src/
   ridgeback.js Ridgeback Hills (the pass, quarry, cabins, observatory, Hillclimb race)
   scorch.js    the Scorch desert (Act II) and its barricaded causeway
   gasstation.js gas stations and the Saltmarsh general store
+  gamepad.js   controller support (Xbox, PlayStation, Switch Pro)
   business.js  buying shops, takings, gang raids, the Business app
   stocks.js    the stock market and the Stocks app
   homelife.js  the safe, weapon locker, TV and pool minigame in your homes
