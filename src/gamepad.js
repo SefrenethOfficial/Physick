@@ -66,6 +66,10 @@ export class Gamepads {
 
   glyph(btn) { return GLYPHS[this.kind][btn] || btn; }
 
+  // menu confirm / back: A and B as printed on the pad (on a Switch, A is the right-hand button)
+  get ok() { return this.kind === 'switch' ? B.east : B.south; }
+  get back() { return this.kind === 'switch' ? B.south : B.east; }
+
   // swap keyboard/mouse labels in a prompt for this controller's buttons
   prompt(html) {
     if (!this.active || !html) return html;
@@ -333,14 +337,14 @@ export class Gamepads {
       }
     }
     // select
-    if (pressed(B.south) && this.focus) {
+    if (pressed(this.ok) && this.focus) {
       const f = this.focus;
       if (f.matches('input[type="checkbox"]')) f.click();
       else if (f.matches('input, select')) f.focus();
       else { f.click(); if (onOverlay && f.classList.contains('play')) this.play(); }
     }
     // back
-    if (pressed(B.east)) {
+    if (pressed(this.back)) {
       const g = this.game, st = document.getElementById('settings');
       if (st && !st.classList.contains('hidden')) st.classList.add('hidden');
       else if (g.admin?.isOpen) g.admin.close();
@@ -364,9 +368,9 @@ export class Gamepads {
     const P = this.game.poolGame;
     const cv = document.querySelector('#pool canvas');
     if (!P || !cv) return;
-    if (pressed(B.east)) { document.querySelector('#pool .pool-x')?.click(); return; }
+    if (pressed(this.back)) { document.querySelector('#pool .pool-x')?.click(); return; }
     const again = document.querySelector('#pool .pool-again');
-    if (again && pressed(B.south)) { again.click(); return; }
+    if (again && pressed(this.ok)) { again.click(); return; }
     if (this.poolAng == null || this.poolFor !== P) { this.poolFor = P; this.poolAng = P.aimAngle?.() ?? 0; }
     // stick direction aims; the d-pad nudges for fine shots
     if (Math.hypot(lx, ly) > 0.5) this.poolAng = Math.atan2(ly, lx);
@@ -374,7 +378,7 @@ export class Gamepads {
     const cb = P.cue, r = cv.getBoundingClientRect(), k = r.width / cv.width;
     const mx = (cb.x + Math.cos(this.poolAng) * 120 + 34) * k + r.left, my = (cb.y + Math.sin(this.poolAng) * 120 + 34) * k + r.top;
     cv.dispatchEvent(new MouseEvent('mousemove', { clientX: mx, clientY: my, bubbles: true }));
-    if (pressed(B.south) || pressed(B.rt)) cv.dispatchEvent(new MouseEvent('mousedown', { clientX: mx, clientY: my, button: 0, bubbles: true }));
-    if (released(B.south) || released(B.rt)) dispatchEvent(new MouseEvent('mouseup', { clientX: mx, clientY: my, button: 0, bubbles: true }));
+    if (pressed(this.ok) || pressed(B.rt)) cv.dispatchEvent(new MouseEvent('mousedown', { clientX: mx, clientY: my, button: 0, bubbles: true }));
+    if (released(this.ok) || released(B.rt)) dispatchEvent(new MouseEvent('mouseup', { clientX: mx, clientY: my, button: 0, bubbles: true }));
   }
 }
