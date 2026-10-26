@@ -185,6 +185,24 @@ Press `M` for the full map: every island, road, trail and landmark, the shops an
   - **Bounty hunters:** get away from a chase of 5+ stars and, a little later, someone puts a price on your head. A crew of hunters (one with a shotgun) tracks you down wherever you are. Kill them all for half the bounty, or survive four minutes until they give up.
 - **Busted:** let an officer stay on you for a couple of seconds and you're arrested: fined a quarter of your cash and your bag confiscated. Die and you wake up at the hospital, minus the bill.
 
+## Multiplayer
+
+Up to **8 players** share one city: the same streets and shops, the same traffic and the same people on the pavements. Everyone keeps their own money, cars, homes and story.
+
+- **Getting in:** on the title (or pause) screen, press **Multiplayer**, type in the server address and your name, then **Create a room**. You get a 4-letter room code; friends type it in and press **Join room**, or open the invite link (**Copy invite link**). The page reloads to build the room's city.
+- **Who runs the city:** the first player in is the *host*. Their game drives the traffic and walks the pedestrians, and everyone else sees the same thing. Shoot someone, run them over or steal a car, and the host's game is told. If the host leaves or switches to another tab (browsers pause background tabs), the server hands the city to someone else. Their game carries on from what it was showing, and the clock follows the host's.
+- **Other players:** you see them walking, driving, riding, boating and flying, with their name over their head and a pink dot on the map. You can shoot and punch each other, run each other over and catch each other in explosions. A kill is announced to everyone and pays the killer $250. Leave a car about and someone can steal it (bought cars are locked). The cops chasing a player are that player's, but everyone sees them, and anyone can shoot them.
+- **Chat:** press **Enter**, type, then **Enter** again (**Esc** cancels). Joins, leaves, kills and car thefts show in the same feed.
+- **Not shared:** missions, gangs, shop clerks and the highway traffic run separately in each game. Inside homes and underground you're hidden from the others.
+
+### Running the server
+
+The game is a static site, so the multiplayer server runs separately. It's a small Node app in `server/` that hands out rooms and relays messages. It doesn't simulate anything, so it's cheap to run.
+
+- **Render (free):** on [render.com](https://render.com), choose **New → Blueprint**, pick this repository, and it deploys from `render.yaml`. Your server address is the `https://…onrender.com` URL it gives you. Free servers go to sleep when nobody's playing, so the first room of the day takes up to a minute while it wakes up.
+- **Anywhere else:** `cd server && npm install && npm start` (port `PORT`, default 8090), or use the `Dockerfile`. Put it behind HTTPS (the game is served over HTTPS, so it can only talk to a `https://` / `wss://` server).
+- To skip typing the address, set `DEFAULT_SERVER` in `src/lobby.js`.
+
 ## Graphics settings
 
 Open **Settings** from the pause screen. The **Low / Medium / High / Ultra** presets set everything at once, or adjust these yourself:
@@ -211,7 +229,7 @@ Shelf stock in the shops is only drawn when you're at the shop. Distant scenery 
 - `M` full map · `R` rob the bank or a shop's till (holding a gun, at the counter) · `G` take or release a hostage · `J` phone (jobs, messages, key items, calls)
 - Look at a body and `LMB` to drag it; `LMB` lets go, `RMB` heaves it
 - Holding a mop: hold `LMB` to scrub blood, `RMB` to put it down
-- `Esc` pause (Settings are on the pause screen)
+- `Esc` pause (Settings and Multiplayer are on the pause screen) · `Enter` chat (in a multiplayer room)
 
 **In a jet** (walk up to one on the airfield and press `E`)
 - `W` / `S` throttle, `Shift` afterburner (at full throttle)
@@ -276,9 +294,13 @@ npm run build    # static build in dist/
 
 Pushing to `main` deploys to GitHub Pages through the included workflow.
 
+For multiplayer locally, also run the server: `cd server && npm install && npm start`, then use `http://localhost:8090` as the server address.
+
 ## Project layout
 
 ```
+server/
+  index.js     the multiplayer server (rooms, host hand-off, relaying)
 src/
   main.js      setup, camera, input, main loop
   terrain.js   shared terrain kit: noise, graded roads, terrain mesh + collider, road ribbons
@@ -287,6 +309,9 @@ src/
   scorch.js    the Scorch desert (Act II) and its barricaded causeway
   gasstation.js gas stations and the Saltmarsh general store
   gamepad.js   controller support (Xbox, PlayStation, Switch Pro)
+  net.js       multiplayer: other players, the shared traffic and people, chat
+  lobby.js     the Multiplayer menu (rooms, invite links)
+  netseed.js   the room session and the seeded world build
   business.js  buying shops, takings, gang raids, the Business app
   stocks.js    the stock market and the Stocks app
   homelife.js  the safe, weapon locker, TV and pool minigame in your homes

@@ -77,6 +77,7 @@ export function monsterTruckMesh() {
   }
   // seats for the passengers, inside the cab
   g.userData.seats = [new THREE.Vector3(0.55, 2.95, -0.25), new THREE.Vector3(-0.55, 2.95, 0.85), new THREE.Vector3(0.55, 2.95, 0.85)];
+  g.userData.spec = 'x';
   return g;
 }
 

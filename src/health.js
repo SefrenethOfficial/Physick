@@ -63,6 +63,7 @@ export class Health {
       carCrash: 'Wrapped round a lamp post',
       explosion: 'Blown up',
       bail: 'Jumped out of a moving car',
+      player: 'Killed by another player',
     }[kind] || 'You died';
     g.hud.showDeath(true, msg);
     g.sfx.play('die');

@@ -68,7 +68,7 @@ function hullGeometry(L, B, D) {
   return { hull: g, deck: dg, deckY: top(0.6) - 0.25 };
 }
 
-function buildBoat(type) {
+export function buildBoat(type) {
   const { len: L, beam: B, depth: D } = type;
   const root = new THREE.Group();
   const { hull, deck, deckY } = hullGeometry(L, B, D);

@@ -48,7 +48,16 @@ export class Sfx {
     s.start(t); s.stop(t + dur + 0.02);
   }
 
-  play(name) {
+  // vol < 1: quieter (far away)
+  play(name, vol = 1) {
+    if (!this.ctx || vol >= 0.99) { this._play(name); return; }
+    const m = this.master, gn = this.ctx.createGain();
+    gn.gain.value = vol; gn.connect(m);
+    this.master = gn;
+    try { this._play(name); } finally { this.master = m; }
+  }
+
+  _play(name) {
     if (!this.ctx) return;
     if (this.muffled && OUTSIDE.has(name)) return; // underground: you can't hear the world up there
     switch (name) {

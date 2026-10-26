@@ -1,0 +1,10 @@
+{
+  "name": "physick-server",
+  "version": "1.0.0",
+  "description": "Multiplayer server for Physick: rooms of up to 8 players.",
+  "type": "module",
+  "main": "index.js",
+  "scripts": { "start": "node index.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "ws": "^8.18.0" }
+}

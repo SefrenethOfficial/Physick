@@ -1,0 +1,10 @@
+# One-click deploy of the multiplayer server on Render (render.com → New → Blueprint → this repo).
+services:
+  - type: web
+    name: physick-server
+    runtime: node
+    rootDir: server
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health

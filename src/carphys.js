@@ -24,6 +24,8 @@ export class Car {
     this.wheelbase = wheelbase;
     this.maxSpeed = maxSpeed;
     this.mesh = mesh || carMesh(color, police);
+    this.ride = ride;
+    this.density = density;
     game.scene.add(this.mesh);
     const w = game.portWorld;
     const y = this.groundAt(x, z);
@@ -177,8 +179,8 @@ export class Car {
     if (this.hp <= 0) this.explode();
   }
 
-  explode() {
-    const g = this.game;
+  // burnt out: blackened and dead (just the look; explode() is the bang)
+  wreckLook() {
     this.wreck = true;
     this.wreckT = 0;
     this.mesh.traverse((o) => {
@@ -188,6 +190,34 @@ export class Car {
       if (o.material.emissive) o.material.emissive.set(0);
     });
     if (this.lights) { this.lights.glowR.visible = this.lights.glowB.visible = false; this.lights = null; }
+    this.headlights.visible = false;
+  }
+
+  // What it looks like and how big it is, as a short string (multiplayer rebuilds it from this).
+  get spec() {
+    const h = this.half, r = (v) => +v.toFixed(2);
+    return `${this.mesh.userData.spec || `c:${0x2f7fd8}:${this.police ? 1 : 0}`}|${r(h.x)},${r(h.y)},${r(h.z)},${r(this.ride ?? 0.55)},${r(this.wheelbase)}`;
+  }
+
+  // Multiplayer: someone else's car (or the host's traffic). Chase where their game says it is,
+  // as a physical body, so you can still bump into it.
+  follow(dt, s) {
+    if (this.sinking) { this.sinkInto(dt); return; }
+    const vy = this.wreck ? 0 : this.hover(dt);
+    const dx = s.x - this.pos.x, dz = s.z - this.pos.z, dy = s.y - this.pos.y;
+    if (dx * dx + dz * dz > 144 || Math.abs(dy) > 6) { // too far off: just put it there
+      this.body.setTranslation({ x: s.x, y: s.y, z: s.z }, true);
+      this.body.setRotation(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, s.h, 0)), true);
+      this.pos.set(s.x, s.y, s.z); this.heading = s.h;
+    }
+    this.body.setLinvel({ x: s.vx + dx * 4, y: Math.abs(dy) > 1.5 ? dy * 4 : vy, z: s.vz + dz * 4 }, true);
+    this.body.setAngvel({ x: 0, y: angDiff(this.heading, s.h) * 8, z: 0 }, true);
+    this.expect = null;
+  }
+
+  explode() {
+    const g = this.game;
+    this.wreckLook();
     this.body.setLinvel({ x: (Math.random() - 0.5) * 4, y: 0, z: (Math.random() - 0.5) * 4 }, true);
     this.body.setAngvel({ x: 0, y: (Math.random() - 0.5) * 3, z: 0 }, true);
     if (g.vehicles?.active === this) {

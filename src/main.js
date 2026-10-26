@@ -66,6 +66,9 @@ import { Vehicles } from './vehicles.js';
 import { Car, clearSpot } from './carphys.js';
 import { Underworld } from './underworld.js';
 import { ChaseMusic } from './music.js';
+import { mpSession, seedRandom, setMpSession } from './netseed.js';
+import { bindLobby, linkSession } from './lobby.js';
+import { Net } from './net.js';
 
 const FOV = 75;
 const SKY_TOP = 0x4a83c4;
@@ -100,6 +103,9 @@ class Game {
 
   async init() {
     const loadingEl = document.getElementById('loading');
+    // multiplayer: everyone in the room builds the same world from the room's seed
+    this.mp = mpSession() || await linkSession(); // (an invite link: ?join=CODE&server=…)
+    const unseed = this.mp ? seedRandom(this.mp.seed) : null;
     await this.loadStep('Starting physics…', 3);
     await RAPIER.init();
     this.RAPIER = RAPIER; // (handy from the console)
@@ -173,6 +179,14 @@ class Game {
     mergeStatic(this.saltmarsh.group);
     this.breakables = new Breakables(this); // every tree and lamp, now the world's built
     this.portWorld.step();
+    unseed?.();
+    if (this.mp) { // multiplayer: get into the room before the town fills up (the host's people are shared)
+      await this.loadStep('Joining the room…', 81);
+      this.net = new Net(this, this.mp);
+      try { await this.net.connect(); }
+      catch (e) { this.mpError = e.message; this.net = null; setMpSession(null); }
+      if (this.net && this.net.s.seed !== this.mp.seed) { setMpSession({ ...this.mp, seed: this.net.s.seed }); location.reload(); return; }
+    }
 
     await this.loadStep('Loading your arm…', 88);
     const gltf = await new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}assets/robotic_arm.glb`, (e) => {
@@ -227,6 +241,7 @@ class Game {
 
     this.bindInput();
     bindSettingsPanel(this);
+    bindLobby(this);
     this.resize();
     addEventListener('resize', () => this.resize());
 
@@ -262,6 +277,8 @@ class Game {
     this.graphics.apply();
     this.renderer.setAnimationLoop((now) => { if (this.poolGame) { this.timer.update(); this.gamepads?.update(Math.min(this.timer.getDelta(), 0.1)); return; } if (this.graphics.shouldRender(now)) this.tick(); }); // (the world waits while you play pool)
     window.physick = this;
+    if (this.net) { this.net.keyParked(); this.net.say(`Joined room ${this.net.room}${this.net.isHost ? ' (you\'re hosting the city)' : ''}. Press Enter to chat.`, '#7be08a'); }
+    if (this.mpError) this.hud.toast(`Multiplayer: ${this.mpError}. Playing single player.`, 0xff8a6a);
     this.signs = SIGNS;
     this.itemDefs = ITEM_BY_ID;
     this.THREE = THREE;
@@ -368,7 +385,12 @@ class Game {
       if (airT != null) { if (k < 3) this.police.tracer(toWorld(muzzle), eye.clone().addScaledVector(dir, airT)); continue; }
       const end = hit ? hit.point : eye.clone().addScaledVector(dir, G.range);
       if (k < 3) this.police.tracer(toWorld(muzzle), toWorld(end));
+      if (k === 0 && this.onShore) this.net?.shot(toWorld(muzzle), toWorld(end), G.sound);
       if (!hit) continue;
+      if (this.onShore && this.net?.hitCollider(hit.collider, G.dmg, dir)) { // another player (or a cop after them)
+        for (let i = 0; i < 4; i++) this.fx.emit(hit.point, dir.clone().multiplyScalar(2).add(new THREE.Vector3(Math.random() - 0.5, Math.random(), Math.random() - 0.5)), 0x8a0a0a, 0.4, 1, 0);
+        continue;
+      }
       const set = this.onShore ? this.citizens : this.npcs;
       if (hit.npc && set.list.includes(hit.npc)) {
         set.damage(hit.npc, G.dmg, dir.clone().setY(0).normalize(), hit.point);
@@ -398,6 +420,7 @@ class Game {
 
   // Shooting a car: your own takes damage; a driver under fire bails out and runs.
   shootCar(car, dmg, hitPoint = null) {
+    if (this.net?.carHit(car, dmg)) { if (hitPoint) this.fx.flash(hitPoint, 0xffe0a0, 0.6, 0.05); return; } // another player's car: theirs to dent
     if ((car.monster || car.bulletproof) && hitPoint) { this.fx.flash(hitPoint, 0xffe0a0, 0.6, 0.05); return; } // bulletproof: it just sparks
     car.damage(dmg * 0.45);
     if (hitPoint) { // a little dent where the round went in
@@ -412,6 +435,7 @@ class Game {
 
   // Explosion at a world point: knocks everyone over, shoves props, hurts you and cars.
   blast(p, radius, dmg, crime = true) {
+    this.net?.blast(p, radius, dmg); // (other players get caught in it too)
     this.fx.explosion(p);
     this.sfx.play('explosion');
     this.shake = Math.max(this.shake, 1);
@@ -540,6 +564,7 @@ class Game {
     const hit = this.lookHit(melee ? 2.6 : 2.1);
     if (!hit) { this.sfx.play('drop'); return; }
     const dir = this.lookDir();
+    if (this.onShore && this.net?.hitCollider(hit.collider, melee || 34, dir, 'punch')) { this.sfx.play('punch'); return; }
     if (hit.npc) {
       const set = this.onShore ? this.citizens : this.npcs;
       if (!set.list.includes(hit.npc)) return;
@@ -1196,6 +1221,7 @@ class Game {
       if (e.code === 'KeyJ' && !e.repeat && this.locked && !this.panelOpen) { this.endDrag(false); this.story.phone.toggle(); return; }
       if (e.code === 'KeyM' && !e.repeat && (this.locked || this.hud.bigMapOpen) && !this.panelOpen) { this.hud.toggleBigMap(); this.bigMapT = 0; return; }
       if (this.story.phone.isOpen) return; // the phone handles its own keys
+      if (e.code === 'Enter' && !e.repeat && this.net && this.locked && !this.panelOpen) { e.preventDefault(); this.net.openChat(); return; }
       if (this.panelOpen && (e.code === 'Tab' || e.code === 'Escape' || e.code === 'KeyE')) { this.economy.close(); return; }
       if (e.repeat || !this.locked) return;
       this.keys.add(e.code);
@@ -1362,6 +1388,7 @@ class Game {
     if (this.dealer) P(this.dealer.desk, '#e8c547', 'Verian Motors (cars)', true, 5);
     for (const m of this.business?.marks() || []) if (m.name) P(m, m.color, m.name, m.label === '!', m.label === '!' ? 6 : 4);
     for (const m of this.stunts?.marks() || []) P(m, m.color, m.name, false, 3.5);
+    for (const m of this.net?.marks() || []) P(m, m.color, m.name, true, 5.5);
     for (const h of this.homes?.list || []) P(h.door, this.homes.owns(h.id) ? '#7be08a' : '#f2d23a', this.homes.owns(h.id) ? `⌂ ${h.name}` : `⌂ For sale ${h.price >= 1e6 ? '$' + h.price / 1e6 + 'M' : '$' + Math.round(h.price / 1000) + 'k'}`, false, 4);
     P(c.policeStation, '#4a7dff', 'Police station');
     P(c.plaza, '#e8e2d4', 'Plaza');
@@ -1422,6 +1449,7 @@ class Game {
     for (const m of this.activities?.marks() || []) marks.push(m);
     for (const m of this.business?.marks() || []) marks.push(m);
     for (const m of this.stunts?.marks() || []) marks.push(m);
+    for (const m of this.net?.marks() || []) marks.push(m);
     marks.push({ x: this.city.pawnCounter.x, z: this.city.pawnCounter.z, color: '#ffd166', r: 4, label: '$' });
     marks.push({ x: this.city.dealerCounter.x, z: this.city.dealerCounter.z, color: '#7fd3ff', r: 4, label: 'Boats' });
     marks.push({ x: this.city.hospital.x, z: this.city.hospital.z, color: '#ff6a6a', r: 3, label: '+' });
@@ -1484,6 +1512,7 @@ class Game {
     this.checkTransfer();
     this.boats.update(dt, alive ? k : new Set());
     this.vehicles.update(dt, alive ? k : new Set());
+    this.net?.update(dt);
     this.breakables.update(dt);
     this.highway?.update(dt);
     this.homes?.update(dt);

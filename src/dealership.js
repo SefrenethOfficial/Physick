@@ -49,6 +49,7 @@ export function modelMesh(m, color = m.color) {
   if (m.wing) { add(1.9, 0.06, 0.4, 0, top + 0.42, 2.2 * sz, black); for (const s of [-1, 1]) add(0.06, 0.42, 0.12, s * 0.7, top + 0.2, 2.15 * sz, black); }
   if (m.rack) { for (const s of [-1, 1]) add(0.06, 0.08, 1.8, s * 0.7, 1.33 * sy + 0.31 * sy + 0.05, 0.25 * sz, std({ color: 0x8a8f96, metalness: 0.6 })); add(1.5, 0.05, 0.06, 0, 1.33 * sy + 0.31 * sy + 0.1, -0.4, black); add(1.5, 0.05, 0.06, 0, 1.33 * sy + 0.31 * sy + 0.1, 0.9, black); }
   g.userData.model = m.id;
+  g.userData.spec = MODEL[m.id] ? `m:${m.id}:${color}` : `s:${color}:${m.scale.join(',')}`;
   return g;
 }
 

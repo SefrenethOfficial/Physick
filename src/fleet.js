@@ -29,10 +29,11 @@ export function bikeMesh(color = 0xc23b2a, { sport = true } = {}) {
   const lamp = add(new THREE.BoxGeometry(0.12, 0.08, 0.04), std({ color: 0xfff6d8, emissive: 0xfff1c4, emissiveIntensity: 1 }), 0, 0.88, -0.84);
   void lamp;
   root.userData.lean = lean;
+  root.userData.spec = `b:${color}:${sport ? 1 : 0}`;
   return root;
 }
 
-function busMesh(color = 0x2f7fd8) {
+export function busMesh(color = 0x2f7fd8) {
   const g = new THREE.Group();
   const side = canvasTex(512, 128, (c, w, h) => {
     c.fillStyle = '#' + color.toString(16).padStart(6, '0'); c.fillRect(0, 0, w, h);
@@ -47,10 +48,11 @@ function busMesh(color = 0x2f7fd8) {
   const wheelM = std({ color: 0x15161a });
   for (const [x, z] of [[-1.15, -3.6], [1.15, -3.6], [-1.15, 3.4], [1.15, 3.4]]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.35, 12), wheelM); w.rotation.z = Math.PI / 2; w.position.set(x, 0.5, z); g.add(w); }
   g.userData.body = body;
+  g.userData.spec = `u:${color}`;
   return g;
 }
 
-function towMesh(color = 0xe0a030) {
+export function towMesh(color = 0xe0a030) {
   const g = carMesh(color);
   // a short cab: chop the cabin forward, and put a flatbed with a crane and hook behind it
   const black = std({ color: 0x15161a }), steel = std({ color: 0x8a8f96, metalness: 0.6, roughness: 0.4 });
@@ -61,6 +63,7 @@ function towMesh(color = 0xe0a030) {
   add(0.06, 0.6, 0.06, 0, 1.6, 2.9, black); // cable
   add(0.3, 0.12, 0.12, 0, 1.25, 2.95, black); // hook
   add(1.0, 0.12, 0.25, 0, 2.05, -0.3, std({ color: 0xff8a1a, emissive: 0xff7a10, emissiveIntensity: 0.8 })); // beacon bar
+  g.userData.spec = `t:${color}`;
   return g;
 }
 

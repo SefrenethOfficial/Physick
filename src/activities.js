@@ -292,11 +292,12 @@ class Races {
 }
 
 // ---------------------------------------------------------------- taxi, ambulance, fire truck
-function taxiMesh() {
+export function taxiMesh() {
   const m = modelMesh({ id: 'taxi', scale: [1, 1, 1.03] }, 0xf2c21a);
   const sign = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.25, 0.35), new THREE.MeshStandardMaterial({ map: canvasTex(64, 24, (c, w, h) => { c.fillStyle = '#ffe680'; c.fillRect(0, 0, w, h); c.fillStyle = '#111'; c.font = 'bold 18px Arial'; c.textAlign = 'center'; c.fillText('TAXI', w / 2, 19); }), emissive: 0xffe060, emissiveIntensity: 0.6 }));
   sign.position.set(0, 1.78, 0.2); m.add(sign);
   for (const s of [-1, 1]) { const ch = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.18, 2.2), std({ color: 0x111111 })); ch.position.set(s * 0.96, 0.7, 0); m.add(ch); }
+  m.userData.spec = 'y';
   return m;
 }
 function ambulanceMesh() {
@@ -581,7 +582,9 @@ class OddJobs {
       Object.assign(job, { target: c, stage: 'get', waypoint: c.pos, text: id === 'hot' ? 'Find the yellow Stiletto' : 'Find the marked car' });
     } else if (id === 'tail') {
       const net = g.traffic.nets[0];
+      g.traffic.local = true; // (multiplayer: this one's ours, not the host's)
       const c = g.traffic.spawn(net, 140, (o) => new Car(g, { ...o, color: 0x8a2ad8 }));
+      g.traffic.local = false;
       if (!c) { A.end(false, 'They didn\'t show'); return; }
       A.cars.push(c);
       Object.assign(job, { target: c, stage: 'tail', follow: 0, close: 0, lost: 0, waypoint: c.pos, text: 'Find the purple car and follow it' });

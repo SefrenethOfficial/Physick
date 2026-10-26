@@ -36,7 +36,7 @@ function planform(pts, thick) {
   return g;
 }
 
-function buildJet(number) {
+export function buildJet(number) {
   const root = new THREE.Group();
   const paint = new THREE.MeshStandardMaterial({ color: 0x8e979e, roughness: 0.55, metalness: 0.25, side: THREE.DoubleSide });
   const dark = new THREE.MeshStandardMaterial({ color: 0x5f666c, roughness: 0.6, metalness: 0.3, side: THREE.DoubleSide });
@@ -187,6 +187,7 @@ class Jet {
     this.game = game;
     this.home = home;
     const b = buildJet(number);
+    this.number = number;
     Object.assign(this, { mesh: b.root, gear: b.gear, flames: b.flames, pilot: b.pilot, navs: b.navs });
     game.scene.add(this.mesh);
     // a moving obstacle in the shore physics world so you can't walk through parked jets

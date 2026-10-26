@@ -77,10 +77,11 @@ export class Npcs {
     cc.enableSnapToGround(0.4);
     cc.setMaxSlopeClimbAngle((45 * Math.PI) / 180);
     cc.setApplyImpulsesToDynamicBodies(false);
-    const fig = buildFigure(this.look());
+    const look = this.look();
+    const fig = buildFigure(look);
     this.parent.add(fig.root);
     const npc = {
-      body, collider, cc, fig,
+      body, collider, cc, fig, look,
       hp: 100,
       heading: Math.random() * Math.PI * 2,
       target: null,

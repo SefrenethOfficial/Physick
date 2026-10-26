@@ -248,7 +248,7 @@ export class Gamepads {
   layer() {
     const vis = (el) => el && !el.classList.contains('hidden') && getComputedStyle(el).display !== 'none';
     const g = this.game;
-    for (const el of [document.getElementById('settings'), g.admin?.isOpen ? g.admin.el : null, g.story?.phone?.isOpen ? g.story.phone.el : null, g.panelOpen ? document.getElementById('panel') : null, document.getElementById('overlay')]) {
+    for (const el of [document.getElementById('settings'), document.getElementById('mp'), g.admin?.isOpen ? g.admin.el : null, g.story?.phone?.isOpen ? g.story.phone.el : null, g.panelOpen ? document.getElementById('panel') : null, document.getElementById('overlay')]) {
       if (el && vis(el)) return el;
     }
     return null;

@@ -58,9 +58,11 @@ export class Citizens extends Npcs {
   }
 
   populate() {
+    if (this.game.net?.mirroring) return; // (multiplayer: the host's people are mirrored here instead)
+    const amb = (n) => { if (n) n.ambient = true; };
     for (const id of ['city', 'town', 'park', 'hood']) {
-      for (let k = 0; k < this.quota[id]; k++) this.spawnCitizen(id);
-      for (let k = 0; k < this.copQuota[id]; k++) this.spawnCitizen(id, 'cop');
+      for (let k = 0; k < this.quota[id]; k++) amb(this.spawnCitizen(id));
+      for (let k = 0; k < this.copQuota[id]; k++) amb(this.spawnCitizen(id, 'cop'));
     }
   }
 
@@ -114,6 +116,7 @@ export class Citizens extends Npcs {
   }
 
   damage(npc, amount, dir, point) {
+    if (npc.mirror) this.game.net?.npcHurt(npc, amount); // (multiplayer: one of the host's people)
     npc.hp -= amount;
     if (npc.role === 'gang') this.game.gangs.provoke(npc.gang, 'you hit one of theirs');
     const t = npc.body.translation();
@@ -131,6 +134,7 @@ export class Citizens extends Npcs {
   }
 
   knockOver(npc, velocity, spin, opts = {}) {
+    this.game.net?.npcDown(npc, velocity);
     const rd = super.knockOver(npc, velocity, spin, opts);
     rd.loot = { cash: npc.cash, items: [...npc.items] };
     rd.role = npc.role;
@@ -219,6 +223,7 @@ export class Citizens extends Npcs {
         g.police.crime('murder', 2, new THREE.Vector3(t.x, t.y, t.z));
         continue;
       }
+      if (npc.mirror && g.net) { g.net.followPed(npc, dt); continue; } // (multiplayer: the host moves this one)
 
       const distP = Math.hypot(pp.x - t.x, pp.z - t.z);
       npc.senseT -= dt;
@@ -578,15 +583,15 @@ export class Citizens extends Npcs {
       else if (!(npc.busker && npc.speed < 0.3)) animateWalk(npc.fig.parts, npc.phase, npc.speed / 1.5); // (a busker standing at his pitch is posed by the ambient code: he's playing)
     }
     // top islands back up (out of sight of the player)
-    if (this.game.settings.civRespawn) {
+    if (this.game.settings.civRespawn && !this.game.net?.mirroring) {
       this.respawnT -= dt;
       if (this.respawnT <= 0) {
         this.respawnT = 4;
         for (const id of ['city', 'town', 'park', 'hood']) {
           const civs = this.list.filter((n) => n.island === id && n.role === 'civ').length;
-          if (civs < this.quota[id]) { const p = this.randomPointOn(id, null, 0, 60); if (p) this.spawnCitizen(id, 'civ', p); }
+          if (civs < this.quota[id]) { const p = this.randomPointOn(id, null, 0, 60); const n = p && this.spawnCitizen(id, 'civ', p); if (n) n.ambient = true; }
           const cops = this.list.filter((n) => n.island === id && n.role === 'cop' && !n.dispatched).length;
-          if (cops < this.copQuota[id]) { const p = this.randomPointOn(id, null, 0, 80); if (p) this.spawnCitizen(id, 'cop', p); }
+          if (cops < this.copQuota[id]) { const p = this.randomPointOn(id, null, 0, 80); const n = p && this.spawnCitizen(id, 'cop', p); if (n) n.ambient = true; }
         }
       }
     }

@@ -32,6 +32,7 @@ export class Traffic {
 
   spawn(net, minDist = 25, factory = null) {
     const g = this.game;
+    if (g.net?.mirroring && !this.local) return null; // (multiplayer: the host's traffic is mirrored here instead)
     for (let tries = 0; tries < 20; tries++) {
       const a = { i: Math.floor(Math.random() * net.xs.length), j: Math.floor(Math.random() * net.zs.length) };
       const nb = this.neighbours(net, a);
@@ -118,15 +119,17 @@ export class Traffic {
     const pt = g.shorePlayer.body.translation();
     const onFoot = g.onShore && !g.flying && !g.boats.active && !g.health.dead;
     const people = g.citizens.list;
-    const others = [...this.cars, ...g.police.cars, ...g.vehicles.list.filter((v) => !v.wreck)];
+    const others = [...this.cars, ...g.police.cars, ...g.vehicles.list.filter((v) => !v.wreck), ...(g.net?.carList || [])];
+    const mirroring = g.net?.mirroring;
     // keep the streets busy: replace stolen and wrecked cars out of sight
     this.refillT = (this.refillT || 0) - dt;
-    if (this.refillT <= 0) {
+    if (this.refillT <= 0 && !mirroring) {
       this.refillT = 3;
       for (const net of this.nets) if (this.cars.filter((c) => c.net === net).length < net.count) this.spawn(net, 60);
     }
 
     for (const car of [...this.cars]) {
+      if (car.mirror) { car.follow(dt, car.mirror); if (!car.wreck) runOver(g, car, false); continue; } // (multiplayer: the host drives this one)
       if (car.wreck) { car.coast(dt); if (car.wreckT > 40) this.remove(car); continue; }
       const f = car.forward;
       const r = right(f);

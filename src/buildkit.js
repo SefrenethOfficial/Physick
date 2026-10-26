@@ -309,5 +309,6 @@ export function carMesh(color = 0x2f7fd8, police = false) {
   mergeStatic(g, 1e6); // body, cabin and wheels become one mesh
   for (const c of g.children) if (c.isMesh) c.matrixAutoUpdate = true;
   g.userData.body = g.children.find((c) => c.isMesh && c.material === m);
+  g.userData.spec = `c:${color}:${police ? 1 : 0}`;
   return g;
 }

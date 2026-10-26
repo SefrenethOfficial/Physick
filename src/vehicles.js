@@ -16,7 +16,7 @@ export class Vehicles {
   }
 
   // Every car in the world (traffic, police, parked, stolen).
-  get all() { return [...this.game.traffic.cars, ...this.game.police.cars, ...this.parked, ...this.list, ...(this.game.story?.extraCars || []), ...(this.game.title?.cars || []), ...(this.game.highway?.cars || []), ...(this.game.activities?.cars || [])]; }
+  get all() { return [...this.game.traffic.cars, ...this.game.police.cars, ...this.parked, ...this.list, ...(this.game.story?.extraCars || []), ...(this.game.title?.cars || []), ...(this.game.highway?.cars || []), ...(this.game.activities?.cars || []), ...(this.game.net?.carList || [])]; }
 
   // A car you could get into from where you're standing.
   nearby(pos) {
@@ -32,6 +32,7 @@ export class Vehicles {
     for (const c of g.traffic.cars) if (Math.abs(c.speed) < 6) consider(c, 'traffic');
     for (const c of g.police.cars) if (Math.abs(c.speed) < 6) consider(c, 'police');
     for (const c of g.highway?.cars || []) if (Math.abs(c.speed) < 6) consider(c, 'highway');
+    for (const c of g.net?.stealable() || []) if (Math.abs(c.speed) < 6) consider(c, 'remote'); // another player's car, left about
     return best;
   }
 
@@ -40,10 +41,11 @@ export class Vehicles {
     const g = this.game;
     if (kind === 'mine') { this.enter(car); return; }
     const police = car.police;
-    if (kind === 'police') g.police.cars.splice(g.police.cars.indexOf(car), 1);
-    else if (kind === 'traffic') g.traffic.cars.splice(g.traffic.cars.indexOf(car), 1);
+    if (kind === 'remote') { g.net.takeRemote(car); kind = 'parked'; }
+    else if (kind === 'police') g.police.cars.splice(g.police.cars.indexOf(car), 1);
+    else if (kind === 'traffic') { g.traffic.cars.splice(g.traffic.cars.indexOf(car), 1); g.net?.carTaken(car); }
     else if (kind === 'highway') { g.highway.cars.splice(g.highway.cars.indexOf(car), 1); car.hw = false; car.maxSpeed = undefined; kind = 'traffic'; }
-    else this.parked.splice(this.parked.indexOf(car), 1);
+    else if (this.parked.includes(car)) { g.net?.parkedTaken(car); this.parked.splice(this.parked.indexOf(car), 1); }
     car.base = 350 + Math.floor(Math.random() * 6) * 70;
     car.type = { name: police ? 'Police car' : car.bike ? 'Stolen bike' : car.bus ? 'Hijacked bus' : car.tow ? 'Tow truck' : 'Stolen car', hp: car.maxHp, car: true };
     car.mesh.visible = true;
