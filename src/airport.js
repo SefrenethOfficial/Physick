@@ -138,11 +138,11 @@ export class Airport {
     this.mapRects.push({ ...term, color: '#9fb3c0', label: 'Terminal' });
     // control tower
     const towerM = std({ color: 0xd8d3c8 });
-    solidBox(g, sb, 6, 30, 6, -1090, Y, 520, towerM);
+    solidBox(g, sb, 6, 30, 6, -1070, Y, 520, towerM); // (off to the side: the run-up for the Jailbreak jump goes past it)
     const cab = new THREE.Mesh(new THREE.CylinderGeometry(5.5, 4.8, 5, 8), std({ color: 0x24465e, metalness: 0.6, roughness: 0.1 }));
-    cab.position.set(-1090, Y + 32.5, 520);
+    cab.position.set(-1070, Y + 32.5, 520);
     g.add(cab);
-    solidBox(g, sb, 12, 0.6, 12, -1090, Y + 35, 520, std({ color: 0x5f666c }), { collide: false });
+    solidBox(g, sb, 12, 0.6, 12, -1070, Y + 35, 520, std({ color: 0x5f666c }), { collide: false });
 
     // ---- apron, taxiway, runway ----
     this.flat(450, 95, -1335, 537.5, concrete, Y + 0.02);

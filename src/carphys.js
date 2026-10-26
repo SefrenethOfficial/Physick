@@ -106,7 +106,7 @@ export class Car {
     if (this.expect && !this.wreck) {
       const dv = new THREE.Vector3(v.x - this.expect.x, 0, v.z - this.expect.z);
       const m = dv.length();
-      if (m > 3.2) this.impact(dv, m);
+      if (m > 3.2 && !this.stuntJump && !((this.game.time || 0) < (this.softUntil || 0))) this.impact(dv, m);
     }
     this.expect = null;
     this.hitT -= dt;
@@ -273,7 +273,8 @@ export class Car {
     const g = this.game;
     if ((this.airT || 0) < 0.25 || vy > -6) return;
     if (g.vehicles?.active === this) { g.shake = Math.max(g.shake || 0, Math.min(1.1, -vy / 16)); g.sfx.play(vy < -14 ? 'crash' : 'thud'); }
-    if (vy < -17) this.damage((-vy - 17) * 2.2);
+    if (vy < -17 && !this.stuntJump) this.damage((-vy - 17) * 2.2); // (a stunt jump's landing is built to be survivable)
+    if (this.stuntJump) this.softUntil = (g.time || 0) + 0.6; // (nor the bounce just after it)
     this.landed = { vy, t: g.time };
   }
 

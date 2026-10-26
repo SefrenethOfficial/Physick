@@ -1361,6 +1361,7 @@ class Game {
     P(c.hospital, '#ff6a6a', 'Hospital');
     if (this.dealer) P(this.dealer.desk, '#e8c547', 'Verian Motors (cars)', true, 5);
     for (const m of this.business?.marks() || []) if (m.name) P(m, m.color, m.name, m.label === '!', m.label === '!' ? 6 : 4);
+    for (const m of this.stunts?.marks() || []) P(m, m.color, m.name, false, 3.5);
     for (const h of this.homes?.list || []) P(h.door, this.homes.owns(h.id) ? '#7be08a' : '#f2d23a', this.homes.owns(h.id) ? `⌂ ${h.name}` : `⌂ For sale ${h.price >= 1e6 ? '$' + h.price / 1e6 + 'M' : '$' + Math.round(h.price / 1000) + 'k'}`, false, 4);
     P(c.policeStation, '#4a7dff', 'Police station');
     P(c.plaza, '#e8e2d4', 'Plaza');
@@ -1420,6 +1421,7 @@ class Game {
     if (wp) marks.push({ x: wp.x, z: wp.z, color: '#ffd166', r: 5.5, label: '★' });
     for (const m of this.activities?.marks() || []) marks.push(m);
     for (const m of this.business?.marks() || []) marks.push(m);
+    for (const m of this.stunts?.marks() || []) marks.push(m);
     marks.push({ x: this.city.pawnCounter.x, z: this.city.pawnCounter.z, color: '#ffd166', r: 4, label: '$' });
     marks.push({ x: this.city.dealerCounter.x, z: this.city.dealerCounter.z, color: '#7fd3ff', r: 4, label: 'Boats' });
     marks.push({ x: this.city.hospital.x, z: this.city.hospital.z, color: '#ff6a6a', r: 3, label: '+' });
