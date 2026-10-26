@@ -28,9 +28,12 @@
     <div id="overlay" class="title">
       <div class="card">
         <img class="logo" src="./assets/physick-logo.svg" alt="Physick" />
-        <button class="play" disabled>Click to play</button>
-        <button class="settings-btn" id="btn-settings">Settings</button>
-        <button class="settings-btn" id="btn-mp">Multiplayer</button>
+        <div class="menu">
+          <button class="play" disabled>Click to play</button>
+          <button class="menu-btn" id="btn-mp"><span class="ic">◎</span>Multiplayer</button>
+          <button class="menu-btn" id="btn-settings"><span class="ic">⚙</span>Settings</button>
+          <button class="menu-btn" id="btn-games"><span class="ic">★</span>Our other games</button>
+        </div>
         <div id="pad-status"></div>
         <div class="controls">
           <div><kbd>W A S D</kbd> walk / drive · <kbd>Space</kbd> jump · <kbd>Shift</kbd> run</div>
@@ -45,6 +48,27 @@
       <div class="panel">
         <div class="menu-head"><h2>Bag</h2><button class="close">Close</button></div>
         <div class="body"></div>
+      </div>
+    </div>
+
+    <div id="games" class="hidden">
+      <div class="panel">
+        <div class="menu-head"><h2>Our other games</h2><button class="close">Close</button></div>
+        <p class="games-lede">More from Sefreneth. Each one opens in a new tab.</p>
+        <div class="games">
+          <a class="game" href="https://sefrenethofficial.github.io/Tacocraft/" target="_blank" rel="noopener">
+            <span class="art light"><img src="./assets/games/tacocraft.png" alt="Tacocraft" /></span>
+            <span class="name">Tacocraft</span><span class="go">Play ↗</span>
+          </a>
+          <a class="game" href="https://sefrenethofficial.github.io/Alchemo/" target="_blank" rel="noopener">
+            <span class="art cover" style="background:#1f173a"><img src="./assets/games/alchemo.png" alt="Alchemo" /></span>
+            <span class="name">Alchemo</span><span class="go">Play ↗</span>
+          </a>
+          <a class="game" href="https://sefrenethofficial.github.io/God-of-Tree/" target="_blank" rel="noopener">
+            <span class="art" style="background:#1b1410"><img src="./assets/games/god-of-tree.png" alt="God of Tree" /></span>
+            <span class="name">God of Tree</span><span class="go">Play ↗</span>
+          </a>
+        </div>
       </div>
     </div>
 

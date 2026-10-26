@@ -82,6 +82,39 @@ kbd {
 }
 #overlay .play:disabled { opacity: .4; }
 #overlay .play:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 7px 0 var(--ink); }
+/* the title / pause menu: Play, then the rest in a column the same width */
+#overlay .menu { display: flex; flex-direction: column; align-items: stretch; gap: 10px; width: min(320px, 86vw); margin-top: 4px; }
+#overlay .menu .play { width: 100%; margin-bottom: 6px; }
+#overlay .menu-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 14px; cursor: pointer;
+  font: 700 15px var(--font); letter-spacing: .08em; text-transform: uppercase; text-align: left;
+  color: var(--paper); background: linear-gradient(#3c4047, #2a2d32); border: 3px solid var(--ink); border-radius: 4px; box-shadow: 0 3px 0 var(--ink);
+  transition: transform .08s, background .12s; }
+#overlay .menu-btn .ic { width: 20px; text-align: center; color: #ffd166; font-size: 15px; }
+#overlay .menu-btn:hover, #overlay .menu-btn.pad-focus { background: linear-gradient(#4b5058, #34383e); transform: translateX(3px); }
+#overlay .menu-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+
+/* ---------------- our other games */
+#games { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(0,0,0,.6); z-index: 5; }
+#games.hidden { display: none; }
+#games .panel { width: min(760px, 100%); max-height: 90vh; overflow: auto; padding: 16px; color: var(--paper);
+  background: linear-gradient(#2a2d31, #1d1f22); border: 4px solid var(--ink); border-radius: 6px; box-shadow: 0 0 0 2px var(--steel-lo), 0 20px 50px rgba(0,0,0,.6); }
+#games .menu-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+#games .menu-head h2 { margin: 0; font-size: 24px; letter-spacing: .08em; text-transform: uppercase; }
+#games button { font: 700 13px var(--font); cursor: pointer; color: var(--paper); background: #3a3e44; border: 2px solid var(--ink); border-radius: 3px; padding: 6px 12px; }
+#games .games-lede { margin: 0 0 14px; font-size: 13px; opacity: .7; }
+#games .games { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+@media (max-width: 640px) { #games .games { grid-template-columns: 1fr; } }
+#games .game { display: flex; flex-direction: column; text-decoration: none; color: var(--paper); background: #15171a; border: 3px solid var(--ink); border-radius: 5px; overflow: hidden;
+  box-shadow: 0 4px 0 var(--ink); transition: transform .1s, box-shadow .1s; }
+#games .game:hover, #games .game.pad-focus { transform: translateY(-3px); box-shadow: 0 7px 0 var(--ink), 0 0 0 2px #ffd166; }
+#games .art { display: grid; place-items: center; height: 120px; padding: 10px; }
+#games .art.light { background: radial-gradient(ellipse at center, #f4efe4, #cfc8b8); }
+#games .art img { display: block; max-width: 100%; max-height: 100px; object-fit: contain; }
+#games .art.cover { padding: 0; }
+#games .art.cover img { width: 100%; height: 120px; max-height: none; object-fit: cover; }
+@media (max-width: 640px) { #games .menu-head h2 { font-size: 19px; } }
+#games .name { padding: 10px 12px 0; font-weight: 700; font-size: 16px; letter-spacing: .04em; }
+#games .go { padding: 2px 12px 12px; font-size: 13px; color: #ffd166; }
 .loading { font-size: 14px; opacity: .8; min-height: 1em; }
 .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 22px; font-size: 14px; opacity: .9; }
 .modes-intro { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; }

@@ -12,7 +12,7 @@ You stand on the Verian waterfront by the marina while the city goes to pieces b
 3. A swarm of police cars comes down the street, straight into El Monstruo coming the other way, which smashes every one of them.
 4. Killer clown vans turn up and do burnouts in clouds of tyre smoke.
 
-**Click to play** starts the game.
+**Click to play** starts the game. Under it are **Multiplayer**, **Settings** and **Our other games**, which links to Tacocraft, Alchemo and God of Tree; each opens in a new tab. The same menu is on the pause screen.
 
 ## Story
 

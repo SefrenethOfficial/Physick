@@ -43,7 +43,19 @@ export async function linkSession() {
   }
 }
 
+// "Our other games": a panel of links (they open in a new tab).
+function bindGames() {
+  const panel = document.getElementById('games'), btn = document.getElementById('btn-games');
+  if (!panel || !btn) return;
+  btn.addEventListener('click', (e) => { e.stopPropagation(); panel.classList.remove('hidden'); });
+  panel.addEventListener('click', (e) => {
+    e.stopPropagation(); // (so a click in here doesn't start the game behind it)
+    if (e.target === panel || e.target.closest('.close')) panel.classList.add('hidden');
+  });
+}
+
 export function bindLobby(game) {
+  bindGames();
   const panel = document.getElementById('mp');
   const btn = document.getElementById('btn-mp');
   if (!panel || !btn) return;
