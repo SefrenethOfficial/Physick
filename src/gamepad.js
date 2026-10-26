@@ -189,6 +189,7 @@ export class Gamepads {
       return;
     }
     this.el.classList.add('hidden');
+    this.setFocus(null);
     if (!g.locked) this.play(); // (came back from a menu)
 
     // ---- driving, flying or on foot?
@@ -234,46 +235,146 @@ export class Gamepads {
   }
 
   // ---------------------------------------------------------------- menus: a cursor
+  // ---------------------------------------------------------------- menus: console-style selection
+  // One thing is highlighted; the d-pad or left stick moves the highlight to the next button in
+  // that direction, the bottom button selects it, the right button backs out. Sliders go left and
+  // right; the right stick scrolls long lists. (The pool table is its own thing: see pool().)
+
+  // the window the controller is working in right now (the topmost one that's open)
+  layer() {
+    const vis = (el) => el && !el.classList.contains('hidden') && getComputedStyle(el).display !== 'none';
+    const g = this.game;
+    for (const el of [document.getElementById('settings'), g.admin?.isOpen ? g.admin.el : null, g.story?.phone?.isOpen ? g.story.phone.el : null, g.panelOpen ? document.getElementById('panel') : null, document.getElementById('overlay')]) {
+      if (el && vis(el)) return el;
+    }
+    return null;
+  }
+
+  // everything you can select in it, on screen
+  items(root) {
+    if (!root) return [];
+    const sel = 'button, [data-a], [data-ch], [data-bet], [data-add], a[href], input, select, .ph-item[data-a]';
+    return [...root.querySelectorAll(sel)].filter((el) => {
+      if (el.disabled || el.closest('[disabled]')) return false;
+      if (el.matches('[data-a]') && el.querySelector('button, [data-a]')) return false; // (a row whose buttons are selectable themselves)
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) return false;
+      const st = getComputedStyle(el);
+      return st.visibility !== 'hidden' && st.display !== 'none' && st.pointerEvents !== 'none';
+    });
+  }
+
+  centre(el) { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, r }; }
+
+  setFocus(el) {
+    if (this.focus === el) return;
+    this.focus?.classList.remove('pad-focus');
+    this.focus = el;
+    if (!el) return;
+    el.classList.add('pad-focus');
+    el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    this.lastAt = this.centre(el);
+  }
+
+  // the nearest thing in a direction (dx, dy): distance along it, plus a penalty for being off to the side
+  step(list, dx, dy) {
+    const cur = this.focus && list.includes(this.focus) ? this.centre(this.focus) : null;
+    if (!cur) return list[0];
+    let best = null, bs = Infinity;
+    for (const el of list) {
+      if (el === this.focus) continue;
+      const c = this.centre(el);
+      const vx = c.x - cur.x, vy = c.y - cur.y;
+      const along = vx * dx + vy * dy;
+      if (along <= 2) continue;
+      const side = Math.abs(vx * dy - vy * dx);
+      // overlapping rows/columns count as "straight ahead"
+      const overlap = dx ? !(c.r.bottom < cur.r.top || c.r.top > cur.r.bottom) : !(c.r.right < cur.r.left || c.r.left > cur.r.right);
+      const score = along + side * (overlap ? 0.3 : 2.5);
+      if (score < bs) { bs = score; best = el; }
+    }
+    return best;
+  }
+
   menu(dt, { lx, ly, rx, ry, pressed, released, now }, onOverlay) {
-    const c = this.cursor;
-    if (!c.on) { c.on = true; c.x = innerWidth / 2; c.y = innerHeight / 2; }
-    this.el.classList.remove('hidden');
-    const sp = 900 * dt;
-    // d-pad nudges too
-    const dx = lx + (now[B.right] ? 0.6 : 0) - (now[B.left] ? 0.6 : 0), dy = ly + (now[B.down] ? 0.6 : 0) - (now[B.up] ? 0.6 : 0);
-    if (dx || dy) {
-      c.x = Math.max(0, Math.min(innerWidth - 1, c.x + Math.sign(dx) * dx * dx * sp * 1.4));
-      c.y = Math.max(0, Math.min(innerHeight - 1, c.y + Math.sign(dy) * dy * dy * sp * 1.4));
-      const t = document.elementFromPoint(c.x, c.y);
-      t?.dispatchEvent(new MouseEvent('mousemove', { clientX: c.x, clientY: c.y, bubbles: true }));
+    this.el.classList.add('hidden');
+    if (document.getElementById('pool')) { this.pool(dt, { lx, ly, pressed, released, now }); return; }
+    const root = this.layer();
+    const list = this.items(root);
+    if (!list.length) { this.setFocus(null); return; }
+    // keep a highlight: after a menu redraws itself, pick whatever's now nearest where it was
+    const fresh = root !== this.layerEl;
+    this.layerEl = root;
+    if (fresh || !this.focus || !list.includes(this.focus)) {
+      let best = null;
+      if (!fresh && this.lastAt && this.focus) { let bd = Infinity; for (const el of list) { const c = this.centre(el); const d = (c.x - this.lastAt.x) ** 2 + (c.y - this.lastAt.y) ** 2; if (d < bd) { bd = d; best = el; } } }
+      this.focus = null;
+      const play = onOverlay && list.find((el) => el.classList.contains('play'));
+      // a window that's just opened: its first proper choice (not the Close / back button in the corner)
+      const first = list.find((el) => !el.matches('.close, .pool-x, [data-a="home"], .ph-homebar')) || list[0];
+      this.setFocus(best || play || first);
     }
-    this.el.style.transform = `translate(${c.x}px, ${c.y}px)`;
-    const target = () => document.elementFromPoint(c.x, c.y);
-    if (pressed(B.south) || pressed(B.rt)) {
-      const t = target();
-      if (t) { t.dispatchEvent(new MouseEvent('mousedown', { clientX: c.x, clientY: c.y, button: 0, bubbles: true })); this.downOn = t; }
-    }
-    if (released(B.south) || released(B.rt)) {
-      const t = target();
-      dispatchEvent(new MouseEvent('mouseup', { clientX: c.x, clientY: c.y, button: 0, bubbles: true }));
-      if (t && t === this.downOn) {
-        t.click?.();
-        if (onOverlay && t.closest?.('.play')) this.play();
+    // direction: d-pad, or the left stick pushed most of the way
+    let dx = (now[B.right] ? 1 : 0) - (now[B.left] ? 1 : 0), dy = (now[B.down] ? 1 : 0) - (now[B.up] ? 1 : 0);
+    if (!dx && !dy && Math.hypot(lx, ly) > 0.55) { if (Math.abs(lx) > Math.abs(ly)) dx = Math.sign(lx); else dy = Math.sign(ly); }
+    const dir = dx || dy ? `${dx},${dy}` : '';
+    let move = false;
+    if (dir !== this.heldDir) { this.heldDir = dir; this.repeatT = 0.38; move = !!dir; } // move at once, then a pause before it repeats
+    else if (dir) { this.repeatT -= dt; if (this.repeatT <= 0) { this.repeatT = 0.11; move = true; } }
+    if (move) {
+      const f = this.focus;
+      if (f && f.matches('input[type="range"]') && dx) { // a slider: left/right changes it
+        const stp = Number(f.step) || 1;
+        f.value = String(Math.min(Number(f.max), Math.max(Number(f.min), Number(f.value) + dx * stp * 5)));
+        f.dispatchEvent(new Event('input', { bubbles: true })); f.dispatchEvent(new Event('change', { bubbles: true }));
+      } else {
+        const next = this.step(list, dx, dy);
+        if (next) { this.setFocus(next); this.game.sfx?.play?.('select'); }
       }
-      this.downOn = null;
     }
+    // select
+    if (pressed(B.south) && this.focus) {
+      const f = this.focus;
+      if (f.matches('input[type="checkbox"]')) f.click();
+      else if (f.matches('input, select')) f.focus();
+      else { f.click(); if (onOverlay && f.classList.contains('play')) this.play(); }
+    }
+    // back
     if (pressed(B.east)) {
-      if (document.getElementById('pool')) document.querySelector('#pool .pool-x')?.click();
-      else if (this.game.story?.phone?.isOpen) this.game.story.phone.close();
-      else if (this.game.panelOpen) this.tap('Escape');
+      const g = this.game, st = document.getElementById('settings');
+      if (st && !st.classList.contains('hidden')) st.classList.add('hidden');
+      else if (g.admin?.isOpen) g.admin.close();
+      else if (g.story?.phone?.isOpen) { const ph = g.story.phone; if (ph.screen !== 'home' && ph.call?.state !== 'live') ph.act('home', {}); else ph.close(); } // (back out of an app first)
+      else if (g.panelOpen) this.tap('Escape');
+      this.focus?.classList.remove('pad-focus'); this.focus = null;
     }
-    if (pressed(B.up) && this.game.story?.phone?.isOpen && !(ly || lx)) { /* (the d-pad moves the cursor in menus) */ }
-    // right stick scrolls whatever's under the cursor
-    if (ry) {
-      let el = target();
+    // the right stick scrolls the list
+    if (ry && root) {
+      let el = this.focus || root;
       while (el && el !== document.body && !(el.scrollHeight > el.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(el).overflowY))) el = el.parentElement;
-      (el && el !== document.body ? el : document.scrollingElement)?.scrollBy(0, ry * 900 * dt);
+      if (el && el !== document.body) el.scrollBy(0, ry * 900 * dt);
     }
-    void rx;
+    void rx; void released;
+  }
+
+  // The pool table: left stick swings the cue round the white ball, hold the bottom button
+  // (or the right trigger) to build power and let go to shoot; the right button quits.
+  pool(dt, { lx, ly, pressed, released, now }) {
+    this.setFocus(null);
+    const P = this.game.poolGame;
+    const cv = document.querySelector('#pool canvas');
+    if (!P || !cv) return;
+    if (pressed(B.east)) { document.querySelector('#pool .pool-x')?.click(); return; }
+    const again = document.querySelector('#pool .pool-again');
+    if (again && pressed(B.south)) { again.click(); return; }
+    if (this.poolAng == null || this.poolFor !== P) { this.poolFor = P; this.poolAng = P.aimAngle?.() ?? 0; }
+    // stick direction aims; the d-pad nudges for fine shots
+    if (Math.hypot(lx, ly) > 0.5) this.poolAng = Math.atan2(ly, lx);
+    this.poolAng += ((now[B.right] || now[B.down] ? 1 : 0) - (now[B.left] || now[B.up] ? 1 : 0)) * dt * 0.35;
+    const cb = P.cue, r = cv.getBoundingClientRect(), k = r.width / cv.width;
+    const mx = (cb.x + Math.cos(this.poolAng) * 120 + 34) * k + r.left, my = (cb.y + Math.sin(this.poolAng) * 120 + 34) * k + r.top;
+    cv.dispatchEvent(new MouseEvent('mousemove', { clientX: mx, clientY: my, bubbles: true }));
+    if (pressed(B.south) || pressed(B.rt)) cv.dispatchEvent(new MouseEvent('mousedown', { clientX: mx, clientY: my, button: 0, bubbles: true }));
+    if (released(B.south) || released(B.rt)) dispatchEvent(new MouseEvent('mouseup', { clientX: mx, clientY: my, button: 0, bubbles: true }));
   }
 }

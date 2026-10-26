@@ -240,7 +240,7 @@ Shelf stock in the shops is only drawn when you're at the shop. Distant scenery 
 - `RB/R1/R` hostage (on foot), tow hook (in a car) · `View/Share/−` bag it · `R3` horn
 - D-pad: up phone, down map, left bag, right vehicle job
 - `Menu/Options/+` pause and resume (and starts the game from the title screen)
-- In menus, the phone, shops and the pool table a yellow cursor appears: left stick (or d-pad) to move it, the bottom button to click, the right button to back out, right stick to scroll.
+- In menus, the phone and shops, one button is highlighted, like on a console: the d-pad or left stick moves the highlight, the bottom button selects, the right button goes back, the right stick scrolls long lists (and left/right moves sliders). At the pool table the left stick aims the cue (d-pad for fine aim) and you hold the bottom button or right trigger to build power and let go to shoot.
 - The controller rumbles on crashes and explosions (where the browser supports it).
 - The title and pause screens show which controllers the browser can see. Every connected controller is read, so a "virtual" one added by Windows, Steam or a remapping tool can't get in the way, and a Switch Pro that the browser reports with a non-standard layout still works (d-pad included).
 

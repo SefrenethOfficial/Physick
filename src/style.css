@@ -467,3 +467,4 @@ kbd.pad-ps { background: #1d2440; color: #c8d4ff; }
 kbd.pad-switch { background: #3a1f22; color: #ffb0b0; }
 body.pad-mode { cursor: none; }
 #pad-status { margin: 8px auto 0; font-size: 12px; opacity: .75; max-width: 420px; text-align: center; }
+.pad-focus { outline: 3px solid #5ad0ff !important; outline-offset: 2px; box-shadow: 0 0 0 6px rgba(90,208,255,.28), 0 0 20px rgba(90,208,255,.7) !important; position: relative; z-index: 2; transition: outline-offset .08s; }
