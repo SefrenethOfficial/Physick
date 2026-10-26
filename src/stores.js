@@ -192,6 +192,24 @@ export class Stores {
   }
 
   // ---- hold-ups ----
+  // Their keys, if you've got them (in your hand or your bag).
+  keyFor(st) {
+    const g = this.game, id = `key_${st.theme}`;
+    if (g.held?.id === id || g.economy.bag.includes(id)) return ITEM_BY_ID[id];
+    return null;
+  }
+
+  // Nobody behind the counter and you've got the keys: help yourself, quietly.
+  openTill(st) {
+    const g = this.game;
+    if (g.time - st.robbedAt < 300) { g.hud.toast('The till\'s empty'); return; }
+    st.robbedAt = g.time;
+    const take = 120 + Math.floor(Math.random() * 280) + (st.theme === 'liquor' || st.theme === 'electronics' ? 150 : 0);
+    g.economy.addMoney(take, `from the ${st.label.toLowerCase()} till`);
+    g.sfx.play('cash');
+    g.hud.toast(`The key turns, the drawer slides out: $${take}. Nobody saw a thing.`, 0x7be08a);
+  }
+
   canRob(st) { return this.clerkOK(st) && !this.game.business?.owns(st) && this.game.time - st.robbedAt > 300 && !['police', 'office', 'hospital', 'bank'].includes(st.theme); }
 
   rob(st) {

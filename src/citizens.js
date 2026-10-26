@@ -6,6 +6,13 @@ import { randomLook, animateWalk, animatePanic } from './figure.js';
 import { ISLANDS, LAND_Y, onLand } from './world.js';
 import { LOOT_COMMON, LOOT_RARE } from './items.js';
 import { canvasTex } from './buildkit.js';
+import { ITEM_BY_ID } from './items.js';
+import { CATALOG } from './stores.js';
+import { islandAt } from './world.js';
+
+// Gang members and the Ashen Hand's people (raiders, bounty hunters): nobody calls the police
+// when they get hurt, and a cop will come and arrest one you've knocked out.
+export const isCriminal = (npc) => npc?.role === 'gang' || npc?.role === 'goon';
 
 // Townspeople and police officers on the islands (world frame, shore physics).
 // Civilians wander, notice crimes, get suspicious of blood and bodies, and call the police.
@@ -115,18 +122,20 @@ export class Citizens extends Npcs {
     return !hit;
   }
 
-  damage(npc, amount, dir, point) {
+  // ko: a beating with bare fists knocks them out cold rather than killing them
+  damage(npc, amount, dir, point, { ko = false } = {}) {
     if (npc.mirror) this.game.net?.npcHurt(npc, amount); // (multiplayer: one of the host's people)
     npc.hp -= amount;
     if (npc.role === 'gang') this.game.gangs.provoke(npc.gang, 'you hit one of theirs');
     const t = npc.body.translation();
+    const crook = isCriminal(npc); // (nobody calls the police about a gangster getting hurt)
     if (npc.hp <= 0) {
-      const v = dir.clone().multiplyScalar(6); v.y += 1.5;
-      this.knockOver(npc, v, 3, { killed: true, point, dir });
-      this.game.police.crime(npc.role === 'cop' ? 'copkill' : 'murder', npc.role === 'cop' ? 3 : 2, new THREE.Vector3(t.x, t.y, t.z));
+      const v = dir.clone().multiplyScalar(ko ? 3 : 6); v.y += 1.5;
+      this.knockOver(npc, v, 3, { killed: !ko, point, dir });
+      if (!crook) this.game.police.crime(ko ? 'assault' : npc.role === 'cop' ? 'copkill' : 'murder', ko ? (npc.role === 'cop' ? 2 : 1) : npc.role === 'cop' ? 3 : 2, new THREE.Vector3(t.x, t.y, t.z));
     } else {
       this.game.sfx.play('ouch');
-      this.game.police.crime('assault', 1, new THREE.Vector3(t.x, t.y, t.z));
+      if (!crook) this.game.police.crime('assault', 1, new THREE.Vector3(t.x, t.y, t.z));
       npc.stunT = 0.7; // reeling from the hit
       if (npc.role === 'civ') this.flee(npc, this.game.shorePlayer.body.translation(), 8);
       if (npc.role === 'clerk' && npc.store) npc.store.angry = 30;
@@ -136,11 +145,128 @@ export class Citizens extends Npcs {
   knockOver(npc, velocity, spin, opts = {}) {
     this.game.net?.npcDown(npc, velocity);
     const rd = super.knockOver(npc, velocity, spin, opts);
-    rd.loot = { cash: npc.cash, items: [...npc.items] };
+    const extra = this.specialLoot(npc);
+    rd.loot = { cash: npc.cash + extra.cash, items: [...npc.items, ...extra.items] };
     rd.role = npc.role;
+    rd.criminal = isCriminal(npc);
+    rd.reward = npc.hunter ? 200 : npc.role === 'goon' ? 120 : 60; // (what the police tip you for one of these)
+    rd.what = npc.hunter ? 'bounty hunter' : npc.role === 'goon' ? 'Ashen Hand thug' : npc.role === 'gang' ? 'gang member' : npc.role === 'cop' ? 'officer' : npc.busker ? 'sax player' : npc.role === 'clerk' && npc.store ? `${npc.store.label.toLowerCase()} clerk` : 'person';
+    rd.hp = Math.min(Math.max(npc.hp, 25), 50); // out cold, they don't take much finishing off
+    rd.island = npc.island;
     rd.id = Math.random();
     rd.bornAt = this.game.time * 1000;
     return rd;
+  }
+
+  // What particular people have on them, on top of the usual wallet-and-phone.
+  specialLoot(npc) {
+    const r = Math.random, items = [];
+    let cash = 0;
+    const maybe = (id, p = 1) => { if (r() < p && ITEM_BY_ID[id]) items.push(id); };
+    if (npc.busker) { maybe('sax'); cash += 15 + Math.floor(r() * 40); } // (the tips in his case)
+    else if (npc.role === 'clerk' && npc.store) {
+      const th = npc.store.theme;
+      maybe(`key_${th}`); // the shop's keys: they open its till when nobody's behind the counter
+      if (th === 'bank') maybe('keycard');
+      if (th === 'police') { maybe('badge'); maybe('cuffs'); }
+      if (th === 'hospital') maybe('medkit');
+      if (th === 'office') maybe('laptop', 0.5);
+      const cat = CATALOG[th];
+      if (cat) maybe(cat[Math.floor(r() * cat.length)]);
+      if (npc.armed) maybe('shotgun', 0.5); // the one from under the counter
+      cash += 20 + Math.floor(r() * 60);
+    } else if (npc.role === 'cop') {
+      maybe('badge'); maybe('cuffs', 0.5);
+      if (npc.swat) { maybe('armor', 0.4); maybe('smg', 0.25); } else maybe('pistol', 0.2);
+    } else if (npc.role === 'gang') {
+      maybe(npc.gang === 'kings' ? 'chain' : 'bandana', 0.7);
+      maybe('knuckles', 0.3);
+      maybe('pistol', 0.15);
+      cash += 30 + Math.floor(r() * 90);
+    } else if (npc.role === 'goon') {
+      if (npc.hunter) maybe('notice'); // with your face on it
+      else { maybe('signet', 0.5); maybe('burner', 0.6); }
+      maybe('pistol', 0.2);
+      cash += 20 + Math.floor(r() * 60);
+    } else if (npc.role === 'mascot') { maybe('cone'); maybe('cone', 0.5); }
+    return { cash, items };
+  }
+
+  // Someone lying out cold can still be hurt, and finished off.
+  hurtRagdoll(rd, dmg, dir = new THREE.Vector3(), point = null) {
+    if (!rd || rd.dead || rd.arrested || !this.ragdolls.includes(rd)) return false;
+    rd.hp = (rd.hp ?? 40) - dmg;
+    if (rd.hp <= 0) return this.killRagdoll(rd, dir, point);
+    const p = rd.torso.body.translation();
+    if (!rd.criminal) this.game.police.crime('assault', 1, new THREE.Vector3(p.x, p.y, p.z));
+    return true;
+  }
+
+  killRagdoll(rd, dir = new THREE.Vector3(), point = null) {
+    if (!rd || rd.dead || rd.arrested || !this.ragdolls.includes(rd)) return false;
+    rd.dead = true;
+    const t = rd.torso.body.translation(), pos = new THREE.Vector3(t.x, t.y, t.z);
+    if (this.blood) this.blood.onKill(rd, point ? new THREE.Vector3().copy(point) : pos, dir);
+    if (rd.cop) { rd.cop.arrestTarget = null; rd.cop.state = 'patrol'; this.setMarker(rd.cop, null); rd.cop = null; }
+    if (!rd.criminal) this.game.police.crime(rd.role === 'cop' ? 'copkill' : 'murder', rd.role === 'cop' ? 3 : 2, pos);
+    this.game.sfx.play('thud');
+    return true;
+  }
+
+  // A criminal lying out cold: the nearest free officer comes to cuff them (one is sent if
+  // there's nobody about), and the police tip you for the help.
+  updateArrests(dt) {
+    const g = this.game;
+    if (g.net?.mirroring) return; // (multiplayer: the host's cops do it)
+    for (const rd of this.ragdolls) {
+      if (rd.dead || !rd.criminal || rd.arrested || !this.sb.props.has(rd.torso)) continue;
+      if (rd.cop && (!this.list.includes(rd.cop) || rd.cop.arrestTarget !== rd)) rd.cop = null;
+      if (rd.cop) { // (taking too long getting there? radio for someone closer)
+        rd.copT = (rd.copT || 0) + dt;
+        if (rd.copT > 30 && !rd.called) { rd.cop.arrestTarget = null; rd.cop.state = 'patrol'; this.setMarker(rd.cop, null); rd.cop = null; rd.waitT = 5; }
+        else continue;
+      }
+      rd.waitT = (rd.waitT || 0) + dt;
+      if (rd.waitT < 2) continue;
+      const p = rd.torso.body.translation();
+      let best = null, bd = rd.copT > 30 ? 0 : 130;
+      for (const n of this.list) {
+        if (n.role !== 'cop' || n.arrestTarget || n.mirror || n.state === 'chase' || n.leaving || n.hostage || n.island !== rd.island) continue;
+        const q = n.body.translation(), d = Math.hypot(q.x - p.x, q.z - p.z);
+        if (d < bd) { bd = d; best = n; }
+      }
+      if (!best && rd.waitT > 5 && !rd.called) { // nobody near: radio one in (out of sight)
+        rd.called = true;
+        const isl = islandAt(p.x, p.z, 4)?.id;
+        if (['city', 'town', 'hood', 'park'].includes(isl)) {
+          const at = this.randomPointOn(isl, new THREE.Vector3(p.x, 0, p.z), 70, 35);
+          best = at && this.spawnCitizen(isl, 'cop', at);
+          if (best) best.ambient = true;
+        }
+      }
+      if (!best) continue;
+      best.arrestTarget = rd; best.state = 'arrest'; best.cuffT = 0;
+      rd.cop = best; rd.copT = 0;
+      this.setMarker(best, 'cop');
+    }
+  }
+
+  arrest(cop, rd) {
+    const g = this.game;
+    rd.arrested = true;
+    cop.arrestTarget = null; cop.state = 'patrol';
+    this.setMarker(cop, null);
+    for (const p of rd.parts) this.sb.remove(p);
+    this.ragdolls.splice(this.ragdolls.indexOf(rd), 1);
+    g.sfx.play('select');
+    const t = cop.body.translation(), pp = g.shorePlayer.body.translation();
+    const near = Math.hypot(t.x - pp.x, t.z - pp.z) < 90;
+    if (near && !g.health.dead && !(g.police.wanted > 0)) {
+      g.economy.addMoney(rd.reward, `police tip for the ${rd.what}`);
+      g.hud.toast(`Officer: "We'll take it from here. Thanks for the help." (+$${rd.reward})`, 0x9ec5ff);
+      g.sfx.play('cash');
+    } else if (near) g.hud.toast(`The police hauled the ${rd.what} away`, 0x9ec5ff);
+    g.news?.add?.(`Police arrested a ${rd.what} ${g.news.place ? 'in ' + g.news.place(new THREE.Vector3(t.x, t.y, t.z)) : ''}${rd.what === 'gang member' ? ', found out cold on the street' : ''}.`, 'crime');
   }
 
   flee(npc, from, seconds) {
@@ -172,7 +298,7 @@ export class Citizens extends Npcs {
     }
     if (npc.role === 'cop' || npc.role === 'gang') return;
     // someone dragging a body around in plain sight
-    if (playerVisible && g.dragging && Math.hypot(pp.x - t.x, pp.z - t.z) < 30) {
+    if (playerVisible && g.dragging && !g.dragging.prop?.ragdoll?.criminal && Math.hypot(pp.x - t.x, pp.z - t.z) < 30) {
       this.flee(npc, pp, 10); npc.reportT = 2; npc.reportSev = 2; npc.reportPos = new THREE.Vector3(pp.x, pp.y, pp.z); npc.reportSeen = true; npc.reportWhy = 'body';
       return;
     }
@@ -180,7 +306,7 @@ export class Citizens extends Npcs {
     // blood or a body nearby: go and look
     let found = null;
     for (const rd of this.ragdolls) {
-      if (npc.seen.has(rd.id) || !this.sb.props.has(rd.torso)) continue;
+      if (npc.seen.has(rd.id) || rd.criminal || !this.sb.props.has(rd.torso)) continue;
       const p = rd.torso.body.translation();
       if (Math.hypot(p.x - t.x, p.z - t.z) < 18 && this.canSee(npc, p, 18)) { found = { key: rd.id, pos: new THREE.Vector3(p.x, p.y, p.z), body: true }; break; }
     }
@@ -220,7 +346,7 @@ export class Citizens extends Npcs {
         v.y = Math.max(v.y, 0) + 2;
         const tp = worst.prop.body.translation();
         this.knockOver(npc, v, 4, { killed: true, point: new THREE.Vector3(t.x, t.y + 0.3, t.z), dir: new THREE.Vector3(t.x - tp.x, 0, t.z - tp.z) });
-        g.police.crime('murder', 2, new THREE.Vector3(t.x, t.y, t.z));
+        if (!isCriminal(npc)) g.police.crime('murder', 2, new THREE.Vector3(t.x, t.y, t.z));
         continue;
       }
       if (npc.mirror && g.net) { g.net.followPed(npc, dt); continue; } // (multiplayer: the host moves this one)
@@ -308,6 +434,20 @@ export class Citizens extends Npcs {
             g.police.copShoots(npc, pp);
           }
           if (!playerVisible && npc.lastSeen && Math.hypot(npc.lastSeen.x - t.x, npc.lastSeen.z - t.z) < 2) { npc.lastSeen = null; npc.state = 'patrol'; }
+        } else if (npc.arrestTarget) {
+          // cuffing someone you knocked out
+          const rd = npc.arrestTarget;
+          if (rd.dead || rd.arrested || !this.sb.props.has(rd.torso)) { npc.arrestTarget = null; npc.state = 'patrol'; this.setMarker(npc, null); }
+          else {
+            const p = rd.torso.body.translation();
+            want = new THREE.Vector3(p.x - t.x, 0, p.z - t.z);
+            const d = want.length();
+            if (d > 1.4) { want.normalize(); speed = d > 12 ? 4.4 : 2.2; npc.cuffT = 0; }
+            else {
+              npc.heading = Math.atan2(want.x, want.z); want = null;
+              if (g.dragging?.prop?.ragdoll !== rd) { npc.cuffT = (npc.cuffT || 0) + dt; if (npc.cuffT > 2.5) this.arrest(npc, rd); }
+            }
+          }
         } else if (npc.state === 'investigate' && npc.target) {
           want = new THREE.Vector3(npc.target.x - t.x, 0, npc.target.z - t.z);
           if (want.length() < 2) { npc.state = 'patrol'; npc.target = null; npc.idle = 4; this.setMarker(npc, '?'); }
@@ -574,6 +714,7 @@ export class Citizens extends Npcs {
   }
 
   frame(dt) {
+    this.updateArrests(dt);
     for (const npc of this.list) {
       const t = npc.body.translation();
       npc.fig.root.position.set(t.x, t.y, t.z);

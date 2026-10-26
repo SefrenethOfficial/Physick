@@ -393,7 +393,76 @@ export const ITEMS = [
     return { mesh: g, colliders: [RAPIER.ColliderDesc.cuboid(0.095, 0.05, 0.035)], density: 300 };
   } },
   { id: 'console', name: 'Game Console', radius: 0.18, weight: 2, build: () => labelBox(0.3, 0.06, 0.24, '#151515', '#3a8aff', '') },
+  // ---- what particular people carry (see Citizens.specialLoot) ----
+  // shop keys: open that kind of shop's till when nobody's behind the counter
+  ...[['grocery', 'Grocery Store'], ['liquor', 'Liquor Store'], ['electronics', 'Electronics Store'], ['hardware', 'Hardware Store'], ['pharmacy', 'Pharmacy'], ['pawn', 'Pawn Shop'], ['diner', 'Diner']].map(([theme, name]) => (
+    { id: `key_${theme}`, name: `${name} Keys`, radius: 0.06, weight: 0.1, shopKey: theme, heldSize: 0.12, build: () => keysMesh() })),
+  { id: 'keycard', name: 'Bank Keycard', radius: 0.06, weight: 0.05, build: () => labelBox(0.085, 0.054, 0.004, '#1f3b2e', '#e8d48a', 'VERIAN') },
+  { id: 'badge', name: 'Police Badge', radius: 0.06, weight: 0.1, build: () => badgeMesh() },
+  { id: 'cuffs', name: 'Handcuffs', radius: 0.08, weight: 0.3, build: () => cuffsMesh() },
+  { id: 'chain', name: 'Kings Gold Chain', radius: 0.1, weight: 0.2, build: () => ringMesh(0.09, 0.012, 0xe8c547) },
+  { id: 'bandana', name: 'Hollow Boys Bandana', radius: 0.1, weight: 0.1, build: () => labelBox(0.22, 0.02, 0.22, '#3a7ad9', '#f2f2ee', '✕') },
+  { id: 'knuckles', name: 'Brass Knuckles', radius: 0.08, weight: 0.4, melee: 55, heldSize: 0.12, build: () => knucklesMesh() },
+  { id: 'signet', name: 'Ashen Hand Signet Ring', radius: 0.04, weight: 0.05, build: () => ringMesh(0.02, 0.006, 0x8a1a1a) },
+  { id: 'burner', name: 'Burner Phone', radius: 0.07, weight: 0.2, build: () => labelBox(0.05, 0.11, 0.018, '#2a2a2a', '#6aff8a', '') },
+  { id: 'notice', name: 'Bounty Notice', radius: 0.12, weight: 0.05, build: () => labelBox(0.21, 0.29, 0.003, '#efe4c8', '#5a1a10', 'WANTED') },
+  { id: 'sax', name: 'Saxophone', radius: 0.3, weight: 2, heldSize: 0.4, build: () => saxMesh() },
+  { id: 'cone', name: 'Ice Cream Cone', radius: 0.06, weight: 0.1, use: 'eat', heal: 10, build: () => coneMesh() },
 ];
+
+function ringMesh(r, t, color) {
+  const m = new THREE.Mesh(new THREE.TorusGeometry(r, t, 8, 24), std({ color, metalness: 0.9, roughness: 0.25 }));
+  m.rotation.x = Math.PI / 2;
+  const g = new THREE.Group(); g.add(m);
+  return { mesh: g, colliders: [RAPIER.ColliderDesc.cylinder(t, r + t)], density: 900 };
+}
+function keysMesh() {
+  const g = new THREE.Group();
+  const metal = std({ color: 0xc8c0a0, metalness: 0.85, roughness: 0.3 });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.02, 0.003, 6, 16), metal); g.add(ring);
+  for (const [a, len] of [[-0.4, 0.06], [0.3, 0.05]]) {
+    const k = new THREE.Group(); k.rotation.z = a;
+    const bow = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.004, 12), metal); bow.rotation.x = Math.PI / 2; bow.position.y = -0.03; k.add(bow);
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.007, len, 0.003), metal); blade.position.y = -0.03 - len / 2; k.add(blade);
+    g.add(k);
+  }
+  const tag = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.045, 0.003), std({ color: 0xd8402a })); tag.position.set(0.025, -0.035, 0); g.add(tag);
+  return { mesh: g, colliders: [RAPIER.ColliderDesc.cuboid(0.035, 0.05, 0.008)], density: 900 };
+}
+function badgeMesh() {
+  const g = new THREE.Group();
+  const gold = std({ color: 0xe8c547, metalness: 0.9, roughness: 0.25 });
+  const star = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.005, 6), gold); star.rotation.x = Math.PI / 2; g.add(star);
+  const wallet = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.1, 0.008), std({ color: 0x2a1a10 })); wallet.position.z = -0.006; g.add(wallet);
+  return { mesh: g, colliders: [RAPIER.ColliderDesc.cuboid(0.035, 0.05, 0.008)], density: 700 };
+}
+function cuffsMesh() {
+  const g = new THREE.Group();
+  const steel = std({ color: 0xb8bcc0, metalness: 0.9, roughness: 0.3 });
+  for (const x of [-0.04, 0.04]) { const c = new THREE.Mesh(new THREE.TorusGeometry(0.032, 0.006, 6, 16), steel); c.position.x = x; c.rotation.x = Math.PI / 2; g.add(c); }
+  return { mesh: g, colliders: [RAPIER.ColliderDesc.cuboid(0.08, 0.008, 0.04)], density: 900 };
+}
+function knucklesMesh() {
+  const g = new THREE.Group();
+  const brass = std({ color: 0xc8a040, metalness: 0.9, roughness: 0.3 });
+  for (let i = 0; i < 4; i++) { const c = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.005, 6, 12), brass); c.position.x = (i - 1.5) * 0.026; g.add(c); }
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.012, 0.012), brass); bar.position.y = -0.018; g.add(bar);
+  return { mesh: g, colliders: [RAPIER.ColliderDesc.cuboid(0.05, 0.02, 0.008)], density: 900 };
+}
+function saxMesh() {
+  const g = new THREE.Group();
+  const brass = std({ color: 0xd8a83a, metalness: 0.9, roughness: 0.25 });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.022, 0.5, 12), brass); g.add(body);
+  const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.04, 0.12, 14, 1, true), brass); bell.position.set(0.05, -0.25, 0); bell.rotation.z = -1.1; g.add(bell);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.018, 0.14, 8), brass); neck.position.set(-0.03, 0.29, 0); neck.rotation.z = 0.7; g.add(neck);
+  return { mesh: g, colliders: [RAPIER.ColliderDesc.cuboid(0.06, 0.3, 0.05)], density: 400 };
+}
+function coneMesh() {
+  const g = new THREE.Group();
+  const c = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.12, 12), std({ color: 0xd8a060 })); c.rotation.x = Math.PI; g.add(c);
+  const s = new THREE.Mesh(new THREE.SphereGeometry(0.038, 12, 10), std({ color: 0xf6b6cf })); s.position.y = 0.07; g.add(s);
+  return { mesh: g, colliders: [RAPIER.ColliderDesc.cylinder(0.08, 0.04)], density: 300 };
+}
 
 function canMesh(r, h, color, label) {
   const g = new THREE.Group();
@@ -492,6 +561,8 @@ export const VALUES = {
   radio: 60, camera: 180, handbag: 90, vase: 110, cash: 100, bat: 30,
   pistol: 250, smg: 900, shotgun: 600, grenade: 100, armor: 150,
   soda: 2, energy: 3, water: 2, beer: 4, wine: 25, whiskey: 40, chips: 3, cereal: 5, canned: 3, pills: 15, burger: 8, headphones: 80, console: 300,
+  key_grocery: 15, key_liquor: 15, key_electronics: 15, key_hardware: 15, key_pharmacy: 15, key_pawn: 15, key_diner: 15,
+  keycard: 400, badge: 150, cuffs: 30, chain: 260, bandana: 15, knuckles: 45, signet: 300, burner: 60, notice: 5, sax: 250, cone: 2,
 };
 export const LOOT_COMMON = ['wallet', 'phone', 'handbag', 'radio', 'mug', 'flashlight', 'rope', 'wrench', 'camera', 'bat'];
 export const LOOT_RARE = ['watch', 'necklace', 'laptop', 'tv', 'painting', 'vase', 'cash', 'goldbar'];

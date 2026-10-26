@@ -67,6 +67,7 @@ import { Car, clearSpot } from './carphys.js';
 import { Underworld } from './underworld.js';
 import { ChaseMusic } from './music.js';
 import { mpSession, seedRandom, setMpSession } from './netseed.js';
+import { isCriminal } from './citizens.js';
 import { bindLobby, linkSession } from './lobby.js';
 import { Net } from './net.js';
 
@@ -377,6 +378,7 @@ class Game {
     const right = new THREE.Vector3().crossVectors(base, new THREE.Vector3(0, 1, 0)).normalize();
     const muzzle = eye.clone().addScaledVector(base, 0.7).addScaledVector(right, 0.22).add(new THREE.Vector3(0, -0.2, 0));
     this.fx.flash(toWorld(muzzle), 0xffc060, 1.2, 0.05);
+    let crookHit = false; // (shooting at gangsters isn't something anyone calls the police about)
     for (let k = 0; k < G.pellets; k++) {
       const dir = base.clone().add(new THREE.Vector3((Math.random() - 0.5) * 2 * G.spread, (Math.random() - 0.5) * 2 * G.spread, (Math.random() - 0.5) * 2 * G.spread)).normalize();
       let hit = this.sb.raycast(eye, dir, G.range, this.player.collider);
@@ -393,10 +395,16 @@ class Game {
       }
       const set = this.onShore ? this.citizens : this.npcs;
       if (hit.npc && set.list.includes(hit.npc)) {
+        if (this.onShore && isCriminal(hit.npc)) crookHit = true;
         set.damage(hit.npc, G.dmg, dir.clone().setY(0).normalize(), hit.point);
         for (let i = 0; i < 4; i++) this.fx.emit(toWorld(hit.point), dir.clone().multiplyScalar(2).add(new THREE.Vector3(Math.random() - 0.5, Math.random(), Math.random() - 0.5)), 0x8a0a0a, 0.4, 1, 0);
       } else if (hit.prop) {
         hit.prop.body.applyImpulseAtPoint(dir.clone().multiplyScalar(G.dmg * 0.02), hit.point, true);
+        const rd = this.onShore && hit.prop.ragdoll;
+        if (rd && !rd.dead && this.citizens.hurtRagdoll(rd, G.dmg, dir.clone().setY(0).normalize(), hit.point)) { // someone out cold
+          if (rd.criminal) crookHit = true;
+          for (let i = 0; i < 3; i++) this.fx.emit(hit.point, dir.clone().multiplyScalar(2).add(new THREE.Vector3(Math.random() - 0.5, Math.random(), Math.random() - 0.5)), 0x8a0a0a, 0.4, 1, 0);
+        }
       } else {
         if (this.onShore && this.bank.hitATM(hit.collider, G.dmg)) continue;
         const car = this.onShore && this.carByCollider(hit.collider);
@@ -407,7 +415,7 @@ class Game {
     if (this.onShore) {
       const p = this.player.body.translation();
       this.citizens.alarm(p, 45);
-      if (this.time - (this.lastShotCrime || -9) > 0.6) { this.lastShotCrime = this.time; this.police.crime('shooting', 1, new THREE.Vector3(p.x, p.y, p.z)); }
+      if (!crookHit && this.time - (this.lastShotCrime || -9) > 0.6) { this.lastShotCrime = this.time; this.police.crime('shooting', 1, new THREE.Vector3(p.x, p.y, p.z)); }
     }
     this.refreshHolding();
   }
@@ -444,8 +452,14 @@ class Game {
       const d = Math.hypot(t.x - p.x, t.y - p.y, t.z - p.z);
       if (d > radius) continue;
       const v = new THREE.Vector3(t.x - p.x, 0, t.z - p.z).normalize().multiplyScalar(12 * (1 - d / radius) + 3); v.y = 6;
+      const crook = isCriminal(n);
       this.citizens.knockOver(n, v, 8, { killed: true, point: new THREE.Vector3(t.x, t.y, t.z), dir: v.clone() });
-      if (crime) this.police.crime(n.role === 'cop' ? 'copkill' : 'murder', n.role === 'cop' ? 3 : 2, new THREE.Vector3(t.x, t.y, t.z));
+      if (crime && !crook) this.police.crime(n.role === 'cop' ? 'copkill' : 'murder', n.role === 'cop' ? 3 : 2, new THREE.Vector3(t.x, t.y, t.z));
+    }
+    for (const rd of [...this.citizens.ragdolls]) { // anyone lying out cold in it
+      if (rd.dead || !this.portSandbox.props.has(rd.torso)) continue;
+      const t = rd.torso.body.translation();
+      if (Math.hypot(t.x - p.x, t.y - p.y, t.z - p.z) < radius) this.citizens.killRagdoll(rd, new THREE.Vector3(t.x - p.x, 0, t.z - p.z).normalize());
     }
     for (const pr of this.portSandbox.props) {
       const t = pr.body.translation();
@@ -569,10 +583,12 @@ class Game {
       const set = this.onShore ? this.citizens : this.npcs;
       if (!set.list.includes(hit.npc)) return;
       this.sfx.play('punch');
-      set.damage(hit.npc, melee || 34, dir.clone().setY(0).normalize(), hit.point);
+      set.damage(hit.npc, melee || 34, dir.clone().setY(0).normalize(), hit.point, { ko: !melee && this.onShore }); // (fists knock people out; it takes a weapon to kill)
       this.fx.emit(hit.point, dir.clone().multiplyScalar(-2), 0xff4040, 0.3, 1, 0);
     } else if (hit.prop) {
       this.sfx.play('punch');
+      const rd = this.onShore && hit.prop.ragdoll;
+      if (rd && !rd.dead) this.citizens.hurtRagdoll(rd, melee || 20, dir.clone().setY(0).normalize(), hit.point); // kicking someone who's down
       hit.prop.body.applyImpulseAtPoint(dir.multiplyScalar(melee ? 6 : 3), hit.point, true);
     } else if (!(this.onShore && this.bank.hitATM(hit.collider, melee ? melee * 0.6 : 12))) this.sfx.play('impact');
   }
@@ -592,7 +608,7 @@ class Game {
     if (!loot.cash && !loot.items.length) this.hud.toast('Nothing on them');
     if (dropped) this.hud.toast('Bag full — dropped the rest', 0xff8a6a);
     const t = rd.torso.body.translation();
-    this.police.crime('theft', 1, new THREE.Vector3(t.x, t.y, t.z));
+    if (!rd.criminal) this.police.crime('theft', 1, new THREE.Vector3(t.x, t.y, t.z));
   }
 
   // Living townsperson you're looking at, and whether you're behind them.
@@ -902,8 +918,10 @@ class Game {
       const set = this.onShore ? this.citizens : this.npcs;
       if (!set.list.includes(hit.npc)) return false;
       const t = hit.npc.body.translation();
+      const crook = isCriminal(hit.npc);
       const rd = set.knockOver(hit.npc, new THREE.Vector3(), 0.5, { killed: false });
-      if (this.onShore) this.police.crime('assault', 1, new THREE.Vector3(t.x, t.y, t.z));
+      if (this.onShore && !crook) this.police.crime('assault', 1, new THREE.Vector3(t.x, t.y, t.z));
+      if (this.onShore && crook) this.hud.toast(`Out cold. Leave the ${rd.what} and a cop will come and arrest them`, 0x9ec5ff);
       hit = { ...hit, prop: rd.torso, point: rd.torso.mesh.position.clone() };
     }
     const prop = hit?.prop;
@@ -1037,6 +1055,7 @@ class Game {
       const owed = this.stores.unpaid.some((u) => u.st === st);
       return { label: owed ? 'Pay at the counter' : st.theme === 'diner' ? 'Order food' : st.theme === 'office' ? 'Talk to reception' : st.theme === 'hospital' ? 'See the doctor' : st.theme === 'police' ? 'Front desk' : 'Talk to the clerk', run: () => this.stores.open(st) };
     }
+    if (st && !this.stores.clerkOK(st)) { const key = this.stores.keyFor(st); if (key) return { label: `Open the till with the ${key.name}`, run: () => this.stores.openTill(st) }; }
     const atm = this.bank.nearATM(pos);
     if (atm) return { label: 'Use the ATM', run: () => this.bank.open(true) };
     if (dealer) return { label: `Talk to ${dealer.title.split(' ')[0].replace(/[^\w']/g, '')}`, run: () => this.underworld.open(dealer) };
@@ -1045,7 +1064,7 @@ class Game {
     const hit = this.lookHit(3);
     const rd = hit?.prop?.ragdoll;
     if (rd && this.citizens.ragdolls.includes(rd)) {
-      return rd.searched ? null : { label: `Search the ${rd.dead ? 'body' : 'unconscious ' + (rd.role === 'cop' ? 'officer' : 'person')}`, run: () => this.searchBody(rd) };
+      return rd.searched ? null : { label: `Search the ${rd.dead ? 'body' : 'unconscious ' + (rd.what || 'person')}${!rd.dead && rd.criminal ? ' (a cop will come and arrest them)' : ''}`, run: () => this.searchBody(rd) };
     }
     const pk = this.pickTarget();
     if (pk && !pk.npc.pickpocketed) {

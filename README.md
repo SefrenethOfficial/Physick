@@ -174,7 +174,18 @@ Press `M` for the full map: every island, road, trail and landmark, the shops an
 
 ## Crime and the police
 
-- **Punch** (`LMB` with an empty hand) or swing a bat; **grab** someone (`RMB`) to knock them out. Kill someone and you can **search the body** (`E`) for cash and valuables.
+- **Punch** (`LMB` with an empty hand) or swing a bat; **grab** someone (`RMB`) to knock them out. Bare fists knock people out cold instead of killing them; it takes a weapon to kill. **Search** anyone lying on the ground, out cold or dead (`E`), for cash and valuables.
+- **Out cold isn't safe:** someone lying unconscious can still be shot, kicked, run over or caught in an explosion, and that kills them. It counts as murder, unless they were a criminal.
+- **Criminals** (gang members and the Ashen Hand's people, raiders and bounty hunters included): nobody calls the police when you shoot, beat, run over or kill one, or when you search their body. Knock one out and leave them: the nearest free officer in that area walks over and cuffs them (if there's nobody about, one is radioed in). If you're nearby and not wanted yourself, the officer tips you for the help: $60 for a gang member, $120 for an Ashen Hand thug, $200 for a bounty hunter. The gang still holds a grudge.
+- **What people carry:** besides the usual wallets and phones:
+  - **Shop clerks** have their shop's **keys** and something off their shelves, and armed clerks may have the shotgun from under the counter. With the keys (in your hand or bag), stand at that kind of shop's counter while nobody's behind it and press `E` to open the till quietly: no alarm, no witnesses. The till refills after five minutes.
+  - **Bank tellers** carry a keycard; the police front desk has a badge and cuffs.
+  - **Officers** carry a **badge**, sometimes **handcuffs** and a pistol; SWAT sometimes carry body armour or an SMG.
+  - **Eastside Kings** wear **gold chains** and **Hollow Boys** **bandanas**. Either may carry **brass knuckles** (a melee weapon) or a pistol.
+  - **The Ashen Hand** carry **signet rings** and **burner phones**, and bounty hunters a **bounty notice** with your face on it.
+  - **The sax player** carries his **saxophone**, and the ice cream mascot a cone or two.
+  
+  It all sells at the pawn shop.
 - **Pick pockets:** get behind someone and hold `E`. If they notice, they run and call the police.
 - **Witnesses:** anyone who sees a crime runs and phones it in. Townspeople who find **blood or a body** go to look, then call the police, and if you're standing around nearby they'll describe you. People also notice you dragging a body around. Mops (in the plaza, the market and on the fishing dock) clean blood off the street.
 - **Wanted level** (1–20 stars): officers on foot, then squad cars that chase you down the streets and run you over, and at sea police boats that ram your boat. From 2 stars they hit back, from 3 they shoot (at you, and at the car you're in). Stay out of sight and the stars drain away; flying a jet loses them. From 5 stars, every stretch they keep eyes on you makes it worse.

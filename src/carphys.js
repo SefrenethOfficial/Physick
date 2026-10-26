@@ -454,10 +454,16 @@ export function runOver(g, car, byPlayer) {
     if (!inBox(t.x, t.z)) continue;
     const v = f.clone().multiplyScalar(car.speed * 1.1); v.y = 3 + Math.abs(car.speed) * 0.15;
     const lethal = Math.abs(car.speed) > 8;
-    const cop = n.role === 'cop';
+    const cop = n.role === 'cop', crook = n.role === 'gang' || n.role === 'goon';
     g.citizens.knockOver(n, v, 5, { killed: lethal, point: new THREE.Vector3(t.x, t.y, t.z), dir: f.clone() });
-    if (byPlayer) g.police.crime(lethal ? (cop ? 'copkill' : 'murder') : 'assault', lethal ? (cop ? 3 : 2) : 1, new THREE.Vector3(t.x, t.y, t.z));
+    if (byPlayer && !crook) g.police.crime(lethal ? (cop ? 'copkill' : 'murder') : 'assault', lethal ? (cop ? 3 : 2) : 1, new THREE.Vector3(t.x, t.y, t.z));
     else g.sfx.play('honk');
     car.damage(2);
+  }
+  // running over someone lying out cold
+  if (Math.abs(car.speed) > 8) for (const rd of [...g.citizens.ragdolls]) {
+    if (rd.dead || !g.portSandbox.props.has(rd.torso)) continue;
+    const t = rd.torso.body.translation();
+    if (Math.abs(t.y - car.pos.y - 0.5) < 1.5 && inBox(t.x, t.z)) g.citizens.killRagdoll(rd, f.clone());
   }
 }
