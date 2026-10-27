@@ -5,7 +5,7 @@ import { httpUrl } from './net.js';
 // Joining reloads the page, because everyone in a room has to build the same world from its seed.
 
 // Where the server lives, if you haven't typed one in. (Set this once the server is deployed.)
-export const DEFAULT_SERVER = '';
+export const DEFAULT_SERVER = 'https://physick-server.onrender.com';
 
 const SERVER_KEY = 'physick.mp.server';
 const NAME_KEY = 'physick.mp.name';

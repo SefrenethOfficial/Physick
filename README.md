@@ -200,7 +200,7 @@ Press `M` for the full map: every island, road, trail and landmark, the shops an
 
 Up to **8 players** share one city: the same streets and shops, the same traffic and the same people on the pavements. Everyone keeps their own money, cars, homes and story.
 
-- **Getting in:** on the title (or pause) screen, press **Multiplayer**, type in the server address and your name, then **Create a room**. You get a 4-letter room code; friends type it in and press **Join room**, or open the invite link (**Copy invite link**). The page reloads to build the room's city.
+- **Getting in:** on the title (or pause) screen, press **Multiplayer**, type your name, then **Create a room** (the server address is filled in already). You get a 4-letter room code; friends type it in and press **Join room**, or open the invite link (**Copy invite link**). The page reloads to build the room's city.
 - **Who runs the city:** the first player in is the *host*. Their game drives the traffic and walks the pedestrians, and everyone else sees the same thing. Shoot someone, run them over or steal a car, and the host's game is told. If the host leaves or switches to another tab (browsers pause background tabs), the server hands the city to someone else. Their game carries on from what it was showing, and the clock follows the host's.
 - **Other players:** you see them walking, driving, riding, boating and flying, with their name over their head and a pink dot on the map. You can shoot and punch each other, run each other over and catch each other in explosions. A kill is announced to everyone and pays the killer $250. Leave a car about and someone can steal it (bought cars are locked). The cops chasing a player are that player's, but everyone sees them, and anyone can shoot them.
 - **Chat:** press **Enter**, type, then **Enter** again (**Esc** cancels). Joins, leaves, kills and car thefts show in the same feed.
@@ -212,7 +212,7 @@ The game is a static site, so the multiplayer server runs separately. It's a sma
 
 - **Render (free):** on [render.com](https://render.com), choose **New → Blueprint**, pick this repository, and it deploys from `render.yaml`. Your server address is the `https://…onrender.com` URL it gives you. Free servers go to sleep when nobody's playing, so the first room of the day takes up to a minute while it wakes up.
 - **Anywhere else:** `cd server && npm install && npm start` (port `PORT`, default 8090), or use the `Dockerfile`. Put it behind HTTPS (the game is served over HTTPS, so it can only talk to a `https://` / `wss://` server).
-- To skip typing the address, set `DEFAULT_SERVER` in `src/lobby.js`.
+- The game's default server is `https://physick-server.onrender.com` (set in `DEFAULT_SERVER` in `src/lobby.js`), so players don't need to type an address.
 
 ## Graphics settings
 
