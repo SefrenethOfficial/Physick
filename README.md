@@ -204,6 +204,7 @@ Up to **8 players** share one city: the same streets and shops, the same traffic
 - **Who runs the city:** the first player in is the *host*. Their game drives the traffic and walks the pedestrians, and everyone else sees the same thing. Shoot someone, run them over or steal a car, and the host's game is told. If the host leaves or switches to another tab (browsers pause background tabs), the server hands the city to someone else. Their game carries on from what it was showing, and the clock follows the host's.
 - **Other players:** you see them walking, driving, riding, boating and flying, with their name over their head and a pink dot on the map. You can shoot and punch each other, run each other over and catch each other in explosions. A kill is announced to everyone and pays the killer $250. Leave a car about and someone can steal it (bought cars are locked). The cops chasing a player are that player's, but everyone sees them, and anyone can shoot them.
 - **Chat:** press **Enter**, type, then **Enter** again (**Esc** cancels). Joins, leaves, kills and car thefts show in the same feed.
+- **Always a clear day:** in a room it's always early afternoon, with no rain, storms or fog, and the distance haze is pushed right back. Your single-player clock and weather aren't touched.
 - **Not shared:** missions, gangs, shop clerks and the highway traffic run separately in each game. Inside homes and underground you're hidden from the others.
 
 ### Running the server

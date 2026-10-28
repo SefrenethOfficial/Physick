@@ -432,7 +432,7 @@ export class Net {
     if (!g.traffic || !g.citizens || !g.started && !g.hud) return; // (still loading)
     for (const [nid, t] of this.gone) if (now - t > 8) this.gone.delete(nid);
     // the time of day
-    if (g.daynight && m.tod != null && Math.abs(g.daynight.hour - m.tod) > 0.05) g.daynight.hour = m.tod;
+    // (the clock: multiplayer rooms are always a clear afternoon, see DayNight.fixed)
     // traffic
     const seen = new Set();
     for (const [nid, spec, x, y, z, h, vx, vz, wreck] of m.cars || []) {

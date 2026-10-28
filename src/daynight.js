@@ -119,9 +119,19 @@ export class DayNight {
     g.news?.add(`Weather update: ${{ clear: 'clearing up nicely', cloudy: 'clouds rolling in', rain: 'rain moving in, roads will be slick', storm: 'a storm is hitting Verian, stay off the bridge', fog: 'thick fog over the strait' }[kind]}.`, 'weather');
   }
 
+  // Multiplayer rooms: always a clear early afternoon, with the haze pushed right back.
+  get fixed() { return !!this.game.net; }
+
   update(dt) {
     const g = this.game;
     if (!g.started || g.title?.active) dt = 0; // the clock waits for you
+    if (this.fixed) {
+      this.hour = 13; this.kind = 'clear'; this.nextChange = 99;
+      const v = g.view || { far: 6000, fogFar: 2400 };
+      Object.assign(this.w, { cloud: 0, rain: 0, fog: Math.min(3, (v.far * 0.95) / v.fogFar) }); // (as far as you can see, no further)
+      dt = 0; // (and no saving it over your single-player clock)
+      this.saveT = 1e9;
+    }
     const was = this.hour;
     this.hour = (this.hour + dt * this.rate) % 24;
     if (this.hour < was) this.dayCount = (this.dayCount || 0) + 1;
