@@ -568,9 +568,11 @@ export class Act2 {
     const meetNode = { i: R.xs.length - 1, j: 0 }; // the end of the south street, where the road runs out to the scrapyard
     const nodeAt = (n) => V3(R.xs[n.i], Y, R.zs[n.j]);
     // his office: a tower lobby a few blocks from the docks
-    const offices = C.interiors.filter((i) => i.kind === 'lobby' && /TRUST|CALLOWAY|HALCYON|OFFICES/.test(i.name || ''));
-    const pool = offices.length ? offices : C.interiors.filter((i) => i.kind === 'lobby' && !/POLICE|HOSPITAL/.test(i.name || ''));
-    const off = pool.reduce((b, i) => (Math.abs(i.door.distanceTo(nodeAt(meetNode)) - 280) < Math.abs(b.door.distanceTo(nodeAt(meetNode)) - 280) ? i : b), pool[0]);
+    // (the city is different every time: any office tower will do, else any shop front, else a street corner)
+    const offices = C.interiors.filter((i) => (i.kind === 'lobby' || i.kind === 'office') && i.door && /TRUST|CALLOWAY|HALCYON|OFFICES/.test(i.name || ''));
+    const pool = offices.length ? offices : C.interiors.filter((i) => i.door && !/POLICE|HOSPITAL|SCOOPS/.test(i.name || ''));
+    const score = (i) => Math.abs(i.door.distanceTo(nodeAt(meetNode)) - 280);
+    const off = pool.length ? pool.reduce((b, i) => (score(i) < score(b) ? i : b)) : { door: V3(R.xs[1] + 10, Y, R.zs[2] + 10), name: 'OFFICES' };
     a.office = off;
     a.pikeDoor = off.door.clone();
     const out = off.inside ? V3(off.door.x - off.inside.x, 0, off.door.z - off.inside.z).normalize() : V3(0, 0, -1);
