@@ -566,3 +566,14 @@ body.pad-mode { cursor: none; }
 
 .flight .fkeys { margin-top: 6px; font-size: 11px; opacity: 0.75; text-align: right; }
 .flight .fkeys kbd { font-size: 10px; }
+
+/* Act II: the finale's target bracket */
+.a2-target { position: fixed; left: 0; top: 0; width: 46px; height: 46px; pointer-events: none; z-index: 30; display: none; border: 2px solid #ff4a3a; border-radius: 4px; box-shadow: 0 0 8px rgba(255, 60, 40, 0.6); }
+.a2-target.on { display: block; }
+.a2-target span { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 4px; font: 700 12px/1 system-ui, sans-serif; color: #ffd0c8; white-space: nowrap; text-shadow: 0 1px 2px #000; }
+.a2-target i { display: none; }
+.a2-target.edge { border-radius: 50%; width: 30px; height: 30px; }
+.a2-target.edge i { display: block; position: absolute; left: 50%; top: -12px; margin-left: -7px; border: 7px solid transparent; border-bottom: 11px solid #ff4a3a; transform-origin: 7px 27px; }
+.a2-target.lock { border-color: #ffd166; box-shadow: 0 0 14px rgba(255, 209, 102, 0.9); animation: a2pulse 0.5s infinite alternate; }
+.a2-target.lock span { color: #ffd166; font-size: 15px; }
+@keyframes a2pulse { from { box-shadow: 0 0 6px rgba(255, 209, 102, 0.5); border-width: 2px; } to { box-shadow: 0 0 22px rgba(255, 209, 102, 1); border-width: 4px; } }

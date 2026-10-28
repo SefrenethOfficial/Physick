@@ -256,6 +256,67 @@ export class Jet {
     g.jets.crashed(this);
   }
 
+  // Easy flying: arcade handling. The mouse turns (left/right) and climbs or dives (up/down); the
+  // plane banks into turns by itself and rolls level when you let go. It never stalls, it pulls
+  // itself up out of a dive near the ground or the sea, and the gear comes down on its own when
+  // you're low and slow over land. Returns true if it crashed.
+  easyFly(dt, ctl, thrust, gearDrag, ocean) {
+    const C = THREE.MathUtils.clamp;
+    if (!this.ez) { // pick up from wherever the realistic model (or the runway) left the plane
+      const e = new THREE.Euler().setFromQuaternion(this.quat, 'YXZ');
+      this.ez = { yaw: e.y, pitch: C(e.x, -1.2, 1.2), bank: 0, speed: Math.max(this.vel.length(), 50) };
+    }
+    const z = this.ez, ag = this.agility;
+    // the ground (or the sea) under you, and how long until you'd hit it
+    const g = landHeight(this.pos.x, this.pos.z);
+    const floor = g ?? ocean.heightAt(this.pos.x, this.pos.z);
+    const agl = this.pos.y - floor - GEAR_H;
+    const sink = Math.max(1, -z.speed * Math.sin(z.pitch));
+    if (g !== null && !this.gearDown && agl < 70 && z.speed < 95 && z.pitch < 0.05) { this.gearDown = true; this.game.hud.toast('Gear down (auto)'); this.game.sfx.play('telegraph'); }
+    const landing = g !== null && this.gearDown && z.speed < 95 && z.pitch > -0.3;
+    const assist = !landing && z.pitch < 0.1 && (agl < 45 || agl / sink < 4);
+    this.pullUp = assist;
+    const turn = C(-ctl.stick.x * 1.4 + ctl.steer * 0.7, -1, 1); // + = left
+    let climb = C(-ctl.stick.y * 1.4, -1, 1);
+    if (assist) climb = Math.max(climb, 0); // (it won't let you fly into the ground)
+    z.yaw += turn * 0.75 * ag * dt;
+    z.bank += (turn * 0.9 - z.bank) * Math.min(1, dt * 3);
+    z.pitch += climb * 0.8 * ag * dt;
+    // let go and the nose eases back towards level flight
+    // (low and slow with the gear down, it settles into a gentle glide onto the ground instead)
+    if (Math.abs(climb) < 0.05) z.pitch += ((landing && agl < 120 ? -0.06 : 0) - z.pitch) * Math.min(1, dt * 0.35);
+    if (assist) z.pitch += (0.15 - z.pitch) * Math.min(1, dt * 3);
+    z.pitch = C(z.pitch, -1.0, 1.0);
+    // speed: thrust against drag and the slope; never slower than a gentle glide
+    const drag = (CD0 + gearDrag) * z.speed * z.speed;
+    z.speed += (thrust - drag - G * Math.sin(z.pitch) * 0.6) * dt;
+    z.speed = Math.max(z.speed, 42);
+    if (landing && agl < 12) z.pitch = Math.max(z.pitch, -0.06); // flare
+    this.quat.setFromEuler(new THREE.Euler(z.pitch, z.yaw, z.bank, 'YXZ'));
+    this.vel.copy(this.fwd).multiplyScalar(z.speed);
+    this.stall = false;
+    const prev = this.pos.clone();
+    this.pos.addScaledVector(this.vel, dt);
+    // buildings, trees and hillsides still count
+    const seg = this.pos.clone().sub(prev), len = seg.length();
+    if (len > 0.01 && this.pos.y < LAND_Y + 400) {
+      const hit = this.game.portSandbox.raycast(prev, seg.divideScalar(len), len + 6, this.collider);
+      if (hit && hit.point.y > LAND_Y + 0.4 && hit.collider.handle !== this.wingCol.handle) { this.crash(); return true; }
+    }
+    if (g !== null && this.pos.y - GEAR_H <= g) {
+      if (!this.gearDown || z.pitch < -0.35 || Math.abs(z.bank) > 0.7) { this.crash(); return true; }
+      this.onGround = true;
+      this.yaw = z.yaw;
+      this.pitchG = Math.max(z.pitch, 0);
+      this.speed = z.speed * Math.cos(z.pitch);
+      this.pos.y = g + GEAR_H;
+      this.ez = null;
+      this.game.sfx.play('thud');
+      this.game.hud.toast('Touchdown! B to brake', 0x7be08a);
+    } else if (g === null && this.pos.y < ocean.heightAt(this.pos.x, this.pos.z) + 1.0) { this.crash('sea'); return true; }
+    return false;
+  }
+
   // ctl: null when parked, else { throttle: -1|0|1, ab, steer: -1..1, brake, stick: {x, y} }
   update(dt, ctl) {
     if (this.crashed) {
@@ -273,8 +334,9 @@ export class Jet {
 
     if (this.onGround) {
       // ---- rolling on the wheels ----
-      const steer = ctl ? ctl.steer : 0;
+      const steer = ctl ? ctl.steer - (ctl.easy ? ctl.stick.x * 1.5 : 0) : 0;
       const sp = this.speed;
+      this.ez = null;
       this.yaw += steer * 0.5 * Math.min(Math.abs(sp) / 5, 1) * THREE.MathUtils.clamp(1 - Math.abs(sp) / 110, 0.15, 1) * Math.sign(sp || 1) * dt;
       let acc = thrust - (CD0 + gearDrag) * sp * Math.abs(sp);
       const braking = !ctl || ctl.brake;
@@ -282,7 +344,7 @@ export class Jet {
       if (Math.abs(sp) < Math.abs(fric) * dt && thrust < 0.5) { this.speed = 0; acc = 0; } else acc -= fric;
       this.speed += acc * dt;
       // rotate for take-off once fast enough
-      const pull = ctl ? -ctl.stick.y : 0;
+      const pull = ctl ? (ctl.easy && this.throttle > 0.6 ? Math.max(0.6, -ctl.stick.y) : -ctl.stick.y) : 0; // (easy: it lifts off by itself at full power)
       if (this.speed > 58 && pull > 0.1) this.pitchG = Math.min(this.pitchG + pull * 0.5 * dt, 0.26);
       else this.pitchG = Math.max(this.pitchG - 0.35 * dt, 0);
       this.quat.setFromEuler(new THREE.Euler(this.pitchG, this.yaw, 0, 'YXZ'));
@@ -303,8 +365,11 @@ export class Jet {
         }
       }
       this.stall = false;
+    } else if (ctl?.easy) {
+      if (this.easyFly(dt, ctl, thrust, gearDrag, ocean)) return;
     } else {
       // ---- flying ----
+      this.ez = null;
       const speed = this.vel.length();
       const authority = THREE.MathUtils.clamp((speed - 25) / 70, 0.12, 1);
       const stick = ctl ? ctl.stick : { x: 0, y: 0 };
@@ -502,6 +567,7 @@ export class Jets {
           steer: (keys.has('KeyA') ? 1 : 0) - (keys.has('KeyD') ? 1 : 0),
           brake: keys.has('KeyB') || keys.has('Space'),
           stick: this.stick,
+          easy: this.game.settings?.easyFlight !== false,
         };
         j.update(dt, ctl);
       } else j.update(dt, null);

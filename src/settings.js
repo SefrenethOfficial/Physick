@@ -15,6 +15,7 @@ const DEFAULTS = {
   keepBodies: true,
   mouseSens: 1,
   invertJet: false,
+  easyFlight: true,
 };
 
 const KEY = 'physick.settings.v1';
@@ -53,6 +54,7 @@ const ROWS = [
   { key: 'blood', label: 'Blood', hint: 'Blood spray, pools and drag smears', type: 'toggle' },
   { key: 'keepBodies', label: 'Bodies stay', hint: 'Off: bodies are cleared away after a while', type: 'toggle' },
   { key: 'mouseSens', label: 'Mouse sensitivity', type: 'choice', options: [0.5, 0.75, 1, 1.25, 1.5, 2], fmt: (v) => `${v}×` },
+  { key: 'easyFlight', label: 'Easy flying', hint: 'Planes bank and level themselves, never stall, and pull up near the ground. Off: full flight model', type: 'toggle' },
   { key: 'invertJet', label: 'Invert jet pitch', hint: 'Mouse forward pitches the nose down', type: 'toggle' },
 ];
 

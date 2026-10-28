@@ -1253,6 +1253,7 @@ class Game {
         return;
       }
       if (e.button === 0 && this.held?.use === 'photo') { this.takePhoto(); return; } // the camera
+      if (e.button === 2 && this.held?.use === 'photo') { this.scoped = true; return; } // (hold to zoom)
       if (e.button === 0) {
         if (this.held?.melee) this.punch();
         else if (this.held) this.release(false);
@@ -1377,7 +1378,7 @@ class Game {
     }
     if (this.pick) return `Picking pocket… ${Math.round((this.pick.t / 1.2) * 100)}%`;
     if (this.dragging) return '<kbd>LMB</kbd> Let go · <kbd>RMB</kbd> Heave';
-    if (this.held?.use === 'photo') return '<kbd>LMB</kbd> Take a photo · <kbd>RMB</kbd> Throw · <kbd>B</kbd> Bag it';
+    if (this.held?.use === 'photo') return '<kbd>LMB</kbd> Take a photo · hold <kbd>RMB</kbd> Zoom · <kbd>B</kbd> Bag it';
     if (this.held?.use === 'mop') return '<kbd>LMB</kbd> (hold) Mop · <kbd>RMB</kbd> Put down · <kbd>B</kbd> Bag it';
     if (this.held?.gun) return this.held.gun.scope ? (this.scopeShown ? '' : `<kbd>LMB</kbd> Fire · hold <kbd>RMB</kbd> Aim · <kbd>B</kbd> Bag it`) : `<kbd>LMB</kbd> Fire · <kbd>RMB</kbd> Throw · <kbd>B</kbd> Bag it`;
     if (this.held?.grenade) return '<kbd>RMB</kbd> Throw (lit) · <kbd>LMB</kbd> Put down · <kbd>B</kbd> Bag it';
@@ -1671,12 +1672,13 @@ class Game {
       }
     }
     // looking down a scope
-    const scope = this.scoped && this.held?.gun?.scope && walking && this.locked;
+    const scope = this.scoped && (this.held?.gun?.scope || this.held?.use === 'photo') && walking && this.locked;
     if (!scope) this.scoped = false;
     this.zoomK = THREE.MathUtils.clamp((this.zoomK || 0) + (scope ? dt : -dt) * 6, 0, 1);
-    const fov = THREE.MathUtils.lerp(FOV, 14, this.zoomK);
+    const fov = THREE.MathUtils.lerp(FOV, this.held?.use === 'photo' ? 20 : 14, this.zoomK); // (the camera's zoom lens is gentler than a rifle scope)
     if (Math.abs(this.camera.fov - fov) > 0.01) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
-    if (this.scopeShown !== this.zoomK > 0.6) { this.scopeShown = this.zoomK > 0.6; document.getElementById('scope').classList.toggle('hidden', !this.scopeShown); document.getElementById('hud').classList.toggle('scoped', this.scopeShown); }
+    const scopeOn = this.zoomK > 0.6 && !!this.held?.gun?.scope;
+    if (this.scopeShown !== scopeOn) { this.scopeShown = scopeOn; document.getElementById('scope').classList.toggle('hidden', !this.scopeShown); document.getElementById('hud').classList.toggle('scoped', this.scopeShown); }
     this.camera.updateMatrixWorld();
 
     this.sky.position.copy(this.camera.position);
@@ -1721,7 +1723,7 @@ class Game {
     const showArm = !this.title?.active && !this.atHelm && !this.gunnery.active && !this.health.dead && !this.flying && !this.boats.active && !this.vehicles.active && !this.pragdoll.active && !this.skydive.active;
     this.viewmodel.update(dt, this.player, this.mouseDX, this.mouseDY, false);
     this.mouseDX = this.mouseDY = 0;
-    if (showArm && !this.scopeShown) {
+    if (showArm && !this.scopeShown && !(this.zoomK > 0.6 && this.held?.use === 'photo')) {
       r.autoClear = false;
       r.clearDepth();
       r.render(this.viewmodel.scene, this.viewmodel.camera);

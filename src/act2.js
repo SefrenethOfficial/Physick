@@ -79,6 +79,8 @@ export class Act2 {
     game.scene.add(this.group);
     this.cones = [];
     this.cars = []; // mission cars (driven by the script, or coasting)
+    this.tgtEl = Object.assign(document.createElement('div'), { className: 'a2-target' }); // the finale's target bracket
+    document.body.appendChild(this.tgtEl);
     this.build();
   }
 
@@ -376,10 +378,27 @@ export class Act2 {
     if (a.id === 'm9') { a.stage = this.story.state.gateOpen ? 'office' : 'gate'; this.setupOffice(a); }
     if (a.id === 'm10') { a.stage = this.story.state.gateOpen ? 'hangar' : 'gate'; a.done = {}; this.setupHangar(a); this.wearUniform(a, true); }
     if (a.id === 'm11') { a.stage = 'board'; this.setupFlight(a); }
+    // retrying straight after failing one of the later missions: back to a checkpoint, not the far side of the map
+    const retry = this.retry?.id === a.id && performance.now() - this.retry.t < 20 * 60e3;
+    this.retry = null;
+    if (retry && !g.vehicles.active && !g.flying && !g.boats?.active && !g.skydive?.active) this.checkpoint(a);
+  }
+
+  checkpoint(a) {
+    const g = this.game, open = this.story.state.gateOpen;
+    let at = null, yaw = 0;
+    if (a.id === 'm8') { at = a.pikeDoor.clone().addScaledVector(a.pikeOut, 26); yaw = Math.atan2(a.pikeOut.x, a.pikeOut.z); }
+    if (a.id === 'm9' && open) { at = this.officeDoor.clone().add(V3(0, 0, -9)); yaw = Math.PI; }
+    if (a.id === 'm10' && open) { at = V3(-1700, Y, 572); yaw = Math.PI / 2; }
+    if (a.id === 'm11' && open) { at = a.plane.pos.clone().add(V3(4, 0, -22)); yaw = Math.PI; }
+    if (!at) return;
+    this.story.fade(() => { g.placeOnShore(V3(at.x, Y + 1.2, at.z), yaw); g.cullFar?.(); g.hud.toast('Checkpoint: back where it started', 0x9ec5ff); });
   }
 
   end(a, pass) {
     const g = this.game;
+    if (!pass) this.retry = { id: a.id, t: performance.now() };
+    this.tgtEl.classList.remove('on');
     this.clearStealth(a);
     for (const n of a.goons || []) if (g.citizens.list.includes(n)) g.citizens.despawn(n);
     for (const n of [a.forger, a.pike, a.chemist]) if (n && g.citizens.list.includes(n)) g.citizens.despawn(n);
@@ -405,13 +424,15 @@ export class Act2 {
       return null;
     }
     if (!this.story.state.gateOpen && this.story.has('pass') && this.nearP(pos, V3(this.gate.x, Y, this.gate.z - 2), 6)) return { label: "Swipe Pike's pass at the gate", run: () => { this.openGate(); if (a.stage === 'gate') a.stage = a.id === 'm9' ? 'office' : 'hangar'; } };
+    const td = (a.id === 'm9' || a.id === 'm10') && this.takedownTarget(a, pos);
+    if (td) return { label: 'Silent takedown', run: () => this.takedown(a, td) };
     if (a.id === 'm6') {
       if (a.stage === 'forger' && a.forger && this.nearP(pos, a.forger.body.translation(), 3.5)) return { label: 'Show Ines the papers', run: () => this.forgerTalk(a) };
       if (a.stage === 'search' && this.nearP(pos, this.deskPapers.position, 2.2)) return { label: "Search Doucet's desk", run: () => {
         this.deskPapers.visible = false;
         this.give('phone'); this.give('keycard');
         g.hud.toast('A burner phone and a keycard with a little aeroplane on it. Doucet travelled light.', 0xe8e2d4);
-        a.stage = 'leave';
+        a.stage = 'leave'; a.reinfT = 2.5;
       } };
     }
     if (a.id === 'm7' && a.stage === 'grab' && a.suv && this.nearP(pos, a.suv.pos, 4)) return { label: 'Search the wreck', run: () => { this.give('schedule'); g.hud.toast(ACT2_KEY_ITEMS.schedule.desc, 0xe8e2d4); this.story.end(true); } };
@@ -424,6 +445,29 @@ export class Act2 {
     }
     if (a.id === 'm11' && a.stage === 'board' && a.plane && Math.hypot(pos.x - a.plane.pos.x, pos.z - a.plane.pos.z) < 22) return { label: 'Climb aboard the airliner and take the controls', run: () => g.jets.enter(a.plane) };
     return null;
+  }
+
+  // a guard you're right behind, who hasn't clocked you
+  takedownTarget(a, pos) {
+    for (const n of a.guards || []) {
+      if (!n.guard || !this.game.citizens.list.includes(n) || n.guard.alert > 0.5) continue;
+      const t = n.body.translation(), dx = pos.x - t.x, dz = pos.z - t.z, d = Math.hypot(dx, dz);
+      if (d > 2.2 || Math.abs(pos.y - t.y) > 1.5) continue;
+      const ang = Math.atan2(dx, dz) - n.heading;
+      if (Math.abs(Math.atan2(Math.sin(ang), Math.cos(ang))) > 1.6) return n; // (you're behind him)
+    }
+    return null;
+  }
+
+  takedown(a, n) {
+    const g = this.game, t = n.body.translation(), p = g.shorePlayer.body.translation();
+    const dir = V3(t.x - p.x, 0, t.z - p.z).normalize();
+    n.cone?.removeFromParent();
+    g.citizens.setMarker(n, null);
+    g.citizens.knockOver(n, dir.clone().multiplyScalar(1.2).setY(0.8), 1.5, { killed: false, point: V3(t.x, t.y + 0.5, t.z), dir });
+    g.sfx.play('punch'); g.shake = 0.25;
+    a.takedowns = (a.takedowns || 0) + 1;
+    g.hud.toast(['Out cold. Nobody heard a thing.', 'Lights out.', 'Down he goes. Quietly.'][a.takedowns % 3], 0x9ec5ff);
   }
 
   // ---------------------------------------------------------------- the update
@@ -452,7 +496,7 @@ export class Act2 {
     ], 'Ines Moreau', () => { a.stage = 'lockup'; this.game.hud.toast("Doucet's lock-up: Marsh Storage, unit 7, Saltmarsh", 0xffd166); });
   }
 
-  updM6(a, p) {
+  updM6(a, p, dt) {
     const g = this.game;
     if (a.stage === 'forger') { a.text = 'Take the papers to Ines in the Hollows (the Liquor-Lotto)'; a.wp = this.forgerAt.clone(); return; }
     if (a.stage === 'talk') { a.text = 'Listen to Ines'; a.wp = null; return; }
@@ -480,9 +524,33 @@ export class Act2 {
     if (a.stage === 'leave') {
       a.text = 'Get clear of the lock-ups';
       a.wp = null;
+      if (a.reinfT > 0 && (a.reinfT -= dt) <= 0) this.reinforce(a);
+      const car = a.reinfCar;
+      if (car && !car.wreck && !car.stopped) {
+        const goal = V3(this.yard.x + 14, Y, this.yard.z - 12);
+        car.driveTo(dt, Math.min(18, car.pos.distanceTo(goal) * 0.6), goal, { maxSpeed: 20, accel: 12 }); car.driven = true;
+        if (car.pos.distanceTo(goal) < 5) {
+          car.stopped = true;
+          const side = V3(car.forward.z, 0, -car.forward.x);
+          ['smg', 'rifle', 'heavy'].forEach((k, i) => { const at = car.pos.clone().addScaledVector(side, i === 1 ? -2.4 : 2.4).addScaledVector(car.forward, (i - 1) * 2); const n = this.story.spawnGoon(a, V3(at.x, Y + 0.3, at.z), k); if (n) { n.alerted = true; n.lastSeen = g.shorePlayer.body.translation(); } });
+          g.hud.toast('More of them! Fight, or get out of there.', 0xff8a6a);
+        }
+      }
+      const left = this.goonsAlive(a).length;
+      if (left && car?.stopped) a.text = `Ashen Hand reinforcements (${left}): fight them or get clear`;
       if (Math.hypot(p.x - this.yard.x, p.z - this.yard.z) > 60 && !g.police.wanted) this.story.end(true);
       else if (Math.hypot(p.x - this.yard.x, p.z - this.yard.z) > 60) a.text = `Lose the police (${'★'.repeat(Math.min(g.police.wanted, 10))})`;
     }
+  }
+
+  reinforce(a) {
+    const g = this.game, m = CAR_MODELS.find((q) => q.id === 'suv');
+    const x = this.yard.x + 90, z = this.yard.z - 12;
+    const car = new Car(g, { x, z, heading: Math.PI / 2, mesh: modelMesh(m, 0x15161a), half: { x: 0.95 * m.scale[0], y: 0.55 * m.scale[1], z: 2.25 * m.scale[2] }, hp: 220, maxSpeed: 26 });
+    this.cars.push(car);
+    a.reinfCar = car;
+    g.sfx.play('honk');
+    g.hud.toast('Tyres screech out by the road: a black SUV is coming in fast.', 0xff8a6a);
   }
 
   // ---------------------------------------------------------------- m7: The Clean-Up Crew
@@ -524,14 +592,30 @@ export class Act2 {
     }
     if (a.stage === 'chase') {
       const s = a.suv;
-      a.text = `Stop the SUV! (${Math.max(0, Math.round(s.hp / s.maxHp * 100))}%)`;
+      a.text = `Stop the SUV! Shoot it or ram it (${Math.max(0, Math.round(s.hp / s.maxHp * 100))}%). He's shooting back!`;
       a.wp = s.pos.clone();
       if (s.wreck) { a.stage = 'grab'; g.hud.toast('Got him. Search the wreck.', 0x7be08a); return; }
       // across the salt flat and round, waypoint to waypoint
       const S = g.scorch.salt;
       if (!s.goal || s.pos.distanceTo(s.goal) < 20) { const ang = Math.random() * Math.PI * 2, r = Math.random() * (S.r - 40); s.goal = V3(S.x + Math.cos(ang) * r, 0, S.z + Math.sin(ang) * r); }
       s.goal.y = s.pos.y;
-      s.driveTo(dt, 27, s.goal, { accel: 9, brake: 14, maxSpeed: 30 }); s.driven = true;
+      // stuck on a cactus or a rock: back up, then pick somewhere else
+      s.stuckT = Math.abs(s.speed) < 2 ? (s.stuckT || 0) + dt : 0;
+      if (s.stuckT > 1.2) { s.reverseT = 1.3; s.stuckT = 0; s.goal = null; }
+      if (s.reverseT > 0) { s.reverseT -= dt; s.apply(dt, -8, 0.5, { accel: 10 }); }
+      else if (s.goal) s.driveTo(dt, 27, s.goal, { accel: 9, brake: 14, maxSpeed: 30 });
+      s.driven = true;
+      // he leans out of the window and shoots back when you get close
+      const dP = Math.hypot(p.x - s.pos.x, p.z - s.pos.z);
+      a.shootT = (a.shootT ?? 2) - dt;
+      if (dP < 45 && a.shootT <= 0) {
+        a.shootT = 0.35 + Math.random() * 0.3;
+        const from = s.pos.clone().add(V3(0, 1.6, 0)), to = V3(p.x, p.y + 0.3, p.z);
+        const hit = Math.random() < 0.35 - dP / 300;
+        if (!hit) to.add(V3((Math.random() - 0.5) * 4, Math.random() * 2, (Math.random() - 0.5) * 4));
+        g.police.tracer(from, to); g.fx.flash(from, 0xffc060, 0.9, 0.06); g.sfx.play('smg');
+        if (hit) { if (g.vehicles.active) g.vehicles.active.damage(3); else g.health.damage(4, 'shot'); }
+      }
       if (Math.hypot(p.x - s.pos.x, p.z - s.pos.z) > 600) this.story.end(false, 'He got away');
       return;
     }
@@ -750,7 +834,7 @@ export class Act2 {
       const v = pt.clone().project(cam);
       if (v.z > 1 || Math.abs(v.x) > 0.85 || Math.abs(v.y) > 0.85) return false;
       const d = pt.distanceTo(cam.position);
-      if (d > 60) return false;
+      if (d > (g.zoomK > 0.6 ? 130 : 60)) return false; // (the zoom lens reaches a lot further)
       const dir = pt.clone().sub(cam.position).normalize();
       return !sb.world.castRay(new RAPIER.Ray(cam.position, dir), d - 0.5, true, undefined, undefined, undefined, undefined, (c) => sb.staticColliders.has(c.handle));
     };
@@ -968,9 +1052,10 @@ export class Act2 {
         ]);
       }
       const ahead = P.fwd.dot(T.pos.clone().sub(P.pos).normalize());
-      const lined = ahead > 0.96 && dist < 900;
+      const lined = ahead > 0.9 && dist < 1300; // (the same test the eject uses, give or take)
+      this.bracket(T.pos, dist, lined && !a.ejected && g.jets.active === P, g.jets.active === P || g.skydive.active);
       if (a.ejected) { a.text = g.skydive.active ? `${g.skydive.chute ? 'Under the canopy' : 'Falling: SPACE for the parachute'}… the airliner is ${Math.round(dist)} m from him` : 'Watch the sky…'; return; }
-      a.text = P.onGround ? 'Take off: full throttle (W) down the runway, pull up past ~200 km/h' : `Catch the Chemist's jet: ${Math.round(dist)} m${lined ? ' · <b style="color:#ff6a5a">COLLISION COURSE: EJECT (F)!</b>' : ''}`;
+      a.text = P.onGround ? 'Take off: full throttle (W, Shift for more) down the runway. It lifts off by itself' : `Catch the Chemist's jet (the red bracket): ${Math.round(dist)} m${lined ? ' · <b style="color:#ff6a5a">ON TARGET: EJECT NOW (F)!</b>' : ' · point straight at him'}`;
       a.wp = null;
       return;
     }
@@ -981,14 +1066,32 @@ export class Act2 {
     if (a.endT) { a.endT -= dt; if (a.endT <= 0) this.story.end(true); }
   }
 
+  // a bracket round the Chemist's jet (or an arrow at the edge of the screen pointing to it)
+  bracket(pos, dist, locked, show) {
+    const el = this.tgtEl, cam = this.game.camera;
+    el.classList.toggle('on', !!show);
+    if (!show) return;
+    const v = pos.clone().project(cam);
+    const behind = v.z > 1;
+    let x = v.x, y = v.y;
+    if (behind) { x = -x; y = -y; }
+    const off = behind || Math.abs(x) > 0.92 || Math.abs(y) > 0.88;
+    if (off) { const k = 0.9 / Math.max(Math.abs(x), Math.abs(y) / 0.95, 1e-3); x *= k; y *= k; }
+    el.classList.toggle('edge', off);
+    el.classList.toggle('lock', !!locked);
+    el.style.transform = `translate(${(x * 0.5 + 0.5) * innerWidth}px, ${(-y * 0.5 + 0.5) * innerHeight}px) translate(-50%, -50%)`;
+    el.innerHTML = `<i style="transform: rotate(${Math.atan2(x, y)}rad)"></i><span>${locked ? 'EJECT · F' : `${(dist / 1000).toFixed(1)} km`}</span>`;
+  }
+
   onEject(jet) {
     const a = this.a;
     if (!a || a.id !== 'm11' || jet !== a.plane) return;
     a.ejected = true;
     const T = a.target, d = jet.pos.distanceTo(T.pos);
     const ahead = jet.fwd.dot(T.pos.clone().sub(jet.pos).normalize());
+    this.tgtEl.classList.remove('on');
     // pointed at him and close enough: the empty plane holds its course into him
-    if (ahead > 0.82 && d < 1400) { a.aim = { pos: T.pos.clone() }; jet.autopilot = a.aim; }
+    if (ahead > 0.8 && d < 1600) { a.aim = { pos: T.pos.clone() }; jet.autopilot = a.aim; }
     else this.game.hud.toast('You weren\'t lined up! The airliner drifts off course…', 0xff8a6a);
   }
 
