@@ -250,11 +250,12 @@ export class Hud {
     if (key === this._wanted) return;
     this._wanted = key;
     let html = '';
-    const slots = n <= 5 ? 5 : n <= 10 ? 10 : 20; // up to 20 stars, in rows of ten
-    for (let k = 1; k <= slots; k++) html += `<span class="${k <= n ? 'on' : ''}${k >= 20 && n >= 20 ? ' max' : ''}">★</span>`;
+    const slots = n <= 5 ? 5 : n <= 10 ? 10 : n <= 20 ? 20 : 30; // up to 30 stars, in rows of ten
+    for (let k = 1; k <= slots; k++) html += `<span class="${k <= n ? 'on' : ''}${k > 20 && k <= n ? ' max' : ''}${k === 30 && n >= 30 ? ' army' : ''}">★</span>`;
     if (n > 5) html += `<b class="wcount">${n}</b>`;
     this.wantedEl.classList.toggle('many', n > 5);
     this.wantedEl.classList.toggle('max', n >= 20);
+    this.wantedEl.classList.toggle('army', n >= 30);
     if (bust > 0.05) html += `<div class="cuff"><i style="width:${Math.min(bust, 1) * 100}%"></i><em>Being arrested — get away!</em></div>`;
     this.wantedEl.innerHTML = html;
     this.wantedEl.classList.toggle('active', n > 0);

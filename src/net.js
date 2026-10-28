@@ -14,6 +14,7 @@ import { Heli } from './cargo.js';
 import { LAND_Y, islandAt } from './world.js';
 import { setMpSession, seeded } from './netseed.js';
 import { savedLook } from './style.js';
+import { makeSwat, tankMesh } from './swat.js';
 
 // Multiplayer. Everyone in a room connects to the Physick server (server/index.js), which relays
 // messages. Each game is in charge of its own player: where you are, what you're driving, your
@@ -57,6 +58,7 @@ function carFromSpec(g, spec, x, y, z, heading) {
     else if (k === 't') mesh = towMesh(+a);
     else if (k === 'x') mesh = monsterTruckMesh();
     else if (k === 'y') mesh = taxiMesh();
+    else if (k === 'tank') mesh = tankMesh().mesh;
     else mesh = carMesh(+a || 0x2f7fd8, b === '1');
   } catch { mesh = carMesh(); }
   const [hx, hy, hz, ride, wb] = (dims || '').split(',').map(Number);
@@ -589,6 +591,7 @@ export class Net {
       if (!p) {
         p = new Puppet(this, swat ? { shirt: 0x1b1d22, pants: 0x1b1d22, skin: 0xa8724f, hat: 'helmet', hatColor: 0x111214 } : { shirt: 0x1c2f6e, pants: 0x111a33, skin: 0xd9a47c, hat: 'cap', hatColor: 0x111a33, badge: true });
         p.cop = { owner: m.id, lid };
+        if (swat) makeSwat({ fig: p.fig }, swat); // (their SWAT kit, or riot gear)
         this.pcops.set(key, p);
         p.place(x, y, z, h, sp);
       }
@@ -641,7 +644,7 @@ export class Net {
       if (n.role !== 'cop' || n.ambient || cops.length >= 20) continue;
       n.lid ||= this.nextCid++;
       const ct = n.body.translation();
-      cops.push([n.lid, r1(ct.x), r2(ct.y), r1(ct.z), r2(n.heading), r1(n.speed), n.swat ? 1 : 0]);
+      cops.push([n.lid, r1(ct.x), r2(ct.y), r1(ct.z), r2(n.heading), r1(n.speed), n.swat || 0]);
     }
     this.lookT = (this.lookT || 0) - 1;
     const lk = this.lookT <= 0 ? this.myLook() : undefined; // (what we're wearing, every couple of seconds)

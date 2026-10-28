@@ -5,45 +5,146 @@ import { Car, clearSpot } from './carphys.js';
 import { islandAt, LAND_Y } from './world.js';
 import { modelMesh } from './dealership.js';
 import { std, canvasTex } from './buildkit.js';
+import { DIMS } from './figure.js';
+import { rifleModel, smgModel } from './gunmodels.js';
 
-// The heavy end of a police chase. The wanted level goes all the way to 20 stars:
+// The heavy end of a police chase. The wanted level goes all the way to 30 stars:
 //   6+  police helicopters circle overhead with a searchlight and a marksman
-//   10+ SWAT vans full of armoured officers with rifles
-//   20  advanced SWAT: armoured trucks and exo-suited officers who hit very hard
+//   10+ SWAT vans full of tactical officers with rifles
+//   20+ riot SWAT: armoured trucks and officers in full armour behind riot shields
+//   25+ more of everything
+//   30  the army: tanks roll in and shell you
 // Plus roadblocks (with spike strips) ahead of you when you're driving, and bounty hunters who
 // come for you after a big chase, even once the police have given up.
 
-export const MAX_STARS = 20;
-export const HEAT = [0, 1, 2, 4, 7, 11, 15, 19, 24, 29, 35, 41, 48, 55, 63, 71, 80, 89, 99, 110, 120];
-export const FOOT = [0, 2, 4, 6, 8, 10, 10, 11, 11, 12, 10, 10, 11, 11, 12, 12, 12, 13, 13, 14, 14];
-export const CARS = [0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 4, 4, 5, 5, 5, 5, 5, 5, 6, 6, 5];
-export const HELIS = (w) => (w >= 20 ? 3 : w >= 10 ? 2 : w >= 6 ? 1 : 0);
-export const VANS = (w) => (w >= 20 ? 3 : w >= 15 ? 2 : w >= 10 ? 1 : 0);
+export const MAX_STARS = 30;
+export const HEAT = [0, 1, 2, 4, 7, 11, 15, 19, 24, 29, 35, 41, 48, 55, 63, 71, 80, 89, 99, 110, 120, 132, 144, 157, 170, 184, 198, 213, 228, 244, 260];
+export const FOOT = [0, 2, 4, 6, 8, 10, 10, 11, 11, 12, 10, 10, 11, 11, 12, 12, 12, 13, 13, 14, 14, 14, 15, 15, 15, 16, 16, 16, 16, 16, 14];
+export const CARS = [0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 4, 4, 5, 5, 5, 5, 5, 5, 6, 6, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 5];
+export const HELIS = (w) => (w >= 25 ? 4 : w >= 20 ? 3 : w >= 10 ? 2 : w >= 6 ? 1 : 0);
+export const VANS = (w) => (w >= 25 ? 4 : w >= 20 ? 3 : w >= 15 ? 2 : w >= 10 ? 1 : 0);
+export const TANKS = (w) => (w >= 30 ? 3 : 0);
 
 export const SWAT_LOOK = { shirt: 0x1b1d22, pants: 0x1b1d22, skin: 0xa8724f, hat: 'helmet', hatColor: 0x111214 };
-export const ADV_LOOK = { shirt: 0x3a4250, pants: 0x262b33, skin: 0x7a4f35, hat: 'helmet', hatColor: 0x2a3038 };
+export const ADV_LOOK = { shirt: 0x262b33, pants: 0x262b33, skin: 0x7a4f35, hat: 'helmet', hatColor: 0x3e4652 };
 
-// marks a citizen as SWAT (tier 1) or advanced SWAT (tier 2): armour, a rifle and a look
+// marks a citizen as SWAT (tier 1) or advanced SWAT (tier 2): kit, armour, a gun and a look.
+//   tier 1: tactical SWAT: helmet with goggles, balaclava, a plate carrier with pouches, gloves,
+//           knee pads and an assault rifle held at the low ready
+//   tier 2: riot SWAT: full armour (chest plate, shoulder, arm and shin guards), a helmet with a
+//           face shield, a riot shield on the left arm (it stops rounds from the front) and an SMG
 export function makeSwat(npc, tier) {
   npc.swat = tier;
   npc.hp = tier === 2 ? 420 : 260;
   npc.cash = tier === 2 ? 150 : 60;
-  // a visor (glowing red on the advanced ones) and a vest
-  const head = npc.fig.parts.head, torso = npc.fig.parts.torso;
-  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.07, 0.06), tier === 2
-    ? new THREE.MeshStandardMaterial({ color: 0xff3020, emissive: 0xff2010, emissiveIntensity: 2 })
-    : new THREE.MeshStandardMaterial({ color: 0x0a0a0c, roughness: 0.1, metalness: 0.6 }));
-  visor.position.set(0, 0.03, 0.13); head.add(visor);
-  const vest = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.42, 0.32), std({ color: tier === 2 ? 0x55606e : 0x2a2e36, roughness: 0.6, metalness: tier === 2 ? 0.5 : 0.1 }));
-  vest.position.y = 0.06; torso.add(vest);
-  const label = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.1), new THREE.MeshBasicMaterial({ map: swatTag(tier), transparent: true }));
-  label.position.set(0, 0.1, -0.165); label.rotation.y = Math.PI; torso.add(label);
-  if (tier === 2) for (const s of [-1, 1]) { const pad = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.12, 0.22), std({ color: 0x55606e, metalness: 0.5 })); pad.position.set(s * 0.28, 0.33, 0); torso.add(pad); }
+  const P = npc.fig.parts, head = P.head, torso = P.torso;
+  const add = (parent, geo, m, x, y, z, rx = 0, ry = 0, rz = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); o.castShadow = true; parent.add(o); return o; };
+  const B = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+  const black = M.black(), armour = tier === 2 ? M.armour() : M.carrier();
+  // the head: a balaclava, the helmet's goggles (or a full face shield)
+  add(head, new THREE.SphereGeometry(0.153, 14, 10), black, 0, 0, 0);
+  if (tier === 1) {
+    add(head, B(0.26, 0.035, 0.03), M.strap(), 0, 0.075, 0.135);
+    for (const x of [-0.05, 0.05]) add(head, new THREE.CylinderGeometry(0.032, 0.032, 0.03, 12), M.lens(), x, 0.075, 0.15, Math.PI / 2);
+    for (const x of [-1, 1]) add(head, new THREE.CylinderGeometry(0.05, 0.05, 0.04, 12), black, x * 0.15, 0.0, 0, 0, 0, Math.PI / 2); // ear defenders
+  } else {
+    add(head, new THREE.SphereGeometry(0.19, 16, 10, -Math.PI * 0.42, Math.PI * 0.84, Math.PI * 0.18, Math.PI * 0.5), M.faceShield(), 0, 0.02, 0.0);
+    add(head, B(0.32, 0.03, 0.05), M.armour(), 0, 0.16, 0.06); // visor hinge
+  }
+  // the body armour
+  const [tw, th, td] = DIMS.torso.size;
+  add(torso, B(tw + 0.06, th * 0.8, td + 0.08), armour, 0, 0.04, 0);
+  add(torso, new THREE.PlaneGeometry(0.3, 0.08), M.tag(tier, 'front'), 0, 0.17, td / 2 + 0.041);
+  add(torso, new THREE.PlaneGeometry(0.36, 0.11), M.tag(tier, 'back'), 0, 0.08, -td / 2 - 0.041, 0, Math.PI, 0);
+  if (tier === 1) for (const x of [-0.14, -0.045, 0.045, 0.14]) add(torso, B(0.075, 0.09, 0.05), M.pouch(), x, -0.12, td / 2 + 0.06); // mag pouches
+  else {
+    for (const sd of [-1, 1]) add(torso, new THREE.SphereGeometry(0.11, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), armour, sd * 0.27, 0.27, 0, 0, 0, sd * 0.4); // shoulder guards
+    add(torso, B(tw + 0.1, 0.12, td + 0.1), armour, 0, -th / 2 + 0.02, 0); // groin / belt plate
+  }
+  // gloves, knee (and shin, and forearm) pads
+  for (const arm of [P.armL, P.armR]) { for (const c of arm.children) c.material = black; if (tier === 2) add(arm, B(0.15, 0.24, 0.17), armour, 0, -0.14, 0); }
+  for (const leg of [P.legL, P.legR]) { add(leg, B(0.19, 0.12, 0.08), tier === 2 ? armour : black, 0, 0.0, 0.1); if (tier === 2) add(leg, B(0.19, 0.26, 0.06), armour, 0, -0.22, 0.1); add(leg, B(0.18, 0.09, 0.26), black, 0, -0.37, 0.04); /* boots */ }
+  // the gun, held across the chest, and on the riot squad the shield
+  const gun = (tier === 1 ? rifleModel() : smgModel()).mesh;
+  gun.scale.setScalar(tier === 1 ? 1 : 1.1);
+  gun.position.set(0.06, -0.06, td / 2 + 0.16); gun.rotation.set(0.35, Math.PI + 0.35, 0.25);
+  gun.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  torso.add(gun);
+  if (tier === 2) {
+    const sh = new THREE.Group();
+    sh.position.set(-0.27, -0.12, td / 2 + 0.24); sh.rotation.y = 0.18;
+    add(sh, B(0.58, 1.05, 0.025), M.shield(), 0, 0, 0);
+    add(sh, new THREE.PlaneGeometry(0.46, 0.12), M.tag(2, 'shield'), 0, -0.18, 0.014);
+    add(sh, B(0.6, 0.04, 0.04), black, 0, 0.53, 0); add(sh, B(0.6, 0.04, 0.04), black, 0, -0.53, 0);
+    add(sh, B(0.04, 1.08, 0.04), black, 0.3, 0, 0); add(sh, B(0.04, 1.08, 0.04), black, -0.3, 0, 0);
+    torso.add(sh);
+    npc.shield = true;
+  }
   return npc;
 }
-const tags = {};
+const mats = {};
+const M = {
+  black: () => (mats.black ||= std({ color: 0x0d0e10, roughness: 0.8 })),
+  carrier: () => (mats.carrier ||= std({ color: 0x1f2226, roughness: 0.85 })),
+  pouch: () => (mats.pouch ||= std({ color: 0x2a2e33, roughness: 0.9 })),
+  strap: () => (mats.strap ||= std({ color: 0x5a5040, roughness: 0.9 })),
+  lens: () => (mats.lens ||= std({ color: 0x1a2a3a, roughness: 0.1, metalness: 0.6, emissive: 0x0a1420 })),
+  armour: () => (mats.armour ||= std({ color: 0x3e4652, roughness: 0.45, metalness: 0.35 })),
+  faceShield: () => (mats.face ||= new THREE.MeshStandardMaterial({ color: 0xa8c8e8, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false })),
+  shield: () => (mats.shield ||= new THREE.MeshStandardMaterial({ color: 0x9fb8cc, roughness: 0.08, metalness: 0.1, transparent: true, opacity: 0.45, depthWrite: false })),
+  tag: (tier, where) => (mats[`tag${tier}${where}`] ||= new THREE.MeshBasicMaterial({ transparent: true, map: canvasTex(192, 48, (c, w, h) => {
+    c.clearRect(0, 0, w, h);
+    const text = where === 'shield' ? 'POLICE' : where === 'front' ? 'POLICE' : tier === 2 ? 'RIOT SWAT' : 'SWAT';
+    c.fillStyle = where === 'shield' ? '#f2f2ee' : '#f2f2ee'; c.font = `bold ${where === 'front' ? 34 : 38}px Arial`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(text, w / 2, h / 2 + 2);
+  }) })),
+};
 function swatTag(tier) {
-  return (tags[tier] ||= canvasTex(128, 40, (c, w, h) => { c.fillStyle = tier === 2 ? '#ff4030' : '#f2f2ee'; c.font = 'bold 30px Arial'; c.textAlign = 'center'; c.fillText(tier === 2 ? 'ADV-SWAT' : 'SWAT', w / 2, 31); }));
+  return (mats[`van${tier}`] ||= canvasTex(128, 40, (c, w) => { c.fillStyle = '#f2f2ee'; c.font = 'bold 30px Arial'; c.textAlign = 'center'; c.fillText(tier === 2 ? 'RIOT' : 'SWAT', w / 2, 31); }));
+}
+
+// ---------------------------------------------------------------- the army (30 stars)
+// An olive-drab main battle tank: hull, tracks and road wheels, and a turret (that turns on its
+// own) with a long gun. The hull's front is -Z, like every car.
+let camo = null;
+export function tankMesh() {
+  camo ||= canvasTex(128, 128, (c, w, h) => {
+    c.fillStyle = '#4b5232'; c.fillRect(0, 0, w, h);
+    const blob = (col, n) => { for (let i = 0; i < n; i++) { c.fillStyle = col; c.beginPath(); c.ellipse(Math.random() * w, Math.random() * h, 8 + Math.random() * 16, 5 + Math.random() * 10, Math.random() * 3, 0, 7); c.fill(); } };
+    blob('#3a3f26', 14); blob('#5e5a3c', 10); blob('#2a2c1e', 6);
+    for (let i = 0; i < 800; i++) { c.fillStyle = Math.random() < 0.5 ? 'rgba(0,0,0,.08)' : 'rgba(255,255,255,.04)'; c.fillRect(Math.random() * w, Math.random() * h, 2, 2); }
+  }, [2, 2]);
+  const olive = std({ map: camo, roughness: 0.85, metalness: 0.15 });
+  const dark = std({ color: 0x23251c, roughness: 0.9 }), steel = std({ color: 0x3a3c36, roughness: 0.6, metalness: 0.5 });
+  const tread = std({ map: canvasTex(32, 128, (c, w, h) => { c.fillStyle = '#1c1d18'; c.fillRect(0, 0, w, h); for (let y = 0; y < h; y += 8) { c.fillStyle = '#34352d'; c.fillRect(0, y, w, 4); } }, [1, 8]), roughness: 0.95 });
+  const g = new THREE.Group();
+  const box = (w, h, d, x, y, z, m, rx = 0) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); o.rotation.x = rx; o.castShadow = o.receiveShadow = true; g.add(o); return o; };
+  box(3.0, 0.75, 6.2, 0, 1.05, 0, olive); // hull
+  box(3.0, 0.6, 1.3, 0, 1.15, -3.2, olive, -0.55); // sloped glacis
+  box(3.0, 0.5, 0.6, 0, 1.0, 3.25, olive); // rear
+  for (const s of [-1, 1]) {
+    box(0.75, 0.85, 6.9, s * 1.82, 0.5, 0, tread); // track
+    box(0.9, 0.08, 6.6, s * 1.82, 1.0, 0, olive); // track guard
+    box(0.06, 0.55, 6.0, s * 2.21, 0.72, 0, olive); // side skirt
+    for (let k = 0; k < 7; k++) { const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.2, 14), steel); wh.rotation.z = Math.PI / 2; wh.position.set(s * 2.0, 0.38, -2.7 + k * 0.9); g.add(wh); }
+  }
+  for (const s of [-1, 1]) box(0.3, 0.12, 0.12, s * 1.1, 1.2, -3.85, std({ color: 0xfff2c0, emissive: 0xfff2c0, emissiveIntensity: 0.6 })); // headlights
+  // the turret
+  const turret = new THREE.Group(); turret.position.set(0, 1.42, 0.35); g.add(turret);
+  const tb = (w, h, d, x, y, z, m, ry = 0) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); o.rotation.y = ry; o.castShadow = true; turret.add(o); return o; };
+  tb(2.5, 0.7, 2.9, 0, 0.35, 0.2, olive);
+  for (const s of [-1, 1]) tb(0.9, 0.7, 1.2, s * 0.95, 0.35, -1.25, olive, s * 0.45); // angled cheeks
+  tb(1.6, 0.4, 0.9, 0, 0.4, 1.9, olive); // bustle
+  const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.42, 0.3, 14), olive); cup.position.set(0.55, 0.85, 0.5); turret.add(cup);
+  const mg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.0, 8), dark); mg.rotation.x = Math.PI / 2; mg.position.set(0.55, 1.05, 0.1); turret.add(mg);
+  const barrel = new THREE.Group(); barrel.position.set(0, 0.38, -1.5); turret.add(barrel);
+  const gun = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.13, 4.2, 14), steel); gun.rotation.x = Math.PI / 2; gun.position.z = -2.1; barrel.add(gun);
+  const evac = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.55, 14), olive); evac.rotation.x = Math.PI / 2; evac.position.z = -2.4; barrel.add(evac);
+  const mantlet = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.5, 0.4), olive); barrel.add(mantlet);
+  // a white star on each side, and ARMY
+  const star = canvasTex(128, 64, (c, w, h) => { c.clearRect(0, 0, w, h); c.fillStyle = '#e8e4d4'; c.beginPath(); for (let i = 0; i < 10; i++) { const r = i % 2 ? 11 : 26, a = -Math.PI / 2 + (i * Math.PI) / 5; c.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r); } c.fill(); c.font = 'bold 26px Arial'; c.fillText('ARMY', 62, 42); });
+  for (const s of [-1, 1]) { const p = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.8), new THREE.MeshBasicMaterial({ map: star, transparent: true })); p.position.set(s * 1.26, 0.38, 0.4); p.rotation.y = s * Math.PI / 2; turret.add(p); }
+  g.userData.spec = 'tank';
+  return { mesh: g, turret, barrel };
 }
 
 // ---------------------------------------------------------------- police helicopter
@@ -174,6 +275,14 @@ function lineOfSight(g, a, b) {
   return !hit;
 }
 
+// a straight line from a gun's muzzle to you, past the buildings and the ground
+function clearShot(g, a, b) {
+  const sb = g.portSandbox;
+  const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z, d = Math.hypot(dx, dy, dz);
+  const hit = sb.world.castRay(new RAPIER.Ray({ x: a.x, y: a.y, z: a.z }, { x: dx / d, y: dy / d, z: dz / d }), d - 2, true, undefined, undefined, undefined, undefined, (c) => sb.staticColliders.has(c.handle));
+  return !hit;
+}
+
 // ---------------------------------------------------------------- the heavy response
 export class Escalation {
   constructor(game) {
@@ -218,6 +327,119 @@ export class Escalation {
     Object.assign(car, { R, island, at: { i: n.i, j: n.j }, from: null, to: null, deployed: 0, ramT: 0, leaving: false, life: 0, stuckT: 0, reverseT: 0, swat: tier, bulletproof: tier === 2 });
     P.cars.push(car);
     return car;
+  }
+
+  // ---------------------------------------------------------------- tanks
+  spawnTank(target, island) {
+    const P = this.police, R = P.roads(island);
+    if (!R) return null;
+    const nodes = [];
+    for (let i = 0; i < R.xs.length; i++) for (let j = 0; j < R.zs.length; j++) {
+      const d = Math.hypot(R.xs[i] - target.x, R.zs[j] - target.z);
+      if (d > 110 && d < 320) nodes.push({ i, j });
+    }
+    nodes.sort(() => Math.random() - 0.5);
+    const half = { x: 1.9, y: 0.75, z: 3.5 };
+    const n = nodes.find((m) => clearSpot(this.game, R.xs[m.i], R.zs[m.j], 0, half));
+    if (!n) return null;
+    const { mesh, turret, barrel } = tankMesh();
+    const toward = Math.atan2(-(target.x - R.xs[n.i]), -(target.z - R.zs[n.j]));
+    const car = new Car(this.game, { police: true, mesh, half, x: R.xs[n.i], z: R.zs[n.j], heading: Math.round(toward / (Math.PI / 2)) * (Math.PI / 2), hp: 1200, density: 700, wheelbase: 4.4, ride: 0.25, maxSpeed: 13 });
+    Object.assign(car, { R, island, at: { i: n.i, j: n.j }, from: null, to: null, deployed: 1, ramT: 0, leaving: false, life: 0, stuckT: 0, reverseT: 0, tank: true, bulletproof: true, turret, barrel, fireT: 3 + Math.random() * 3, recoil: 0 });
+    car.type = { name: 'Tank', hp: 1200, car: true };
+    P.cars.push(car);
+    return car;
+  }
+
+  // The turret swings round onto you; when it's on you and has a clear shot, it fires.
+  updateTank(t, dt, target) {
+    const g = this.game;
+    if (t.wreck) return;
+    const dx = target.x - t.pos.x, dz = target.z - t.pos.z, dist = Math.hypot(dx, dz);
+    const want = Math.atan2(-dx, -dz) - t.heading;
+    let cur = t.turret.rotation.y, d = Math.atan2(Math.sin(want - cur), Math.cos(want - cur));
+    cur += Math.sign(d) * Math.min(Math.abs(d), dt * 0.9);
+    t.turret.rotation.y = cur;
+    t.recoil = Math.max(0, t.recoil - dt * 2);
+    t.barrel.position.z = -1.5 + t.recoil * 0.6;
+    t.barrel.rotation.x = Math.min(0.25, Math.max(-0.05, Math.atan2(target.y - (t.pos.y + 1.8), Math.max(dist, 1)))) ;
+    t.fireT -= dt;
+    if (t.leaving || t.fireT > 0 || Math.abs(d) > 0.06 || dist < 14 || dist > 230) return;
+    const muzzle = t.barrel.localToWorld(new THREE.Vector3(0, 0, -4.3));
+    if (!clearShot(g, muzzle, new THREE.Vector3(target.x, target.y + 0.3, target.z))) { t.fireT = 0.6; return; }
+    t.fireT = 5 + Math.random() * 2.5;
+    t.recoil = 1;
+    // lead the shot a little, and it's not dead accurate
+    const pv = g.vehicles.active ? g.vehicles.active.vel : g.shorePlayer.vel;
+    const T = dist / 95;
+    const aim = new THREE.Vector3(target.x + (pv?.x || 0) * T * 0.7 + (Math.random() - 0.5) * 5, target.y + 0.3, target.z + (pv?.z || 0) * T * 0.7 + (Math.random() - 0.5) * 5);
+    const vel = aim.clone().sub(muzzle).normalize().multiplyScalar(95);
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffd080 }));
+    ball.position.copy(muzzle); g.scene.add(ball);
+    (this.shells ||= []).push({ ball, pos: muzzle.clone(), vel, life: 0 });
+    g.fx.flash(muzzle, 0xffb040, 3, 0.12);
+    for (let i = 0; i < 10; i++) g.fx.emit(muzzle.clone(), vel.clone().multiplyScalar(0.03).add(new THREE.Vector3((Math.random() - 0.5) * 3, Math.random() * 2, (Math.random() - 0.5) * 3)), 0x8a8a80, 1.6, -0.1, 0.4);
+    const near = muzzle.distanceTo(g.camera.position);
+    g.sfx.play('cannon', Math.max(0.25, 1 - near / 300));
+    if (near < 120) g.shake = Math.max(g.shake, 0.4);
+  }
+
+  // You've stolen one: the turret follows where you're looking, and LMB fires.
+  playerTank(dt) {
+    const g = this.game, t = g.vehicles.active;
+    if (!t?.tank || t.wreck) return;
+    const f = new THREE.Vector3(0, 0, -1).applyQuaternion(g.camera.quaternion);
+    const want = Math.atan2(-f.x, -f.z) - t.heading;
+    let cur = t.turret.rotation.y, d = Math.atan2(Math.sin(want - cur), Math.cos(want - cur));
+    t.turret.rotation.y = cur + Math.sign(d) * Math.min(Math.abs(d), dt * 1.6);
+    t.recoil = Math.max(0, (t.recoil || 0) - dt * 2);
+    t.barrel.position.z = -1.5 + t.recoil * 0.6;
+    t.fireT = (t.fireT || 0) - dt;
+  }
+
+  playerTankFire() {
+    const g = this.game, t = g.vehicles.active;
+    if (!t?.tank || t.wreck || t.fireT > 0) return;
+    t.fireT = 2.2; t.recoil = 1;
+    const muzzle = t.barrel.localToWorld(new THREE.Vector3(0, 0, -4.3));
+    const f = new THREE.Vector3(0, 0, -1).applyQuaternion(t.turret.getWorldQuaternion(new THREE.Quaternion()));
+    f.y = Math.max(-0.1, Math.min(0.25, new THREE.Vector3(0, 0, -1).applyQuaternion(g.camera.quaternion).y + 0.04));
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffd080 }));
+    ball.position.copy(muzzle); g.scene.add(ball);
+    (this.shells ||= []).push({ ball, pos: muzzle.clone(), vel: f.normalize().multiplyScalar(95), life: 0, mine: true });
+    g.fx.flash(muzzle, 0xffb040, 3, 0.12);
+    g.sfx.play('cannon'); g.shake = Math.max(g.shake, 0.6);
+  }
+
+  updateShells(dt) {
+    const g = this.game, sb = g.portSandbox;
+    for (const s of [...(this.shells || [])]) {
+      s.life += dt;
+      s.vel.y -= 3 * dt;
+      const step = s.vel.clone().multiplyScalar(dt), len = step.length();
+      const hit = sb.raycast(s.pos, step.clone().normalize(), len);
+      const pt = g.shorePlayer.body.translation();
+      const nearYou = !s.mine && s.pos.distanceTo(new THREE.Vector3(pt.x, pt.y, pt.z)) < 2.2;
+      let boom = null;
+      if (hit && !hit.prop?.ragdoll) boom = hit.point;
+      else if (nearYou) boom = s.pos.clone();
+      else if (s.pos.y < LAND_Y - 1 || s.life > 4) boom = s.pos.clone();
+      if (!boom) {
+        // smacking into a car on the way
+        const car = g.vehicles.all.find((c) => (s.mine ? c !== g.vehicles.active : !c.tank) && !c.wreck && c.pos.distanceTo(s.pos) < (c.tank ? 3.6 : 2.6));
+        if (car) boom = s.pos.clone();
+      }
+      if (boom) {
+        g.blast(boom, 7.5, 80, !!s.mine); // (yours is a crime)
+        g.shake = Math.max(g.shake, 0.9);
+        s.ball.removeFromParent();
+        this.shells.splice(this.shells.indexOf(s), 1);
+        continue;
+      }
+      s.pos.add(step);
+      s.ball.position.copy(s.pos);
+      if (Math.random() < 0.6) g.fx.emit(s.pos.clone(), new THREE.Vector3(0, 0.3, 0), 0x9a968a, 0.9, -0.05, 0.5);
+    }
   }
 
   // ---------------------------------------------------------------- roadblocks and spikes
@@ -378,7 +600,7 @@ export class Escalation {
     // a long chase only gets hotter while they've got eyes on you
     if (w >= 5 && g.time * 1000 - P.lastSeen < 3000) {
       this.chaseT += dt;
-      if (this.chaseT > 14) { this.chaseT = 0; P.heat += 2; const before = P.wanted; P.setWantedFromHeat(); if (P.wanted > before) { g.sfx.play('star'); g.hud.toast(`They're throwing everything at you: ${P.wanted} stars`, 0xff6a5a); } }
+      if (this.chaseT > 14) { this.chaseT = 0; P.heat += w >= 20 ? 4 : 2; const before = P.wanted; P.setWantedFromHeat(); if (P.wanted > before) { g.sfx.play('star'); g.hud.toast(`They're throwing everything at you: ${P.wanted} stars`, 0xff6a5a); } }
     }
     // helicopters
     const wantH = HELIS(w);
@@ -401,6 +623,19 @@ export class Escalation {
     const vans = P.cars.filter((c) => c.swat && !c.leaving && !c.wreck).length;
     this.vanT -= dt;
     if (island && vans < VANS(w) && this.vanT <= 0) { this.vanT = 10; if (this.spawnVan(target, island, w >= 20 ? 2 : 1)) g.hud.toast(w >= 20 ? 'Advanced SWAT deployed' : 'SWAT team inbound', 0xff6a5a); }
+    // the army
+    const tanks = P.cars.filter((c) => c.tank && !c.wreck);
+    this.tankT = (this.tankT ?? 0) - dt;
+    if (island && tanks.filter((c) => !c.leaving).length < TANKS(w) && this.tankT <= 0) {
+      this.tankT = 14;
+      if (this.spawnTank(target, island)) {
+        g.hud.toast('TANKS are rolling in!', 0xff3a2a);
+        if (!this.tankBanner) { this.tankBanner = true; g.hud.flashBanner?.('THE ARMY IS HERE', '#ff3a2a'); }
+      }
+    }
+    if (w < 30) this.tankBanner = false;
+    for (const t of tanks) if (t !== g.vehicles.active) this.updateTank(t, dt, target);
+    this.updateShells(dt);
     // roadblocks when you're driving
     const v = g.vehicles.active;
     this.blockT -= dt;

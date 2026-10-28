@@ -124,6 +124,10 @@ export class Citizens extends Npcs {
 
   // ko: a beating with bare fists knocks them out cold rather than killing them
   damage(npc, amount, dir, point, { ko = false } = {}) {
+    if (npc.shield && dir) { // a riot shield stops rounds from the front
+      const facing = Math.sin(npc.heading) * -dir.x + Math.cos(npc.heading) * -dir.z;
+      if (facing > 0.45) { amount *= 0.1; if (point) this.game.fx.flash(new THREE.Vector3().copy(point), 0xbfe0ff, 0.6, 0.05); this.game.sfx.play('impact'); }
+    }
     if (npc.mirror) this.game.net?.npcHurt(npc, amount); // (multiplayer: one of the host's people)
     npc.hp -= amount;
     if (npc.role === 'gang') this.game.gangs.provoke(npc.gang, 'you hit one of theirs');

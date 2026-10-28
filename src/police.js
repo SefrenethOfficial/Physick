@@ -11,7 +11,7 @@ import { HEAT, FOOT, CARS, Escalation, makeSwat, SWAT_LOOK, ADV_LOOK } from './s
 
 const SWAT_LOOKS = [SWAT_LOOK, ADV_LOOK];
 
-const BOATS = [0, 0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6];
+const BOATS = [0, 0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7];
 const CAR_SPEED = 17;
 
 const angleTo = (from, to) => { let d = to - from; return Math.atan2(Math.sin(d), Math.cos(d)); };
@@ -77,7 +77,7 @@ export class Police {
       const N = this.game.news, where = N?.place(pos);
       const what = { murder: `a killing in ${where}, witnesses say the suspect fled`, copkill: `an officer down in ${where}`, assault: `an assault in ${where}`, theft: `a theft in ${where}`, carjack: `a carjacking in ${where}`, copcar: `someone stole a police cruiser in ${where}`, shooting: `shots fired in ${where}`, explosion: `an explosion in ${where}` }[why];
       if (what) N.add(`Police are responding to ${what}.`, 'crime');
-      if ([6, 10, 15, 20].includes(this.wanted)) N?.add(this.wanted >= 20 ? 'The city has deployed its advanced SWAT unit. Residents are told to stay indoors.' : this.wanted >= 10 ? `SWAT teams are in pursuit of a suspect in ${where}.` : `Police helicopters are circling ${where} in a manhunt.`, 'crime');
+      if ([6, 10, 15, 20, 25, 30].includes(this.wanted)) N?.add(this.wanted >= 30 ? 'BREAKING: the National Guard is sending tanks into the streets after a suspect. Residents must stay indoors.' : this.wanted >= 25 ? 'Every police unit in the state is converging on one suspect.' : this.wanted >= 20 ? 'The city has deployed its riot SWAT unit. Residents are told to stay indoors.' : this.wanted >= 10 ? `SWAT teams are in pursuit of a suspect in ${where}.` : `Police helicopters are circling ${where} in a manhunt.`, 'crime');
     }
   }
 
@@ -243,6 +243,7 @@ export class Police {
     // stuck against something? back up and try again
     if (want > 3 && Math.abs(car.speed) < 1) car.stuckT += dt; else car.stuckT = 0;
     if (car.stuckT > 1.5) { car.reverseT = 1.2; car.stuckT = 0; }
+    if (car.tank) want = Math.min(want, dist < 30 ? 4 : 12); // (a tank lumbers in, and stops to fire)
     if (car.reverseT > 0) { car.reverseT -= dt; car.driveTo(dt, -6, aim, { maxSpeed: 36 }); }
     else {
       const turn = Math.abs(Math.atan2(Math.sin(Math.atan2(-(aim.x - car.pos.x), -(aim.z - car.pos.z)) - car.heading), Math.cos(Math.atan2(-(aim.x - car.pos.x), -(aim.z - car.pos.z)) - car.heading)));

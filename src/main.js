@@ -445,6 +445,7 @@ class Game {
   // Shooting a car: your own takes damage; a driver under fire bails out and runs.
   shootCar(car, dmg, hitPoint = null) {
     if (this.net?.carHit(car, dmg)) { if (hitPoint) this.fx.flash(hitPoint, 0xffe0a0, 0.6, 0.05); return; } // another player's car: theirs to dent
+    if (car.tank && hitPoint) { this.fx.flash(hitPoint, 0xffe0a0, 0.8, 0.05); car.damage(dmg * 0.04); return; } // bullets just spark off a tank (it takes explosives)
     if ((car.monster || car.bulletproof) && hitPoint) { this.fx.flash(hitPoint, 0xffe0a0, 0.6, 0.05); return; } // bulletproof: it just sparks
     car.damage(dmg * 0.45);
     if (hitPoint) { // a little dent where the round went in
@@ -1081,7 +1082,7 @@ class Game {
     if (atm) return { label: 'Use the ATM', run: () => this.bank.open(true) };
     if (dealer) return { label: `Talk to ${dealer.title.split(' ')[0].replace(/[^\w']/g, '')}`, run: () => this.underworld.open(dealer) };
     const car = this.vehicles.nearby(pos);
-    if (car) return { label: car.kind === 'mine' ? (car.car.bike ? 'Get on' : 'Get in') : car.kind === 'police' ? 'Steal the police car' : car.car.bike ? 'Steal the bike' : car.car.bus ? 'Hijack the bus' : car.car.tow ? 'Steal the tow truck' : 'Steal the car', run: () => this.vehicles.steal(car) };
+    if (car) return { label: car.kind === 'mine' ? (car.car.bike ? 'Get on' : 'Get in') : car.kind === 'police' ? (car.car.tank ? 'Steal the tank' : 'Steal the police car') : car.car.bike ? 'Steal the bike' : car.car.bus ? 'Hijack the bus' : car.car.tow ? 'Steal the tow truck' : 'Steal the car', run: () => this.vehicles.steal(car) };
     const hit = this.lookHit(3);
     const rd = hit?.prop?.ragdoll;
     if (rd && this.citizens.ragdolls.includes(rd)) {
@@ -1218,6 +1219,7 @@ class Game {
       if (!this.locked || this.health.dead) return;
       if (this.flying) { if (e.button === 0) this.jetTrigger = true; return; }
       if (this.gunnery.active) { if (e.button === 0) this.gunnery.trigger = true; return; }
+      if (this.vehicles.active?.tank && e.button === 0) { this.police.esc.playerTankFire(); return; } // a stolen tank's main gun
       if (this.atHelm || this.boats.active || this.vehicles.active) return;
       if (this.held?.gun) {
         if (e.button === 0) { this.firing = true; this.fire(); }
@@ -1556,6 +1558,7 @@ class Game {
     this.boats.update(dt, alive ? k : new Set());
     this.vehicles.update(dt, alive ? k : new Set());
     this.net?.update(dt);
+    if (this.vehicles.active?.tank) { this.police.esc.playerTank(dt); if (this.police.wanted === 0) this.police.esc.updateShells(dt); }
     this.breakables.update(dt);
     this.highway?.update(dt);
     this.homes?.update(dt);
