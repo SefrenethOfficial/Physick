@@ -142,9 +142,42 @@ Your cars from Verian Motors can live at your homes. Get out of one of your own 
   It also sells ammo for every gun. It's all legal, so they won't serve you while you're wanted. The guns on its racks can be shoplifted, but the clerk is always armed.
 - **Saltmarsh Threads** (on the town row, marked *Threads* on the map): the clothes shop. Talk to the clerk to change your look, with a turntable preview of you in the new clothes.
   - Shirt and trouser colours are $40 each, and skin tone is free.
-  - **Hats:** cap $60, beanie $50, cowboy hat $250, top hat $400, motorbike helmet $300, gold crown $25,000. Hat colour is free.
-  - **Extras:** sunglasses $120, gold aviators $900, gold chain $1,500, backpack $200.
-  - Once you've bought a hat or extra, it's yours to put on and take off for free.
+  - **Outfits** (one at a time, over your shirt):
+
+    | Outfit | Price |
+    |---|---|
+    | Tank top ◐ | $30 |
+    | Hi-vis vest ◐ | $60 |
+    | Hawaiian shirt ◐ | $80 |
+    | Hoodie ◐ | $90 |
+    | Tracksuit ◐ (with track pants) | $150 |
+    | Lab coat | $300 |
+    | Puffer jacket ◐ | $350 |
+    | Leather jacket | $450 |
+    | Trench coat | $700 |
+    | Business suit (with trousers and a tie) | $1,200 |
+    | Tuxedo (with a bow tie and a pocket square) | $2,500 |
+
+    ◐ = in your shirt colour.
+  - **Shoes:** sneakers $120, work boots $200, dress shoes $400.
+  - **Hats:**
+
+    | Hat | Price |
+    |---|---|
+    | Hard hat | $40 |
+    | Beanie | $50 |
+    | Cap | $60 |
+    | Balaclava | $60 |
+    | Beret | $120 |
+    | Cowboy hat | $250 |
+    | Motorbike helmet | $300 |
+    | Fedora | $350 |
+    | Top hat | $400 |
+    | Gold crown | $25,000 |
+
+    Hat colour is free.
+  - **Extras:** sunglasses $120, gold aviators $900, gold chain $1,500, backpack $200, headphones $80.
+  - Once you've bought an outfit, shoes, a hat or an extra, it's yours to put on and take off for free.
   - Other players see your outfit in multiplayer. You see your shirt on your own sleeve when you hold a two-handed gun, and the whole outfit when you go flying out of a car.
 - **Guns:** hold one and `LMB` fires (hold for automatics); `RMB` throws it (or aims, with the sniper rifle). Ammo is per weapon type and shown next to the gun. Your robot arm holds the grip, and your other, human hand holds the foregrip of two-handed guns (SMG, shotguns, rifles, the machine gun). Gunfire sends everyone running and counts as a crime if anyone sees. **Grenades:** `RMB` to throw, then run. **Armour:** hold it and press `F` to put it on; it soaks up most damage until it's shot through.
 - **Verian Motors** (the glass showroom on the west side of Verian City, south of where the park road comes in): walk up to the sales desk and press `E` to buy a car. Pick a paint colour first if you like. Ten models (the bikes are on display inside, the tow truck and the helicopter out on the lot):

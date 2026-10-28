@@ -17,21 +17,48 @@ export const HATS = [
   { id: 'cowboy', name: 'Cowboy hat', price: 250 },
   { id: 'tophat', name: 'Top hat', price: 400 },
   { id: 'helmet', name: 'Motorbike helmet', price: 300 },
+  { id: 'hardhat', name: 'Hard hat', price: 40 },
+  { id: 'beret', name: 'Beret', price: 120 },
+  { id: 'fedora', name: 'Fedora', price: 350 },
+  { id: 'balaclava', name: 'Balaclava', price: 60 },
   { id: 'crown', name: 'Gold crown', price: 25000 },
+];
+// whole outfits: worn over (or instead of) your shirt; some come in your shirt colour
+export const OUTFIT_LIST = [
+  { id: null, name: 'Just a shirt', price: 0 },
+  { id: 'tank', name: 'Tank top', price: 30, tint: true },
+  { id: 'hawaiian', name: 'Hawaiian shirt', price: 80, tint: true },
+  { id: 'hoodie', name: 'Hoodie', price: 90, tint: true },
+  { id: 'tracksuit', name: 'Tracksuit', price: 150, tint: true },
+  { id: 'hivis', name: 'Hi-vis vest', price: 60, tint: true },
+  { id: 'puffer', name: 'Puffer jacket', price: 350, tint: true },
+  { id: 'leather', name: 'Leather jacket', price: 450 },
+  { id: 'labcoat', name: 'Lab coat', price: 300 },
+  { id: 'trench', name: 'Trench coat', price: 700 },
+  { id: 'suit', name: 'Business suit', price: 1200 },
+  { id: 'tuxedo', name: 'Tuxedo', price: 2500 },
+];
+export const SHOE_LIST = [
+  { id: null, name: 'Old shoes', price: 0 },
+  { id: 'sneakers', name: 'Sneakers', price: 120 },
+  { id: 'boots', name: 'Work boots', price: 200 },
+  { id: 'dress', name: 'Dress shoes', price: 400 },
 ];
 export const EXTRAS = [
   { id: 'shades', name: 'Sunglasses', price: 120 },
   { id: 'aviators', name: 'Gold aviators', price: 900 },
   { id: 'chain', name: 'Gold chain', price: 1500 },
   { id: 'backpack', name: 'Backpack', price: 200 },
+  { id: 'phones', name: 'Headphones', price: 80 },
 ];
 const COLOR_PRICE = 40; // a new shirt or trousers in another colour
-const DEFAULT = { shirt: 0x2a303a, pants: 0x2c3440, skin: 0xd9a47c, hat: null, hatColor: 0x1b2638, glasses: null, chain: false, backpack: false };
+const DEFAULT = { shirt: 0x2a303a, pants: 0x2c3440, skin: 0xd9a47c, hat: null, hatColor: 0x1b2638, glasses: null, chain: false, backpack: false, outfit: null, shoes: null, phones: false };
+const toFigure = (L) => ({ shirt: L.shirt, pants: L.pants, skin: L.skin, hat: L.hat || undefined, hatColor: L.hatColor, glasses: L.glasses || undefined, chain: L.chain || undefined, backpack: L.backpack || undefined, outfit: L.outfit || undefined, shoes: L.shoes || undefined, phones: L.phones || undefined });
 const hex = (c) => `#${c.toString(16).padStart(6, '0')}`;
 
 // What you're wearing, straight from the save (for before the game's built: multiplayer's hello).
 export function savedLook() {
-  try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!s?.look) return null; const L = { ...DEFAULT, ...s.look }; return { shirt: L.shirt, pants: L.pants, skin: L.skin, hat: L.hat || undefined, hatColor: L.hatColor, glasses: L.glasses || undefined, chain: L.chain || undefined, backpack: L.backpack || undefined }; } catch { return null; }
+  try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!s?.look) return null; return toFigure({ ...DEFAULT, ...s.look }); } catch { return null; }
 }
 
 export class Style {
@@ -47,10 +74,7 @@ export class Style {
   save() { try { localStorage.setItem(KEY, JSON.stringify({ look: this.look, owned: [...this.owned] })); } catch { /* storage unavailable */ } }
 
   // The look as the figure builder wants it.
-  get figureLook() {
-    const L = this.look;
-    return { shirt: L.shirt, pants: L.pants, skin: L.skin, hat: L.hat || undefined, hatColor: L.hatColor, glasses: L.glasses || undefined, chain: L.chain || undefined, backpack: L.backpack || undefined };
-  }
+  get figureLook() { return toFigure(this.look); }
 
   // Wear it: your sleeve, and what other players see.
   apply() {
@@ -73,6 +97,12 @@ export class Style {
       html += `<h4>Shirt <small>$${COLOR_PRICE}</small></h4>${swatches('shirt', SHIRTS, COLOR_PRICE)}`;
       html += `<h4>Trousers <small>$${COLOR_PRICE}</small></h4>${swatches('pants', PANTS, COLOR_PRICE)}`;
       html += `<h4>Skin tone <small>free</small></h4>${swatches('skin', SKINS, 0)}`;
+      const pick = (title, list, key, note = '') => `<h4>${title}${note ? ` <small>${note}</small>` : ''}</h4><div class="opt-row">` + list.map((o) => {
+        const own = !o.id || this.owned.has(`${key}:${o.id}`), on = (L[key] || null) === o.id;
+        return `<button data-a="pick" data-k="${key}" data-id="${o.id ?? ''}" class="${on ? 'on' : ''}" ${!own && e.money < o.price ? 'disabled' : ''} title="${o.tint ? 'in your shirt colour' : ''}">${o.name}${o.tint ? ' ◐' : ''}${own ? '' : ` · $${o.price.toLocaleString()}`}</button>`;
+      }).join('') + '</div>';
+      html += pick('Outfits', OUTFIT_LIST, 'outfit', '◐ = in your shirt colour · suits and tuxedos come with their own trousers');
+      html += pick('Shoes', SHOE_LIST, 'shoes');
       html += '<h4>Hats</h4><div class="opt-row">' + HATS.map((h) => {
         const own = !h.id || this.owned.has(h.id), on = (L.hat || null) === h.id;
         return `<button data-a="hat" data-id="${h.id ?? ''}" class="${on ? 'on' : ''}" ${!own && e.money < h.price ? 'disabled' : ''}>${h.name}${own ? '' : ` · $${h.price.toLocaleString()}`}</button>`;
@@ -99,7 +129,7 @@ export class Style {
 
   wearing(id) {
     const L = this.look;
-    return id === 'shades' ? L.glasses === 'black' : id === 'aviators' ? L.glasses === 'gold' : id === 'chain' ? !!L.chain : id === 'backpack' ? !!L.backpack : false;
+    return id === 'shades' ? L.glasses === 'black' : id === 'aviators' ? L.glasses === 'gold' : id === 'chain' ? !!L.chain : id === 'backpack' ? !!L.backpack : id === 'phones' ? !!L.phones : false;
   }
 
   act({ a, k, c, id }) {
@@ -115,6 +145,12 @@ export class Style {
       if (!h) return;
       if (h.id && !this.owned.has(h.id)) { if (!buy(h.price, `a ${h.name.toLowerCase()}`)) return; this.owned.add(h.id); }
       L.hat = h.id;
+    } else if (a === 'pick') { // an outfit or shoes
+      const list = k === 'outfit' ? OUTFIT_LIST : SHOE_LIST, o = list.find((x) => (x.id ?? '') === id);
+      if (!o) return;
+      const tag = `${k}:${o.id}`;
+      if (o.id && !this.owned.has(tag)) { if (!buy(o.price, `a ${o.name.toLowerCase()}`)) return; this.owned.add(tag); }
+      L[k] = o.id;
     } else if (a === 'extra') {
       const x = EXTRAS.find((q) => q.id === id);
       if (!x) return;
@@ -124,6 +160,7 @@ export class Style {
       if (id === 'aviators') L.glasses = on ? 'gold' : null;
       if (id === 'chain') L.chain = on;
       if (id === 'backpack') L.backpack = on;
+      if (id === 'phones') L.phones = on;
     }
     this.save();
     this.apply();

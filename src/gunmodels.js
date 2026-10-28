@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
+import { OUTFITS } from './figure.js';
 
 // Detailed gun models. Each is built in metres with the muzzle toward -Z and the grip down (-Y).
 // The surfaces are painted on canvases: brushed and worn steel, stippled polymer, checkered grips,
@@ -329,7 +330,8 @@ export function lmgModel() {
 // own frame (muzzle -Z, up +Y), in metres.
 export function supportHand(r = 0.02, look = null) {
   const g = new THREE.Group();
-  const skinC = look?.skin ?? 0xd9a47c, shirtC = look?.shirt ?? 0x2a303a;
+  const skinC = look?.skin ?? 0xd9a47c, O = look?.outfit ? OUTFITS[look.outfit] : null;
+  const shirtC = !O || O.arms === 'shirt' || O.arms === 'stripe' ? (look?.shirt ?? 0x2a303a) : O.arms === 'skin' ? skinC : O.arms; // (the sleeve of whatever you're wearing)
   const skin = std({ color: skinC, roughness: 0.75 });
   const knuckle = std({ color: new THREE.Color(skinC).multiplyScalar(0.92), roughness: 0.75 });
   const sleeve = std({ map: canvas(`sleeve${shirtC}`, 128, 128, (c, w, h) => { c.fillStyle = `#${shirtC.toString(16).padStart(6, '0')}`; c.fillRect(0, 0, w, h); for (let i = 0; i < 1500; i++) { c.fillStyle = rnd() < 0.5 ? 'rgba(0,0,0,.18)' : 'rgba(255,255,255,.05)'; c.fillRect(rnd() * w, rnd() * h, 2, 1); } }), roughness: 1 });
