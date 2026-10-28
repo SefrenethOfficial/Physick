@@ -558,3 +558,11 @@ body.pad-mode { cursor: none; }
 #panel .style-opts .sw.on { box-shadow: 0 0 0 3px #ffd166; }
 .style-opts .opt-row { display: flex; flex-wrap: wrap; gap: 6px; }
 #panel .style-opts .opt-row button.on { background: #ffd166; color: var(--ink); }
+
+/* the camera's flash */
+#flash { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 3; }
+#flash.on { animation: camflash .45s ease-out; }
+@keyframes camflash { 0% { opacity: .9; } 100% { opacity: 0; } }
+
+.flight .fkeys { margin-top: 6px; font-size: 11px; opacity: 0.75; text-align: right; }
+.flight .fkeys kbd { font-size: 10px; }

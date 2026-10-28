@@ -182,19 +182,26 @@ export function buildJet(number) {
 }
 
 // ---------------------------------------------------------------- one aircraft
-class Jet {
-  constructor(game, home, number) {
+// opts: { build: () => ({ root, gear, flames, pilot, navs }) another model, half / wing: collider
+// half-sizes, agility (how quick it rolls and pulls), thrust (×), noRespawn, name }
+export class Jet {
+  constructor(game, home, number, opts = {}) {
     this.game = game;
     this.home = home;
-    const b = buildJet(number);
+    const b = opts.build ? opts.build() : buildJet(number);
     this.number = number;
+    this.agility = opts.agility ?? 1;
+    this.thrustMul = opts.thrust ?? 1;
+    this.noRespawn = !!opts.noRespawn;
+    this.name = opts.name || 'jet';
     Object.assign(this, { mesh: b.root, gear: b.gear, flames: b.flames, pilot: b.pilot, navs: b.navs });
     game.scene.add(this.mesh);
     // a moving obstacle in the shore physics world so you can't walk through parked jets
     const w = game.portWorld;
     this.body = w.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased());
-    this.collider = w.createCollider(RAPIER.ColliderDesc.cuboid(1.7, 1.3, 8.2).setTranslation(0, -0.5, 0), this.body);
-    this.wingCol = w.createCollider(RAPIER.ColliderDesc.cuboid(6.2, 0.2, 2.5).setTranslation(0, -0.1, 1.2), this.body);
+    const H = opts.half || [1.7, 1.3, 8.2, 0, -0.5, 0], Wg = opts.wing || [6.2, 0.2, 2.5, 0, -0.1, 1.2];
+    this.collider = w.createCollider(RAPIER.ColliderDesc.cuboid(H[0], H[1], H[2]).setTranslation(H[3], H[4], H[5]), this.body);
+    this.wingCol = w.createCollider(RAPIER.ColliderDesc.cuboid(Wg[0], Wg[1], Wg[2]).setTranslation(Wg[3], Wg[4], Wg[5]), this.body);
     this.reset();
   }
 
@@ -237,7 +244,8 @@ class Jet {
   crash(where = 'ground') {
     if (this.crashed) return;
     this.crashed = true;
-    this.respawnT = 15;
+    this.respawnT = this.noRespawn ? Infinity : 15;
+    this.autopilot = null;
     this.mesh.visible = false;
     this.collider.setEnabled(false);
     this.wingCol.setEnabled(false);
@@ -258,9 +266,9 @@ class Jet {
     const ocean = this.game.ocean;
     const flying = !!ctl;
     if (ctl) this.throttle = THREE.MathUtils.clamp(this.throttle + ctl.throttle * dt * 0.5, 0, 1);
-    else this.throttle = Math.max(this.throttle - dt, 0);
-    this.ab = !!ctl?.ab && this.throttle > 0.95;
-    const thrust = this.throttle * THRUST + (this.ab ? AB_THRUST - THRUST : 0);
+    else if (!this.autopilot) this.throttle = Math.max(this.throttle - dt, 0);
+    this.ab = (!!ctl?.ab || (!ctl && !!this.autopilot)) && this.throttle > 0.95; // (an autopilot run goes flat out)
+    const thrust = (this.throttle * THRUST + (this.ab ? AB_THRUST - THRUST : 0)) * this.thrustMul;
     const gearDrag = this.gearDown ? CDGEAR : 0;
 
     if (this.onGround) {
@@ -300,12 +308,20 @@ class Jet {
       const speed = this.vel.length();
       const authority = THREE.MathUtils.clamp((speed - 25) / 70, 0.12, 1);
       const stick = ctl ? ctl.stick : { x: 0, y: 0 };
-      const pitchRate = -stick.y * 1.15 * authority;
-      const rollRate = -stick.x * 2.6 * authority;
-      const yawRate = (ctl ? ctl.steer : 0) * 0.35 * authority;
+      const pitchRate = -stick.y * 1.15 * authority * this.agility;
+      const rollRate = -stick.x * 2.6 * authority * this.agility;
+      const yawRate = (ctl ? ctl.steer : 0) * 0.35 * authority * this.agility;
       this.quat.multiply(_q.setFromAxisAngle(AX, pitchRate * dt));
       this.quat.multiply(_q.setFromAxisAngle(AZ, rollRate * dt));
       this.quat.multiply(_q.setFromAxisAngle(AY, yawRate * dt));
+      // nobody at the controls but it's been pointed at something: it steers itself onto it
+      const ap = this.autopilot?.pos;
+      if (ap && !ctl) {
+        const want = ap.clone().sub(this.pos).normalize();
+        const turn = new THREE.Quaternion().setFromUnitVectors(this.fwd, want);
+        this.quat.premultiply(new THREE.Quaternion().slerp(turn, Math.min(1, dt * 0.9)));
+        this.throttle = 1;
+      }
       this.quat.normalize();
 
       const fwd = this.fwd, up = this.up, right = this.right;
@@ -400,11 +416,28 @@ export class Jets {
     this.fireCd = 0;
   }
 
+  add(jet) { this.list.push(jet); return jet; }
+  remove(jet) { const i = this.list.indexOf(jet); if (i >= 0) this.list.splice(i, 1); jet.mesh.removeFromParent(); this.game.portWorld.removeRigidBody(jet.body); if (this.active === jet) this.active = null; }
+
+  // Bail out: the canopy goes and you're fired clear (then it's freefall and the parachute).
+  eject() {
+    const j = this.active, g = this.game;
+    if (!j || j.onGround) { if (j) g.hud.toast('Not on the ground!'); return false; }
+    this.active = null;
+    g.sfx.setJet(false);
+    const up = j.up, p = j.pos.clone().addScaledVector(up, 4);
+    g.skydive.start(p, j.vel.clone().multiplyScalar(0.55).addScaledVector(up, 22));
+    g.fx.flash(p, 0xffc060, 2, 0.15); g.sfx.play('explosion', 0.5);
+    j.ejected = true;
+    g.story?.fallout?.onEject?.(j);
+    return true;
+  }
+
   nearby(pos) {
     let best = null, bd = 7.5;
     for (const j of this.list) {
-      if (j.crashed || !j.onGround) continue;
-      const d = Math.hypot(j.pos.x - pos.x, j.pos.z - pos.z);
+      if (j.crashed || !j.onGround || j.locked) continue;
+      const d = Math.hypot(j.pos.x - pos.x, j.pos.z - pos.z) - (j.reach || 0);
       if (d < bd) { bd = d; best = j; }
     }
     return best;
@@ -453,6 +486,7 @@ export class Jets {
       this.game.sfx.play('telegraph');
     }
     if (code === 'KeyC') this.cockpit = !this.cockpit;
+    if (code === 'KeyF') this.eject();
   }
 
   update(dt, keys, trigger) {
@@ -489,14 +523,14 @@ export class Jets {
   cameraPose(camera, dt) {
     const j = this.active;
     if (this.cockpit) {
-      camera.position.copy(new THREE.Vector3(0, 0.95, -4.6).applyQuaternion(j.quat).add(j.pos));
+      camera.position.copy(new THREE.Vector3(...(j.cockpitOff || [0, 0.95, -4.6])).applyQuaternion(j.quat).add(j.pos));
       camera.quaternion.copy(j.quat);
       return;
     }
     // Rigid offset behind the jet, but with a smoothed orientation so rolls and pulls feel weighty.
     const k = 1 - Math.exp(-dt * 5);
     this.camQuat.slerp(j.quat, k);
-    const off = new THREE.Vector3(0, 4.2, 19).applyQuaternion(this.camQuat);
+    const off = new THREE.Vector3(...(j.camOff || [0, 4.2, 19])).applyQuaternion(this.camQuat);
     const pos = j.pos.clone().add(off);
     if (j.onGround) pos.y = Math.max(pos.y, LAND_Y + 3);
     pos.y = Math.max(pos.y, this.game.ocean.heightAt(pos.x, pos.z) + 1.5); // never under the sea

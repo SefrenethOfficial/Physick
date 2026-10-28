@@ -69,6 +69,7 @@ import { ChaseMusic } from './music.js';
 import { mpSession, seedRandom, setMpSession } from './netseed.js';
 import { isCriminal } from './citizens.js';
 import { Style } from './style.js';
+import { Skydive } from './skydive.js';
 import { ambulanceMesh, fireTruckMesh } from './activities.js';
 import { busMesh } from './fleet.js';
 import { bindLobby, linkSession } from './lobby.js';
@@ -210,6 +211,7 @@ class Game {
     this.worldBlood = new Blood(this, { parent: this.scene, sandbox: this.portSandbox, npcs: () => this.citizens });
     this.gunnery = new Gunnery(this);
     this.jets = new Jets(this);
+    this.skydive = new Skydive(this); // (ejecting from a jet)
     this.stockStores();
     this.economy = new Economy(this);
     this.style = new Style(this); // what you're wearing
@@ -434,6 +436,17 @@ class Game {
       if (!crookHit && this.time - (this.lastShotCrime || -9) > 0.6) { this.lastShotCrime = this.time; this.police.crime('shooting', 1, new THREE.Vector3(p.x, p.y, p.z)); }
     }
     this.refreshHolding();
+  }
+
+  // Click: a photo. The flash, the shutter, and the story gets to see what you got.
+  takePhoto() {
+    if ((this.photoT || 0) > this.time) return;
+    this.photoT = this.time + 0.8;
+    this.sfx.play('switch');
+    const f = document.getElementById('flash') || Object.assign(document.body.appendChild(document.createElement('div')), { id: 'flash' });
+    f.classList.remove('on'); void f.offsetWidth; f.classList.add('on');
+    const got = this.story.fallout?.photo?.();
+    if (!got) this.hud.toast('Click. Nice shot of… nothing much.', 0x9ec5ff);
   }
 
   carByCollider(col) {
@@ -923,6 +936,8 @@ class Game {
       this.hud.toast(`${def.name} (+${def.heal || 5})`, 0x7be08a);
       this.sfx.play('select');
       this.clearHand();
+    } else if (def.use === 'photo') {
+      this.takePhoto();
     } else if (def.use === 'coffee') {
       this.health.heal(10);
       this.hud.toast('Navy coffee. Strong. (+10)', 0xc8a24a);
@@ -1213,6 +1228,7 @@ class Game {
       const dx = e.movementX * sens, dy = e.movementY * sens;
       if (this.flying) this.jets.mouse(dx, this.settings.invertJet ? -dy : dy);
       else if (this.gunnery.active) this.gunnery.aim(dx, dy);
+      else if (this.skydive.active) this.skyDX = (this.skyDX || 0) + e.movementX * sens;
       else this.player.look(dx * (this.zoomK > 0.5 ? 0.25 : 1), dy * (this.zoomK > 0.5 ? 0.25 : 1)); // (steadier through a scope)
     });
     addEventListener('mousedown', (e) => {
@@ -1236,6 +1252,7 @@ class Game {
         if (e.button === 2) this.release(false);
         return;
       }
+      if (e.button === 0 && this.held?.use === 'photo') { this.takePhoto(); return; } // the camera
       if (e.button === 0) {
         if (this.held?.melee) this.punch();
         else if (this.held) this.release(false);
@@ -1295,6 +1312,7 @@ class Game {
       }
       if (e.code === 'KeyG' && this.story.onKeyG()) return; // (works from the driver's seat)
       if (e.code === 'KeyR' && this.vehicles.active && this.radio) { this.radio.next(); return; }
+      if (e.code === 'KeyC' && !this.vehicles.active && !this.boats.active && this.onShore) { this.shorePlayer.crouch = !this.shorePlayer.crouch; this.hud.toast(this.shorePlayer.crouch ? 'Crouching (C to stand)' : 'Standing', 0x9ec5ff); return; }
       if (e.code === 'KeyT' && this.vehicles.active && this.fleet?.toggleTow()) return;
       if (e.code === 'KeyY' && this.vehicles.active && this.activities?.keyY()) return;
       if (this.gunnery.active || this.boats.active || this.vehicles.active) return;
@@ -1359,6 +1377,7 @@ class Game {
     }
     if (this.pick) return `Picking pocket… ${Math.round((this.pick.t / 1.2) * 100)}%`;
     if (this.dragging) return '<kbd>LMB</kbd> Let go · <kbd>RMB</kbd> Heave';
+    if (this.held?.use === 'photo') return '<kbd>LMB</kbd> Take a photo · <kbd>RMB</kbd> Throw · <kbd>B</kbd> Bag it';
     if (this.held?.use === 'mop') return '<kbd>LMB</kbd> (hold) Mop · <kbd>RMB</kbd> Put down · <kbd>B</kbd> Bag it';
     if (this.held?.gun) return this.held.gun.scope ? (this.scopeShown ? '' : `<kbd>LMB</kbd> Fire · hold <kbd>RMB</kbd> Aim · <kbd>B</kbd> Bag it`) : `<kbd>LMB</kbd> Fire · <kbd>RMB</kbd> Throw · <kbd>B</kbd> Bag it`;
     if (this.held?.grenade) return '<kbd>RMB</kbd> Throw (lit) · <kbd>LMB</kbd> Put down · <kbd>B</kbd> Bag it';
@@ -1526,7 +1545,7 @@ class Game {
     this.ship.update(dt, this.ocean, steer);
 
     const alive = this.locked && !this.health.dead && !this.panelOpen;
-    const walking = alive && !this.atHelm && !this.gunnery.active && !this.flying && !this.boats.active && !this.vehicles.active && !this.pragdoll.active;
+    const walking = alive && !this.atHelm && !this.gunnery.active && !this.flying && !this.boats.active && !this.vehicles.active && !this.pragdoll.active && !this.skydive.active;
     this.fireT = Math.max(0, this.fireT - dt);
     if (this.firing && this.held?.gun && alive && this.fireT <= 0) this.fire();
     this.saveAmmoT = (this.saveAmmoT || 0) - dt;
@@ -1549,7 +1568,7 @@ class Game {
       if (!this.onShore) this.health.checkImpacts();
       this.world.timestep = sub;
       this.world.step();
-      if (this.onShore && !this.flying && !this.boats.active && !this.vehicles.active && !this.pragdoll.active) this.shorePlayer.update(sub, keys);
+      if (this.onShore && !this.flying && !this.boats.active && !this.vehicles.active && !this.pragdoll.active && !this.skydive.active) this.shorePlayer.update(sub, keys);
       this.portWorld.timestep = sub;
       this.portWorld.step();
     }
@@ -1557,6 +1576,7 @@ class Game {
     this.checkTransfer();
     this.boats.update(dt, alive ? k : new Set());
     this.vehicles.update(dt, alive ? k : new Set());
+    if (this.skydive.active) { this.skydive.update(dt, alive ? k : new Set(), this.skyDX || 0); this.skyDX = 0; }
     this.net?.update(dt);
     if (this.vehicles.active?.tank) { this.police.esc.playerTank(dt); if (this.police.wanted === 0) this.police.esc.updateShells(dt); }
     this.breakables.update(dt);
@@ -1609,7 +1629,7 @@ class Game {
     const pt = this.player.body.translation();
     if (!this.health.dead && !this.flying) {
       if (!this.onShore && pt.y < DECK - 3.5) this.overboard();
-      if (this.onShore && !this.boats.active && !this.vehicles.active && pt.y < LAND_Y - 3 && !this.story.underground && !this.homes?.inside) {
+      if (this.onShore && !this.boats.active && !this.vehicles.active && !this.skydive.active && pt.y < LAND_Y - 3 && !this.story.underground && !this.homes?.inside) {
         this.sfx.play('splash');
         this.endDrag(false);
         this.hud.toast('You fell in the water!', 0xff8a6a);
@@ -1623,6 +1643,8 @@ class Game {
       this.title.cameraPose(this.camera);
     } else if (this.pragdoll.active) {
       this.pragdoll.cameraPose(this.camera, dt);
+    } else if (this.skydive.active) {
+      this.skydive.cameraPose(this.camera, dt);
     } else if (this.flying) {
       this.jets.cameraPose(this.camera, dt);
     } else if (this.vehicles.active) {
@@ -1696,7 +1718,7 @@ class Game {
     const r = this.renderer;
     r.autoClear = true;
     r.render(this.scene, this.camera);
-    const showArm = !this.title?.active && !this.atHelm && !this.gunnery.active && !this.health.dead && !this.flying && !this.boats.active && !this.vehicles.active && !this.pragdoll.active;
+    const showArm = !this.title?.active && !this.atHelm && !this.gunnery.active && !this.health.dead && !this.flying && !this.boats.active && !this.vehicles.active && !this.pragdoll.active && !this.skydive.active;
     this.viewmodel.update(dt, this.player, this.mouseDX, this.mouseDY, false);
     this.mouseDX = this.mouseDY = 0;
     if (showArm && !this.scopeShown) {

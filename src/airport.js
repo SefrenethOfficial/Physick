@@ -99,19 +99,22 @@ export class Airport {
     fenceRun(F.x0, F.z1, F.x0, F.z0);
     // the gate: chained shut, barrier down, concrete blocks in front
     const gateM = std({ color: 0x9aa0a6, metalness: 0.6, roughness: 0.4 });
+    this.gateParts = { meshes: [], col: null, x: (gate.x0 + gate.x1) / 2, z: F.z0 }; // (Act II: Pike's pass opens it)
     for (const s of [0, 1]) {
       const gx = gate.x0 + (s + 0.5) * ((gate.x1 - gate.x0) / 2);
       const panel = new THREE.Mesh(new THREE.BoxGeometry((gate.x1 - gate.x0) / 2 - 0.1, FH, 0.1), gateM);
       panel.position.set(gx, Y + FH / 2, F.z0);
       g.add(panel);
+      this.gateParts.meshes.push(panel);
       const bars = new THREE.Mesh(new THREE.PlaneGeometry((gate.x1 - gate.x0) / 2 - 0.4, FH - 0.4), new THREE.MeshStandardMaterial({ map: linkTex, transparent: true, alphaTest: 0.3, side: THREE.DoubleSide }));
       bars.position.set(gx, Y + FH / 2, F.z0 + 0.06);
       void bars;
     }
-    sb.addStaticCollider(RAPIER.ColliderDesc.cuboid((gate.x1 - gate.x0) / 2, FH / 2 + 0.6, 0.15).setTranslation((gate.x0 + gate.x1) / 2, Y + FH / 2 + 0.6, F.z0));
+    this.gateParts.col = sb.addStaticCollider(RAPIER.ColliderDesc.cuboid((gate.x1 - gate.x0) / 2, FH / 2 + 0.6, 0.15).setTranslation((gate.x0 + gate.x1) / 2, Y + FH / 2 + 0.6, F.z0));
     const chain = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.04, 6, 12), std({ color: 0x555555, metalness: 0.8 }));
     chain.position.set((gate.x0 + gate.x1) / 2, Y + 1.4, F.z0 - 0.12);
     g.add(chain);
+    this.gateParts.meshes.push(chain);
     for (const dx of [-5, 0, 5]) solidBox(g, sb, 3, 0.9, 0.7, (gate.x0 + gate.x1) / 2 + dx, Y, F.z0 - 3, std({ color: 0xc9c5bc }));
     sign(g, 'AIRPORT CLOSED', (gate.x0 + gate.x1) / 2, Y + 1.7, F.z0 - 0.2, Math.PI, { w: 7, h: 1.2, bg: '#b3261e', fg: '#ffffff' });
     sign(g, 'VERIAN INTERNATIONAL AIRPORT', (gate.x0 + gate.x1) / 2, Y + FH + 2.2, F.z0 - 0.5, Math.PI, { w: 14, h: 1.4, bg: '#1f3b63', fg: '#ffffff', post: Y });

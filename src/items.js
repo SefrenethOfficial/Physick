@@ -284,7 +284,7 @@ export const ITEMS = [
     },
   },
   {
-    id: 'camera', name: 'Camera', radius: 0.15, weight: 0.6,
+    id: 'camera', name: 'Camera', use: 'photo', heldSize: 0.16, radius: 0.15, weight: 0.6,
     build: () => {
       const it = boxItem(0.14, 0.09, 0.07, null, std({ color: 0x1b1c1e, roughness: 0.4 }));
       const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.06, 14), std({ color: 0x2b2d30, metalness: 0.6 }));

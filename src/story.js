@@ -7,6 +7,7 @@ import { Mansion } from './mansion.js';
 import { Phone } from './phone.js';
 import { Heli, SHIP } from './cargo.js';
 import { ElMonstruo, CARS_TOTAL, MAX_ALIVE } from './elmonstruo.js';
+import { Act2, ACT2_MISSIONS, ACT2_KEY_ITEMS } from './act2.js';
 
 // The story: Wren Takavic, your oldest friend, was killed in the Verian Central bombing.
 // The Ashen Hand cell did it. Work your way towards them one job at a time.
@@ -22,6 +23,7 @@ export const KEY_ITEMS = {
   manifest: { name: 'Shipping manifest', desc: 'Crates through Saltmarsh dock marked "agricultural". Half of it is in some kind of code.' },
   blueprint: { name: 'Torn blueprint', desc: 'Part of a floor plan, with a circle drawn round one room. You can\'t tell where it is from this piece.' },
 };
+Object.assign(KEY_ITEMS, ACT2_KEY_ITEMS);
 const DOCS = ['manifest', 'blueprint'];
 
 const INTRO = [
@@ -71,7 +73,7 @@ export const MISSIONS = [
     reward: 5000,
     passText: `${FIXER}: "That's one of them. The Courier's done, the bomb's in the sea and El Monstruo's a pancake. Wren, that's for you."`,
   },
-  { id: 'm6', title: 'Act II: coming soon', locked: true, brief: 'The Ashen Hand know your face now. Vic says lie low. For now.' },
+  ...ACT2_MISSIONS,
 ];
 
 export class Story {
@@ -91,6 +93,7 @@ export class Story {
     this.phone = new Phone(game);
     this.heli = new Heli(game);
     this.monstruo = new ElMonstruo(game);
+    this.fallout = new Act2(game, this); // Act II
     // Vic's texts: the brief for every job you've been given so far
     if (!this.state.messages) {
       this.state.messages = [];
@@ -371,6 +374,7 @@ export class Story {
       if (!hasGun) { g.giveItem(ITEM_BY_ID.pistol); g.hud.toast(`${FIXER} left you a pistol`, 0xffd166); }
       if ((g.economy.ammo.pistolAmmo || 0) < 24) g.economy.addAmmo('pistolAmmo', 24);
     }
+    if (this.fallout.owns(id)) this.fallout.start(a);
     if (id === 'm4') {
       Object.assign(a, { stage: 'board', goons: [], parts: [], sunk: 0, alert: false, reinfT: 0 });
       if (!hasGun) { g.giveItem(ITEM_BY_ID.pistol); g.hud.toast(`${FIXER} left you a pistol`, 0xffd166); }
@@ -404,6 +408,7 @@ export class Story {
       this.heli.hide();
       if (this.phone.call) { this.phone.call = null; this.phone.ringEl.classList.remove('on'); }
     }
+    if (this.fallout.owns(a.id)) this.fallout.end(a, pass);
     if (pass) {
       if (!this.passed(a.id)) this.state.passed.push(a.id);
       this.save();
@@ -426,6 +431,8 @@ export class Story {
   action(pos) {
     const g = this.game, a = this.active;
     const near = (p, r) => p && Math.hypot(p.x - pos.x, p.z - pos.z) < r && Math.abs(p.y - pos.y) < 3;
+    const fa = this.fallout.action(pos, a);
+    if (fa) return fa;
     if (a?.id === 'm2' && a.stage === 'shutter' && near(this.shutter.front, 3)) {
       return { label: 'Force the shutter open', run: () => {
         this.setShutter(false); g.sfx.play('crash'); g.shake = 1;
@@ -499,6 +506,7 @@ export class Story {
     const g = this.game;
     if (this.keyMesh?.visible) this.keyMesh.rotation.y += dt * 1.5;
     this.phone.update(dt);
+    this.fallout.tick(dt);
     if (this.mansion.built && this.underground) this.mansion.update(this.game.time);
     if (!a) { this.beacon.visible = false; return; }
     a.t += dt;
@@ -509,6 +517,7 @@ export class Story {
     if (a.id === 'm3') this.updateM3(a, p, dt);
     if (a.id === 'm4') this.updateM4(a, p, dt);
     if (a.id === 'm5') this.updateM5(a, p, dt);
+    if (this.fallout.owns(a.id)) this.fallout.update(a, p, dt);
     if (!this.active) return;
     const wp = a.wp;
     const d = wp ? Math.hypot(wp.x - p.x, wp.z - p.z) : 0;
@@ -758,7 +767,7 @@ export class Story {
   }
 
   // ---------------------------------------------------------------- mission 5: El Monstruo
-  get extraCars() { return this.monstruo.cars; }
+  get extraCars() { return [...this.monstruo.cars, ...(this.fallout?.cars || [])]; }
 
   vehicleLock(v) {
     const a = this.active;
@@ -887,8 +896,8 @@ export class Story {
     const e = this.game.economy;
     const html = `<div class="story act">
       <h1>ACT ${['', 'I', 'II', 'III'][n]}</h1><h2>complete</h2>
-      <p>Verian Central Square is still standing. The bomb is at the bottom of the harbour, the Courier is dead in a truck that's now a metal pancake, and the Ashen Hand have lost their first man.</p>
-      <p>They know someone is coming for them now. They don't know it's you. Not yet.</p>
+      ${n === 2 ? this.fallout.completeText() : `<p>Verian Central Square is still standing. The bomb is at the bottom of the harbour, the Courier is dead in a truck that's now a metal pancake, and the Ashen Hand have lost their first man.</p>
+      <p>They know someone is coming for them now. They don't know it's you. Not yet.</p>`}
       ${n === 1 ? '<p><b>New area open:</b> the barricade\'s off the causeway south of the city. Route 9 runs out into <b>the Scorch</b>.</p>' : ''}
       <div class="btns"><button data-a="ok">Continue</button></div></div>`;
     e.open('The Ashen Hand', html, (body) => body.addEventListener('click', (ev) => { if (ev.target.closest('button[data-a]')) e.close(); }));

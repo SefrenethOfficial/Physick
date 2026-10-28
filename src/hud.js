@@ -48,6 +48,7 @@ export class Hud {
         <div class="row"><span>Throttle</span><b id="fthr">0%</b></div>
         <div class="thrbar"><i id="fthrbar"></i></div>
         <div class="row"><span>Gear</span><b id="fgear">DOWN</b></div>
+        <div class="fkeys"><kbd>G</kbd> gear · <kbd>C</kbd> cockpit · <kbd>F</kbd> eject</div>
       </div>
       <div class="fpm" id="fpm"></div>
       <div class="warn" id="fwarn"></div>
