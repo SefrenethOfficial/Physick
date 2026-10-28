@@ -14,11 +14,27 @@ export const CATALOG = {
   pharmacy: ['pills', 'pills', 'medkit', 'water', 'energy'],
   pawn: ['watch', 'necklace', 'camera', 'vase', 'handbag', 'radio'],
   diner: ['burger', 'burger', 'soda', 'mug'],
+  guns: ['magnum', 'rifle', 'combat', 'sniper', 'lmg', 'pistol'],
 };
+// What the gun store sells over the counter (each gun comes with some rounds).
+const GUN_STOCK = [
+  { id: 'magnum', price: 2800, ammo: ['magnumAmmo', 18], blurb: '.357 Magnum. Six shots, each one hits like a truck. 18 rounds.' },
+  { id: 'rifle', price: 6500, ammo: ['rifleAmmo', 90], blurb: 'Full-auto 5.56 with a red-dot sight. Accurate a long way out. 90 rounds.' },
+  { id: 'combat', price: 5200, ammo: ['shells', 24], blurb: 'Semi-auto 12 gauge: no pumping, just keep pulling. 24 shells.' },
+  { id: 'sniper', price: 9500, ammo: ['sniperAmmo', 15], blurb: 'Bolt-action .308 with a 10x scope (hold right-click to aim). 15 rounds.' },
+  { id: 'lmg', price: 14000, ammo: ['rifleAmmo', 200], blurb: 'Belt-fed, bipod, 200-round box. Heavy. 200 rounds.' },
+  { id: 'pistol', price: 500, ammo: ['pistolAmmo', 24], blurb: 'A reliable 9 mm, cheaper than Vic\'s. 24 rounds.' },
+  { ammoOnly: 'magnumAmmo', n: 18, price: 110, name: 'Magnum rounds ×18' },
+  { ammoOnly: 'rifleAmmo', n: 90, price: 220, name: 'Rifle rounds ×90' },
+  { ammoOnly: 'sniperAmmo', n: 10, price: 150, name: 'Sniper rounds ×10' },
+  { ammoOnly: 'shells', n: 16, price: 80, name: 'Shotgun shells ×16' },
+  { ammoOnly: 'pistolAmmo', n: 24, price: 50, name: 'Pistol rounds ×24' },
+  { ammoOnly: 'smgAmmo', n: 90, price: 140, name: 'SMG rounds ×90' },
+];
 const SKIN = [0xf1c9a5, 0xd9a47c, 0xa8724f, 0x7a4f35, 0xffdcbd];
 const UNIFORM = {
   grocery: 0x2f8a52, liquor: 0x3a3a3a, electronics: 0x1f5fbf, hardware: 0xd9622b, pharmacy: 0xf2f2ee,
-  pawn: 0x5a4a3a, diner: 0xd8d0c0, bank: 0x1f3b2e, police: 0x1c2f6e, hospital: 0x8fd0c8, office: 0x2c3440,
+  pawn: 0x5a4a3a, diner: 0xd8d0c0, guns: 0x4a5a3a, bank: 0x1f3b2e, police: 0x1c2f6e, hospital: 0x8fd0c8, office: 0x2c3440,
 };
 const price = (def) => Math.max(2, Math.round((def.value ?? 10) * 1.25));
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
@@ -29,6 +45,7 @@ function themeOf(it) {
   if (it.kind === 'pawn') return 'pawn';
   if (it.kind === 'bank') return 'bank';
   if (it.kind === 'lobby' || it.kind === 'office') return n.includes('POLICE') ? 'police' : n.includes('HOSPITAL') ? 'hospital' : 'office';
+  if (n.includes('GUN')) return 'guns';
   if (n.includes('LIQUOR')) return 'liquor';
   if (n.includes('ELECTRONIC') || n.includes('GADGET')) return 'electronics';
   if (n.includes('HARDWARE')) return 'hardware';
@@ -41,7 +58,7 @@ export class Stores {
     this.game = game;
     this.list = [];
     this.unpaid = []; // { def, st, held }
-    for (const it of [...game.city.interiors, ...(game.hood?.interiors || [])]) {
+    for (const it of [...game.city.interiors, ...(game.hood?.interiors || []), ...(game.saltmarsh?.interiors || [])]) {
       if (!it.clerk || it.name?.startsWith('SCOOPS')) continue; // the parlour's shut
       const st = { it, theme: themeOf(it), island: it.island, clerk: null, stocked: false, showStock: false, props: [], angry: 0, robbedAt: -1e9, clerkGoneAt: 0 };
       st.label = it.name ? it.name.split('·')[0].trim() : st.theme;
@@ -59,7 +76,7 @@ export class Stores {
     n.post = p;
     n.faceYaw = st.it.yaw;
     n.heading = st.it.yaw;
-    n.armed = st.theme === 'liquor' || st.theme === 'pawn' || Math.random() < 0.15;
+    n.armed = st.theme === 'liquor' || st.theme === 'pawn' || st.theme === 'guns' || Math.random() < 0.15;
     n.cash = 80 + Math.floor(Math.random() * 300);
     n.items = [];
     st.clerk = n;
@@ -150,6 +167,7 @@ export class Stores {
     if (st.angry > 0) { g.hud.toast('Clerk: "Get out of my shop!"', 0xff6a5a); return; }
     if (st.theme === 'bank') { g.bank.open(false); return; }
     if (st.theme === 'pawn') { e.openPawn(); return; }
+    if (st.theme === 'guns') { this.openGuns(st); return; }
     const render = () => {
       const row = (label, small, btn) => `<div class="erow"><div><b>${label}</b><small>${small}</small></div><div class="btns">${btn}</div></div>`;
       const owed = this.unpaid.filter((u) => u.st === st);
@@ -185,6 +203,44 @@ export class Stores {
         if (b.dataset.a === 'buy') { const def = ITEM_BY_ID[b.dataset.id]; if (e.money >= price(def)) { e.addMoney(-price(def), `bought ${def.name.toLowerCase()}`); g.giveItem(def); g.sfx.play('cash'); } }
         if (b.dataset.a === 'heal') { e.addMoney(-150, 'doctor'); g.health.hp = g.health.max; g.sfx.play('freeze'); }
         if (b.dataset.a === 'fine' && g.police.wanted) { e.addMoney(-400 * g.police.wanted, 'fines'); g.police.clearWanted(); g.hud.toast('Fines paid — you\'re free to go', 0x7be08a); }
+        render();
+      }));
+    };
+    render();
+  }
+
+  // ---- the gun store: the good stuff, legally (so not while the police are after you) ----
+  openGuns(st) {
+    const g = this.game, e = g.economy;
+    const render = () => {
+      const row = (label, small, btn) => `<div class="erow"><div><b>${label}</b><small>${small}</small></div><div class="btns">${btn}</div></div>`;
+      const owed = this.unpaid.filter((u) => u.st === st);
+      const total = owed.reduce((t, u) => t + price(u.def), 0);
+      let html = e.header();
+      if (total) html += row(`Pay for ${owed.length} item${owed.length > 1 ? 's' : ''}`, owed.map((u) => u.def.name).join(', '), `<button data-a="pay" ${e.money >= total ? '' : 'disabled'}>$${total}</button>`);
+      const wanted = g.police.wanted > 0;
+      html += `<p class="lede">${wanted ? '"I can see your face on the news. Come back when the police aren\'t looking for you."' : '"Everything here\'s legal, licensed and very, very loud."'}</p>`;
+      const a = e.ammo;
+      html += `<div class="econ-head"><span>Ammo: pistol <b>${a.pistolAmmo}</b> · magnum <b>${a.magnumAmmo}</b> · SMG <b>${a.smgAmmo}</b> · rifle <b>${a.rifleAmmo}</b> · shells <b>${a.shells}</b> · sniper <b>${a.sniperAmmo}</b></span></div>`;
+      for (const it of GUN_STOCK) {
+        const def = it.id && ITEM_BY_ID[it.id];
+        const label = def ? def.name : it.name;
+        html += row(label, it.blurb || `You have ${a[it.ammoOnly] || 0}`, `<button data-a="gun" data-i="${GUN_STOCK.indexOf(it)}" ${!wanted && e.money >= it.price ? '' : 'disabled'}>$${it.price.toLocaleString()}</button>`);
+      }
+      e.open('Saltmarsh Guns & Ammo', html, (body) => body.addEventListener('click', (ev) => {
+        const b = ev.target.closest('button[data-a]');
+        if (!b) return;
+        if (b.dataset.a === 'pay') this.pay(st);
+        if (b.dataset.a === 'gun') {
+          const it = GUN_STOCK[+b.dataset.i];
+          if (g.police.wanted > 0 || e.money < it.price) return;
+          e.addMoney(-it.price, it.id ? `bought a ${ITEM_BY_ID[it.id].name.toLowerCase()}` : 'ammo');
+          if (it.id) g.giveItem(ITEM_BY_ID[it.id]);
+          if (it.ammo) e.addAmmo(it.ammo[0], it.ammo[1]);
+          if (it.ammoOnly) e.addAmmo(it.ammoOnly, it.n);
+          g.refreshHolding?.();
+          g.sfx.play('cash');
+        }
         render();
       }));
     };

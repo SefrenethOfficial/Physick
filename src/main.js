@@ -1191,7 +1191,7 @@ class Game {
       const dx = e.movementX * sens, dy = e.movementY * sens;
       if (this.flying) this.jets.mouse(dx, this.settings.invertJet ? -dy : dy);
       else if (this.gunnery.active) this.gunnery.aim(dx, dy);
-      else this.player.look(dx, dy);
+      else this.player.look(dx * (this.zoomK > 0.5 ? 0.25 : 1), dy * (this.zoomK > 0.5 ? 0.25 : 1)); // (steadier through a scope)
     });
     addEventListener('mousedown', (e) => {
       if (!this.locked || this.health.dead) return;
@@ -1200,7 +1200,7 @@ class Game {
       if (this.atHelm || this.boats.active || this.vehicles.active) return;
       if (this.held?.gun) {
         if (e.button === 0) { this.firing = true; this.fire(); }
-        if (e.button === 2) this.release(true);
+        if (e.button === 2) { if (this.held.gun.scope) this.scoped = true; else this.release(true); } // (a scoped rifle: hold to look down the scope)
         return;
       }
       if (this.dragging) {
@@ -1226,6 +1226,7 @@ class Game {
     addEventListener('mouseup', (e) => {
       if (e.button === 0 && this.gunnery.gun?.kind === 'bullet') this.gunnery.trigger = false;
       if (e.button === 0) { this.jetTrigger = false; this.mopping = false; this.firing = false; }
+      if (e.button === 2) this.scoped = false;
     });
     addEventListener('contextmenu', (e) => e.preventDefault());
     addEventListener('wheel', (e) => {
@@ -1336,7 +1337,7 @@ class Game {
     if (this.pick) return `Picking pocket… ${Math.round((this.pick.t / 1.2) * 100)}%`;
     if (this.dragging) return '<kbd>LMB</kbd> Let go · <kbd>RMB</kbd> Heave';
     if (this.held?.use === 'mop') return '<kbd>LMB</kbd> (hold) Mop · <kbd>RMB</kbd> Put down · <kbd>B</kbd> Bag it';
-    if (this.held?.gun) return `<kbd>LMB</kbd> Fire · <kbd>RMB</kbd> Throw · <kbd>B</kbd> Bag it`;
+    if (this.held?.gun) return this.held.gun.scope ? (this.scopeShown ? '' : `<kbd>LMB</kbd> Fire · hold <kbd>RMB</kbd> Aim · <kbd>B</kbd> Bag it`) : `<kbd>LMB</kbd> Fire · <kbd>RMB</kbd> Throw · <kbd>B</kbd> Bag it`;
     if (this.held?.grenade) return '<kbd>RMB</kbd> Throw (lit) · <kbd>LMB</kbd> Put down · <kbd>B</kbd> Bag it';
     if (this.held?.melee) return `<kbd>LMB</kbd> Swing · <kbd>RMB</kbd> Throw · <kbd>B</kbd> Bag it`;
     if (this.onShore) {
@@ -1413,6 +1414,7 @@ class Game {
     P(c.plaza, '#e8e2d4', 'Plaza');
     for (const d of this.underworld.dealers) P(d.pos, d.color, d.title.split('—')[0].replace(/"/g, '').trim());
     P(this.saltmarsh.market, '#ffb36b', 'Market');
+    if (this.saltmarsh.gunStore) P(this.saltmarsh.gunStore, '#e8c547', 'Saltmarsh Guns & Ammo', true, 5);
     P(this.saltmarsh.dock, '#a07d55', 'Fishing dock');
     P(this.hood.kingsPost, this.gangs.crews.kings.color, 'Eastside Kings', true);
     P(this.hood.hollowPost, this.gangs.crews.hollow.color, 'Hollow Boys', true);
@@ -1473,6 +1475,7 @@ class Game {
     marks.push({ x: this.city.dealerCounter.x, z: this.city.dealerCounter.z, color: '#7fd3ff', r: 4, label: 'Boats' });
     marks.push({ x: this.city.hospital.x, z: this.city.hospital.z, color: '#ff6a6a', r: 3, label: '+' });
     marks.push({ x: this.saltmarsh.market.x, z: this.saltmarsh.market.z, color: '#ffb36b', r: 3, label: 'Market' });
+    if (this.saltmarsh.gunStore) marks.push({ x: this.saltmarsh.gunStore.x, z: this.saltmarsh.gunStore.z, color: '#e8c547', r: 4, label: 'Guns' });
     const sp = this.ship.root.position;
     marks.push({ x: sp.x, z: sp.z, color: '#c9ced4', r: 4 });
     for (const car of this.traffic.cars) marks.push({ x: car.pos.x, z: car.pos.z, color: '#d8d8d8', r: 1.8 });
@@ -1621,6 +1624,13 @@ class Game {
         this.camera.quaternion.copy(this.frame.quaternion).multiply(this.eye.quaternion);
       }
     }
+    // looking down a scope
+    const scope = this.scoped && this.held?.gun?.scope && walking && this.locked;
+    if (!scope) this.scoped = false;
+    this.zoomK = THREE.MathUtils.clamp((this.zoomK || 0) + (scope ? dt : -dt) * 6, 0, 1);
+    const fov = THREE.MathUtils.lerp(FOV, 14, this.zoomK);
+    if (Math.abs(this.camera.fov - fov) > 0.01) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
+    if (this.scopeShown !== this.zoomK > 0.6) { this.scopeShown = this.zoomK > 0.6; document.getElementById('scope').classList.toggle('hidden', !this.scopeShown); document.getElementById('hud').classList.toggle('scoped', this.scopeShown); }
     this.camera.updateMatrixWorld();
 
     this.sky.position.copy(this.camera.position);
@@ -1665,7 +1675,7 @@ class Game {
     const showArm = !this.title?.active && !this.atHelm && !this.gunnery.active && !this.health.dead && !this.flying && !this.boats.active && !this.vehicles.active && !this.pragdoll.active;
     this.viewmodel.update(dt, this.player, this.mouseDX, this.mouseDY, false);
     this.mouseDX = this.mouseDY = 0;
-    if (showArm) {
+    if (showArm && !this.scopeShown) {
       r.autoClear = false;
       r.clearDepth();
       r.render(this.viewmodel.scene, this.viewmodel.camera);

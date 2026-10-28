@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { supportHand } from './gunmodels.js';
+
+const GUN_FOV = 50;
 
 // Your prosthetic robot arm in first person (you lost your own in the Verian Central bombing). Rendered in its own scene and camera
 // on top of the world so it never clips into walls.
@@ -16,6 +19,7 @@ export class Viewmodel {
 
     this.rig = new THREE.Group(); // animated (bob/sway/recoil)
     this.scene.add(this.rig);
+    this.baseFov = fov;
     this.base = new THREE.Group(); // rest pose in camera space
     this.rig.add(this.base);
 
@@ -100,15 +104,23 @@ export class Viewmodel {
   setHeld(mesh, size = 0.17, rot = null, push = 0) {
     this.heldPush = push;
     if (this.held) { this.held.removeFromParent(); this.held = null; }
-    if (!mesh) { this.gripTarget = 0; return; }
+    if (!mesh) { this.gripTarget = 0; this.byGrip = false; this.gunView(false); return; }
     const sizeTarget = size;
     const box = new THREE.Box3().setFromObject(mesh);
     size = box.getSize(new THREE.Vector3());
     const holder = new THREE.Group();
-    mesh.position.sub(box.getCenter(new THREE.Vector3()));
+    // a gun is held by its grip; anything else by its middle
+    const grip = mesh.userData.grip;
+    this.byGrip = !!grip;
+    this.gunView(this.byGrip);
+    if (grip) { mesh.updateMatrixWorld(true); mesh.position.sub(grip.getWorldPosition(new THREE.Vector3())); }
+    else mesh.position.sub(box.getCenter(new THREE.Vector3()));
     holder.add(mesh);
     holder.scale.setScalar(sizeTarget / Math.max(size.x, size.y, size.z, 0.05));
     if (rot) holder.rotation.set(...rot); else holder.rotation.set(0.25, -0.5, 0.1);
+    // a two-handed gun: your other (human) hand holds the foregrip
+    const fg = mesh.userData.foregrip;
+    if (fg) fg.add(supportHand(fg.userData.r));
     mesh.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
     this.scene.add(holder);
     this.held = holder;
@@ -119,7 +131,18 @@ export class Viewmodel {
 
   resize(aspect, fov) {
     this.camera.aspect = aspect;
-    this.camera.fov = fov;
+    this.baseFov = fov;
+    this.camera.fov = this.gunPose ? GUN_FOV : fov;
+    this.camera.updateProjectionMatrix();
+  }
+
+  // Holding a gun: a narrower view of it (so a long gun isn't stretched across the screen) and
+  // the arm a little lower and further out, where you'd hold a gun.
+  gunView(on) {
+    if (this.gunPose === on) return;
+    this.gunPose = on;
+    this.setPose(on ? { tipPos: [0.2, -0.2, -0.5] } : {});
+    this.camera.fov = on ? GUN_FOV : (this.baseFov || this.camera.fov);
     this.camera.updateProjectionMatrix();
   }
 
@@ -166,9 +189,10 @@ export class Viewmodel {
     if (this.held) {
       // hang just in front of the gripper, swinging gently with the arm
       const fwd = new THREE.Vector3(-0.05, -0.04, -0.09).applyEuler(this.rig.rotation);
-      if (this.heldPush) this.held.position.copy(tp).add(new THREE.Vector3(0.012, -0.03, -this.heldPush).applyEuler(this.rig.rotation)); // a gun sits in the grip
+      if (this.byGrip) this.held.position.copy(tp).add(new THREE.Vector3(-0.004, 0.004, -0.012).applyEuler(this.rig.rotation)); // a gun: its grip in the gripper
+      else if (this.heldPush) this.held.position.copy(tp).add(new THREE.Vector3(0.012, -0.03, -this.heldPush).applyEuler(this.rig.rotation)); // a gun sits in the grip
       else this.held.position.copy(tp).add(fwd);
-      this.held.rotation.z = (this.heldPush ? 0 : 0.1) + this.sway.x * 2;
+      this.held.rotation.z = (this.heldPush || this.byGrip ? 0 : 0.1) + this.sway.x * 2;
     }
   }
 

@@ -6,6 +6,7 @@ import { canvasTex, speckle, std, sign, lamp, tree, solidBox } from './buildkit.
 import { suburbanHome } from './suburb.js';
 import { islandSlab, flat, pier } from './city.js';
 import { addPier } from './world.js';
+import { cityBuilding } from './architecture.js';
 
 // Saltmarsh Key: a leafy suburb of family homes on a street grid, a market square and a fishing dock.
 // Lots of stuff lying around, and townspeople with wallets worth taking.
@@ -21,6 +22,7 @@ export class Saltmarsh {
     game.scene.add(this.group);
     this.lootSpots = []; // { pos, kind: 'stall' | 'porch' | 'misc' }
     this.parkedSpots = [];
+    this.interiors = []; // walk-in shops (the gun store)
     this.build();
   }
 
@@ -135,6 +137,13 @@ export class Saltmarsh {
 
     // general store + parked cars
     { const gl = []; generalStore(g, sb, -666, Y + 0.15, -1350, -Math.PI / 2, gl); for (const p of gl) this.lootSpots.push({ pos: p, kind: 'porch' }); }
+    // the gun store, down the road from the general store: a walk-in shop facing the street
+    {
+      const out = cityBuilding(g, sb, { cx: -670, cz: -1500, y0: Y + 0.15, w: 20, d: 22, front: 'w', streets: new Set(['w']) },
+        { type: 'brick', floors: 1, interior: 'shop', name: 'SALTMARSH GUNS & AMMO', signBg: '#2b2f22', signFg: '#e8c547' });
+      this.interiors.push({ ...out, kind: 'shop', name: 'SALTMARSH GUNS & AMMO', island: 'town' });
+      this.gunStore = out.door ? out.door.clone() : new THREE.Vector3(-681, Y, -1500);
+    }
     // cars parked on the street
     for (let n = 0; n < 8; n++) {
       const z = this.zs[Math.floor(Math.random() * this.zs.length)];

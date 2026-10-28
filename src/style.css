@@ -532,3 +532,13 @@ body.pad-mode { cursor: none; }
 #mp-ui .mp-feed.open > div.old { opacity: .85; }
 #mp-ui .mp-chat { position: fixed; left: 222px; bottom: 16px; width: min(420px, calc(100vw - 236px)); font: 600 14px var(--font); padding: 6px 9px; border: 2px solid #ff9af0; border-radius: 3px; background: rgba(0,0,0,.7); color: #fff; pointer-events: auto; }
 #mp-ui .mp-chat.hidden { display: none; }
+
+/* ---------------- the sniper scope */
+#scope { position: fixed; inset: 0; pointer-events: none; z-index: 1;
+  background: radial-gradient(circle at center, transparent 0, transparent 38vmin, rgba(0,0,0,.6) 38.3vmin, #000 39vmin); }
+#scope.hidden { display: none; }
+#scope::before, #scope::after { content: ''; position: absolute; left: 50%; top: 50%; background: rgba(10,10,10,.9); }
+#scope::before { width: 76vmin; height: 1.5px; transform: translate(-50%, -50%); }
+#scope::after { width: 1.5px; height: 76vmin; transform: translate(-50%, -50%); }
+#scope i { position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 50%; background: #ff2a1a; box-shadow: 0 0 6px #ff2a1a; }
+#hud.scoped .crosshair, #hud.scoped .prompt { display: none; }

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
+import { pistolModel, magnumModel, smgModel, shotgunModel, rifleModel, combatShotgunModel, sniperModel, lmgModel } from './gunmodels.js';
 
 // Things you can pick up in the robot hand, carry, put on shelves, throw, and sometimes use.
 
@@ -330,19 +331,45 @@ export const ITEMS = [
   },
   // ---- from the alley dealers ----
   {
-    id: 'pistol', name: 'Pistol', radius: 0.2, weight: 1, heldSize: 0.11, heldRot: [0.05, 0.1, 0], heldPush: 0.015,
+    id: 'pistol', name: 'Pistol', radius: 0.2, weight: 1, heldSize: 0.2, heldRot: [-0.035, 0.02, 0], heldPush: 0.015,
     gun: { dmg: 40, rate: 0.28, pellets: 1, spread: 0.008, auto: false, ammo: 'pistolAmmo', sound: 'pistol', range: 90 },
-    build: () => gunMesh(0.2, 0.034, 0.15, 0x2b2d31),
+    build: () => pistolModel(),
   },
   {
-    id: 'smg', name: 'SMG', radius: 0.3, weight: 2, heldSize: 0.16, heldRot: [0.05, 0.1, 0], heldPush: 0.02,
+    id: 'smg', name: 'SMG', radius: 0.3, weight: 2, heldSize: 0.36, heldRot: [-0.035, 0.02, 0], heldPush: 0.02, twoHand: true,
     gun: { dmg: 22, rate: 0.085, pellets: 1, spread: 0.025, auto: true, ammo: 'smgAmmo', sound: 'smg', range: 80 },
-    build: () => gunMesh(0.42, 0.05, 0.2, 0x26282b, true),
+    build: () => smgModel(),
   },
   {
-    id: 'shotgun', name: 'Shotgun', radius: 0.45, weight: 3, heldSize: 0.26, heldRot: [0.05, 0.1, 0], heldPush: 0.03,
+    id: 'shotgun', name: 'Shotgun', radius: 0.45, weight: 3, heldSize: 0.62, heldRot: [-0.035, 0.02, 0], heldPush: 0.03, twoHand: true,
     gun: { dmg: 16, rate: 0.85, pellets: 9, spread: 0.07, auto: false, ammo: 'shells', sound: 'shotgun', range: 45 },
-    build: () => gunMesh(0.8, 0.055, 0.17, 0x5a3a22, false, true),
+    build: () => shotgunModel(),
+  },
+  // ---- the Saltmarsh gun store's stock ----
+  {
+    id: 'magnum', name: 'Magnum Revolver', radius: 0.2, weight: 1.2, heldSize: 0.25, heldRot: [-0.035, 0.02, 0], heldPush: 0.015,
+    gun: { dmg: 95, rate: 0.55, pellets: 1, spread: 0.004, auto: false, ammo: 'magnumAmmo', sound: 'magnum', range: 130 },
+    build: () => magnumModel(),
+  },
+  {
+    id: 'rifle', name: 'Assault Rifle', radius: 0.5, weight: 3.5, heldSize: 0.56, heldRot: [-0.035, 0.02, 0], heldPush: 0.025, twoHand: true,
+    gun: { dmg: 34, rate: 0.1, pellets: 1, spread: 0.011, auto: true, ammo: 'rifleAmmo', sound: 'rifle', range: 170 },
+    build: () => rifleModel(),
+  },
+  {
+    id: 'combat', name: 'Combat Shotgun', radius: 0.5, weight: 3.8, heldSize: 0.56, heldRot: [-0.035, 0.02, 0], heldPush: 0.03, twoHand: true,
+    gun: { dmg: 19, rate: 0.3, pellets: 9, spread: 0.055, auto: false, ammo: 'shells', sound: 'shotgun', range: 55 },
+    build: () => combatShotgunModel(),
+  },
+  {
+    id: 'sniper', name: 'Sniper Rifle', radius: 0.6, weight: 5, heldSize: 0.68, heldRot: [-0.035, 0.02, 0], heldPush: 0.03, twoHand: true,
+    gun: { dmg: 240, rate: 1.25, pellets: 1, spread: 0.0006, auto: false, ammo: 'sniperAmmo', sound: 'sniper', range: 450, scope: true },
+    build: () => sniperModel(),
+  },
+  {
+    id: 'lmg', name: 'Light Machine Gun', radius: 0.6, weight: 6, heldSize: 0.6, heldRot: [-0.035, 0.02, 0], heldPush: 0.03, twoHand: true,
+    gun: { dmg: 28, rate: 0.072, pellets: 1, spread: 0.028, auto: true, ammo: 'rifleAmmo', sound: 'rifle', range: 150 },
+    build: () => lmgModel(),
   },
   {
     id: 'grenade', name: 'Grenade', radius: 0.08, weight: 0.4, heldSize: 0.12, grenade: true,
@@ -560,6 +587,7 @@ export const VALUES = {
   wallet: 45, phone: 120, watch: 220, necklace: 380, laptop: 450, tv: 300, painting: 650, goldbar: 1200,
   radio: 60, camera: 180, handbag: 90, vase: 110, cash: 100, bat: 30,
   pistol: 250, smg: 900, shotgun: 600, grenade: 100, armor: 150,
+  magnum: 1400, rifle: 3200, combat: 2600, sniper: 4800, lmg: 7000,
   soda: 2, energy: 3, water: 2, beer: 4, wine: 25, whiskey: 40, chips: 3, cereal: 5, canned: 3, pills: 15, burger: 8, headphones: 80, console: 300,
   key_grocery: 15, key_liquor: 15, key_electronics: 15, key_hardware: 15, key_pharmacy: 15, key_pawn: 15, key_diner: 15,
   keycard: 400, badge: 150, cuffs: 30, chain: 260, bandana: 15, knuckles: 45, signet: 300, burner: 60, notice: 5, sax: 250, cone: 2,

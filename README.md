@@ -111,7 +111,19 @@ Your cars from Verian Motors can live at your homes. Get out of one of your own 
   - **Vic** (arms dealer): pistol, shotgun, SMG, ammo, grenades and body armour.
   - **Rosa** (the fence): buys your whole bag for 30% more than the pawn shop, makes the heat go away for $500 a star, and sells a police scanner (every cop on your minimap; you lose them faster).
   - **Dimitri's chop shop:** park a stolen car in his alley and press `E` for cash. Cop cars pay best.
-- **Guns:** hold one and `LMB` fires (hold for the SMG); `RMB` throws it. Ammo is per weapon type and shown next to the gun. Gunfire sends everyone running and counts as a crime if anyone sees. **Grenades:** `RMB` to throw, then run. **Armour:** hold it and press `F` to put it on; it soaks up most damage until it's shot through.
+- **Saltmarsh Guns & Ammo** (east side of Saltmarsh Key, between the general store and the church, marked *Guns* on the map): a walk-in gun store with the good stuff. Prices include some rounds:
+
+  | Gun | Price | Comes with |
+  |---|---|---|
+  | **Magnum Revolver** | $2,800 | 18 rounds |
+  | **Assault Rifle** (full-auto, red-dot sight) | $6,500 | 90 rounds |
+  | **Combat Shotgun** (semi-auto) | $5,200 | 24 shells |
+  | **Sniper Rifle** (hold `RMB` to look through its 10x scope) | $9,500 | 15 rounds |
+  | **Light Machine Gun** (belt-fed) | $14,000 | 200 rounds |
+  | **Pistol** | $500 | 24 rounds |
+
+  It also sells ammo for every gun. It's all legal, so they won't serve you while you're wanted. The guns on its racks can be shoplifted, but the clerk is always armed.
+- **Guns:** hold one and `LMB` fires (hold for automatics); `RMB` throws it (or aims, with the sniper rifle). Ammo is per weapon type and shown next to the gun. Your robot arm holds the grip, and your other, human hand holds the foregrip of two-handed guns (SMG, shotguns, rifles, the machine gun). Gunfire sends everyone running and counts as a crime if anyone sees. **Grenades:** `RMB` to throw, then run. **Armour:** hold it and press `F` to put it on; it soaks up most damage until it's shot through.
 - **Verian Motors** (the glass showroom on the west side of Verian City, south of where the park road comes in): walk up to the sales desk and press `E` to buy a car. Pick a paint colour first if you like. Ten models (the bikes are on display inside, the tow truck and the helicopter out on the lot):
 
   | Car | Type | Top speed | Price |
@@ -321,6 +333,7 @@ src/
   scorch.js    the Scorch desert (Act II) and its barricaded causeway
   gasstation.js gas stations and the Saltmarsh general store
   gamepad.js   controller support (Xbox, PlayStation, Switch Pro)
+  gunmodels.js the detailed gun models and your support hand
   net.js       multiplayer: other players, the shared traffic and people, chat
   lobby.js     the Multiplayer menu (rooms, invite links)
   netseed.js   the room session and the seeded world build

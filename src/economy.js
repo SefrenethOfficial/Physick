@@ -12,7 +12,7 @@ export class Economy {
     this.bank = 0; // safe in Verian National
     this.bag = []; // item ids
     this.ownedBoats = ['dinghy'];
-    this.ammo = { pistolAmmo: 0, smgAmmo: 0, shells: 0 };
+    this.ammo = { pistolAmmo: 0, smgAmmo: 0, shells: 0, magnumAmmo: 0, rifleAmmo: 0, sniperAmmo: 0 };
     this.perks = {};
     this.ownedHomes = [];
     this.ownedCars = []; // { uid, model, color, mods }

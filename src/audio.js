@@ -102,6 +102,9 @@ export class Sfx {
       case 'smg': this.noise(0.06, 0.45, 2200, 0.7); this.tone('square', 260, 90, 0.04, 0.14); break;
       case 'shotgun': this.noise(0.35, 0.8, 900, 0.5); this.tone('sine', 110, 40, 0.3, 0.5); break;
       case 'pistol': this.noise(0.12, 0.6, 1800, 0.6); this.tone('square', 300, 80, 0.06, 0.2); break;
+      case 'magnum': this.noise(0.22, 0.8, 1200, 0.5); this.tone('square', 180, 50, 0.12, 0.3); this.noise(0.4, 0.2, 400, 0.5, 0.05); break;
+      case 'rifle': this.noise(0.08, 0.6, 2600, 0.6); this.tone('square', 240, 70, 0.05, 0.18); this.noise(0.18, 0.15, 700, 0.5, 0.03); break;
+      case 'sniper': this.noise(0.3, 0.9, 1500, 0.4); this.tone('sawtooth', 160, 35, 0.25, 0.35); this.noise(1.1, 0.25, 300, 0.4, 0.08); break;
       case 'cash': this.tone('triangle', 1320, 1320, 0.06, 0.2); this.tone('triangle', 1760, 1760, 0.12, 0.2, 0.07); break;
       case 'star': this.tone('square', 880, 660, 0.12, 0.15); this.tone('square', 880, 660, 0.12, 0.15, 0.16); break;
       case 'scream': this.tone('sawtooth', 900 + Math.random() * 300, 1300, 0.5, 0.08); this.tone('sine', 1100, 1500, 0.5, 0.06); break;
