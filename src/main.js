@@ -68,6 +68,9 @@ import { Underworld } from './underworld.js';
 import { ChaseMusic } from './music.js';
 import { mpSession, seedRandom, setMpSession } from './netseed.js';
 import { isCriminal } from './citizens.js';
+import { Style } from './style.js';
+import { ambulanceMesh, fireTruckMesh } from './activities.js';
+import { busMesh } from './fleet.js';
 import { bindLobby, linkSession } from './lobby.js';
 import { Net } from './net.js';
 
@@ -209,6 +212,7 @@ class Game {
     this.jets = new Jets(this);
     this.stockStores();
     this.economy = new Economy(this);
+    this.style = new Style(this); // what you're wearing
     this.hud.setMoney(this.economy.money);
     this.hud.setBag(this.economy.weight, BAG_CAPACITY);
     this.boats = new Boats(this);
@@ -230,6 +234,18 @@ class Game {
     for (const sp of [...this.city.parkedSpots, ...this.saltmarsh.parkedSpots, ...this.hood.parkedSpots]) {
       if (!clearSpot(this, sp.x, sp.z, sp.heading)) continue; // no room (a tree, a wall): leave the space empty
       this.vehicles.parked.push(new Car(this, { color: sp.color, police: !!sp.police, x: sp.x, z: sp.z, heading: sp.heading }));
+    }
+    // the Saltmarsh fire engine, ambulance, school bus and patrol car, parked outside
+    for (const sp of this.saltmarsh.specialParked || []) {
+      const o = { x: sp.x, z: sp.z, heading: sp.heading };
+      const car = sp.kind === 'fire' ? new Car(this, { ...o, mesh: fireTruckMesh(), half: { x: 1.15, y: 0.78, z: 3.5 }, hp: 320, maxSpeed: 27, density: 170 })
+        : sp.kind === 'ambulance' ? new Car(this, { ...o, mesh: ambulanceMesh(), half: { x: 1.05, y: 0.75, z: 2.75 }, hp: 200, maxSpeed: 33 })
+          : sp.kind === 'schoolbus' ? new Car(this, { ...o, mesh: busMesh(0xf2c21a), half: { x: 1.25, y: 1.4, z: 5.5 }, wheelbase: 6.5, density: 160, hp: 400, maxSpeed: 22 })
+            : new Car(this, { ...o, police: true });
+      if (sp.kind === 'fire') car.firetruck = true;
+      if (sp.kind === 'ambulance') car.ambulance = true;
+      if (sp.kind === 'schoolbus') car.bus = true;
+      this.vehicles.parked.push(car);
     }
     this.underworld = new Underworld(this);
     ['arms', 'fence', 'chop'].forEach((kind, i) => { if (this.city.alleys[i]) this.underworld.addDealer(kind, this.city.alleys[i], LAND_Y + 0.15); });
@@ -740,7 +756,12 @@ class Game {
     this.clearHand();
     this.police.clearWanted();
     if (this.homes?.wakeAtHome()) { this.hud.toast(`You come round at home: ${this.homes.inside.name}`, 0x7be08a); return; }
-    this.placeOnShore(this.city.hospital.clone(), 0);
+    // the nearer hospital: Verian City's or Saltmarsh's
+    const pt = this.shorePlayer.body.translation(), sh = this.saltmarsh.hospital;
+    const city = this.city.hospital;
+    const useSalt = sh && Math.hypot(pt.x - sh.x, pt.z - sh.z) < Math.hypot(pt.x - city.x, pt.z - city.z);
+    this.placeOnShore(useSalt ? new THREE.Vector3(sh.x, LAND_Y + 1.1, sh.z) : city.clone(), useSalt ? Math.PI : 0);
+    if (useSalt) this.hud.toast('You come round at Saltmarsh Hospital', 0x9ec5ff);
     const bill = Math.round(this.economy.money * 0.1);
     if (bill) this.economy.addMoney(-bill, 'hospital bill');
   }
@@ -1414,7 +1435,7 @@ class Game {
     P(c.plaza, '#e8e2d4', 'Plaza');
     for (const d of this.underworld.dealers) P(d.pos, d.color, d.title.split('—')[0].replace(/"/g, '').trim());
     P(this.saltmarsh.market, '#ffb36b', 'Market');
-    if (this.saltmarsh.gunStore) P(this.saltmarsh.gunStore, '#e8c547', 'Saltmarsh Guns & Ammo', true, 5);
+    for (const pl of this.saltmarsh.places || []) P(pl.pos, pl.color, pl.label, !!pl.short, pl.short ? 5 : 4);
     P(this.saltmarsh.dock, '#a07d55', 'Fishing dock');
     P(this.hood.kingsPost, this.gangs.crews.kings.color, 'Eastside Kings', true);
     P(this.hood.hollowPost, this.gangs.crews.hollow.color, 'Hollow Boys', true);
@@ -1475,7 +1496,7 @@ class Game {
     marks.push({ x: this.city.dealerCounter.x, z: this.city.dealerCounter.z, color: '#7fd3ff', r: 4, label: 'Boats' });
     marks.push({ x: this.city.hospital.x, z: this.city.hospital.z, color: '#ff6a6a', r: 3, label: '+' });
     marks.push({ x: this.saltmarsh.market.x, z: this.saltmarsh.market.z, color: '#ffb36b', r: 3, label: 'Market' });
-    if (this.saltmarsh.gunStore) marks.push({ x: this.saltmarsh.gunStore.x, z: this.saltmarsh.gunStore.z, color: '#e8c547', r: 4, label: 'Guns' });
+    for (const pl of this.saltmarsh.places || []) if (pl.short || pl.label === 'Hospital') marks.push({ x: pl.pos.x, z: pl.pos.z, color: pl.color, r: 4, label: pl.short || '+' });
     const sp = this.ship.root.position;
     marks.push({ x: sp.x, z: sp.z, color: '#c9ced4', r: 4 });
     for (const car of this.traffic.cars) marks.push({ x: car.pos.x, z: car.pos.z, color: '#d8d8d8', r: 1.8 });

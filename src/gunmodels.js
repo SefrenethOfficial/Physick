@@ -327,11 +327,12 @@ export function lmgModel() {
 // Your other hand, the human one, wrapped round a gun's foregrip (radius r): fingers over the
 // right of it, thumb along the left, and the forearm running back out of view. Built in the gun's
 // own frame (muzzle -Z, up +Y), in metres.
-export function supportHand(r = 0.02) {
+export function supportHand(r = 0.02, look = null) {
   const g = new THREE.Group();
-  const skin = std({ color: 0xd9a47c, roughness: 0.75 });
-  const knuckle = std({ color: 0xc89068, roughness: 0.75 });
-  const sleeve = std({ map: canvas('sleeve', 128, 128, (c, w, h) => { c.fillStyle = '#2a303a'; c.fillRect(0, 0, w, h); for (let i = 0; i < 1500; i++) { c.fillStyle = rnd() < 0.5 ? 'rgba(0,0,0,.18)' : 'rgba(255,255,255,.05)'; c.fillRect(rnd() * w, rnd() * h, 2, 1); } }), roughness: 1 });
+  const skinC = look?.skin ?? 0xd9a47c, shirtC = look?.shirt ?? 0x2a303a;
+  const skin = std({ color: skinC, roughness: 0.75 });
+  const knuckle = std({ color: new THREE.Color(skinC).multiplyScalar(0.92), roughness: 0.75 });
+  const sleeve = std({ map: canvas(`sleeve${shirtC}`, 128, 128, (c, w, h) => { c.fillStyle = `#${shirtC.toString(16).padStart(6, '0')}`; c.fillRect(0, 0, w, h); for (let i = 0; i < 1500; i++) { c.fillStyle = rnd() < 0.5 ? 'rgba(0,0,0,.18)' : 'rgba(255,255,255,.05)'; c.fillRect(rnd() * w, rnd() * h, 2, 1); } }), roughness: 1 });
   const R = r + 0.009;
   // the palm under the grip, turned a little to the left
   const palm = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.022, 0.085), skin);
@@ -358,7 +359,7 @@ export function supportHand(r = 0.02) {
     g.add(m);
   };
   arm(0.026, 0.03, 0.09, -0.01, skin); // wrist
-  arm(0.042, 0.042, 0.03, 0.07, std({ color: 0x20252d, roughness: 1 })); // cuff
+  arm(0.042, 0.042, 0.03, 0.07, std({ color: new THREE.Color(shirtC).multiplyScalar(0.7), roughness: 1 })); // cuff
   arm(0.045, 0.055, 0.9, 0.09, sleeve); // jacket sleeve
   g.traverse((o) => { if (o.isMesh) { o.frustumCulled = false; o.castShadow = false; } });
   return g;

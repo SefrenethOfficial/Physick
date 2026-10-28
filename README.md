@@ -35,6 +35,23 @@ Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **
 - **Cherry Estate National Park** (behind Verian City, to the west): forested mountains, with peaks over 80 m out west. A road climbs from the city's west side up through the hills to the **Saltmarsh Gate Bridge**, an international-orange suspension bridge (two towers, sweeping cables, a 940 m deck 30 m above the water) that crosses the strait to Saltmarsh Key. Traffic runs both ways the whole length of it, from Verian City up through the hills, over the bridge and down into Saltmarsh. Off the road: dirt trails over the hills, a ranger station at the trailhead, three campsites with tents and picnic tables (and stuff to steal), boulders, fallen logs, and a lookout tower on a hilltop. Hikers and a ranger wander the trails. Down in the gloom under the bridge's first span, a **dirt lane** that no traffic uses runs back towards Verian City; at its end is **Underpass Customs** (see below).
 - **The Hollows** (east of Saltmarsh Key, over a short road bridge): the rough part of town. Cracked streets with potholes, boarded-up walk-ups and graffiti, two grim project towers, a liquor store and laundromat, dumped couches and burned-out cars. Two crews hold turf here: the **Eastside Kings** (red) at the basketball court and the **Hollow Boys** (green) in the burned-out lot. Act suspicious around them — get in their faces, come round waving a gun, speed at them, start trouble or drag a body past — and the "?" over their heads turns to "!": they come for you and the whole neighbourhood erupts in a **gang war**, with the crews pushing into each other's turf and shooting it out. It calms down once you've been gone a while. Gang members carry cash and sometimes a pistol.
 - **Saltmarsh Key** (north of the city): a leafy suburb. Asphalt streets with kerbs, grass verges, footpaths, street trees and corner street lights, lined with family homes: one- and two-storey houses in lap siding with pitched shingle roofs, porches, shuttered windows, attached garages, driveways (some with a car in them), mailboxes, hedges and fenced back yards. In the middle is a market square full of stalls, with a church, a lighthouse, a general store and a fishing dock round the edge. Lots of stuff lying around on porches and stalls, and townspeople with cash in their pockets. A strip of **beach** runs down the whole west shore, with umbrellas, towels, a lifeguard tower and a volleyball net, sloping gently into the shallows. The container ship **MV Halvard** is tied up off its west pier.
+  - **The town row** along the north shore, facing the last street:
+
+    | Building | What you can do there |
+    |---|---|
+    | **Saltmarsh Elementary School** | A playground out the back; a yellow school bus at the kerb |
+    | **Fire Station No. 4** | Red engine-bay doors; a fire engine parked outside |
+    | **Saltmarsh Police** | Walk in and pay your fines; a patrol car outside |
+    | **Saltmarsh Hospital** | See the doctor; if you go down nearer here than Verian City, this is where you come round; an ambulance outside |
+    | **Pharmacy** | Medicine and painkillers |
+    | **Public Library** | Walk in |
+    | **Saltmarsh Savings** | A bank branch |
+    | **Town Hall** | Walk in; a flagpole outside |
+    | **Marsha's Diner** | Food |
+    | **Saltmarsh Threads** | The clothes shop (see below) |
+    | **Saltmarsh Guns & Ammo** | The gun store |
+
+    The fire engine, ambulance, school bus and patrol car can all be stolen.
 - **NAS Halyard** (east): the naval air station with the destroyer moored alongside and fighter jets on the apron.
 - **Pelican Point** (small, east of the Hollows): carry on along the z = -1500 street over the little bridge. A fishing village on a grassy headland: cottages round a village green, the Pelican Point Seafood shack, a jetty with fishing boats bobbing at it, a beach with umbrellas, and the red-and-white lighthouse up on the rocky point (a dirt track runs up to it, and its beam sweeps the sea at night). The road loops right round the point.
 - **Ridgeback Hills** (medium, north-west of Cherry Estate): take the coast road west from under the Saltmarsh Gate Bridge. Ridgeback Gas & Grocery at the foot (a proper modern station: canopy with lights, pump islands, a shop with a glass front, a price pylon), log cabins round a campfire in the meadow, a gravel quarry with terraced benches, heaps, a crusher and a dump truck, and the Ridgeback Pass climbing through crash-barriered hairpins to the observatory on the 120 m summit, with a viewpoint back over the city. Thick pine forest below the treeline.
@@ -111,7 +128,7 @@ Your cars from Verian Motors can live at your homes. Get out of one of your own 
   - **Vic** (arms dealer): pistol, shotgun, SMG, ammo, grenades and body armour.
   - **Rosa** (the fence): buys your whole bag for 30% more than the pawn shop, makes the heat go away for $500 a star, and sells a police scanner (every cop on your minimap; you lose them faster).
   - **Dimitri's chop shop:** park a stolen car in his alley and press `E` for cash. Cop cars pay best.
-- **Saltmarsh Guns & Ammo** (east side of Saltmarsh Key, between the general store and the church, marked *Guns* on the map): a walk-in gun store with the good stuff. Prices include some rounds:
+- **Saltmarsh Guns & Ammo** (on the town row along Saltmarsh's north shore, marked *Guns* on the map): a walk-in gun store with the good stuff. Prices include some rounds:
 
   | Gun | Price | Comes with |
   |---|---|---|
@@ -123,6 +140,12 @@ Your cars from Verian Motors can live at your homes. Get out of one of your own 
   | **Pistol** | $500 | 24 rounds |
 
   It also sells ammo for every gun. It's all legal, so they won't serve you while you're wanted. The guns on its racks can be shoplifted, but the clerk is always armed.
+- **Saltmarsh Threads** (on the town row, marked *Threads* on the map): the clothes shop. Talk to the clerk to change your look, with a turntable preview of you in the new clothes.
+  - Shirt and trouser colours are $40 each, and skin tone is free.
+  - **Hats:** cap $60, beanie $50, cowboy hat $250, top hat $400, motorbike helmet $300, gold crown $25,000. Hat colour is free.
+  - **Extras:** sunglasses $120, gold aviators $900, gold chain $1,500, backpack $200.
+  - Once you've bought a hat or extra, it's yours to put on and take off for free.
+  - Other players see your outfit in multiplayer. You see your shirt on your own sleeve when you hold a two-handed gun, and the whole outfit when you go flying out of a car.
 - **Guns:** hold one and `LMB` fires (hold for automatics); `RMB` throws it (or aims, with the sniper rifle). Ammo is per weapon type and shown next to the gun. Your robot arm holds the grip, and your other, human hand holds the foregrip of two-handed guns (SMG, shotguns, rifles, the machine gun). Gunfire sends everyone running and counts as a crime if anyone sees. **Grenades:** `RMB` to throw, then run. **Armour:** hold it and press `F` to put it on; it soaks up most damage until it's shot through.
 - **Verian Motors** (the glass showroom on the west side of Verian City, south of where the park road comes in): walk up to the sales desk and press `E` to buy a car. Pick a paint colour first if you like. Ten models (the bikes are on display inside, the tow truck and the helicopter out on the lot):
 
@@ -334,6 +357,7 @@ src/
   gasstation.js gas stations and the Saltmarsh general store
   gamepad.js   controller support (Xbox, PlayStation, Switch Pro)
   gunmodels.js the detailed gun models and your support hand
+  style.js     your look (Saltmarsh Threads, the clothes shop)
   net.js       multiplayer: other players, the shared traffic and people, chat
   lobby.js     the Multiplayer menu (rooms, invite links)
   netseed.js   the room session and the seeded world build

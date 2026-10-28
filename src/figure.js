@@ -66,14 +66,46 @@ export function buildFigure(look = randomLook()) {
       const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.15, 0.1, 16), hm);
       cup.position.y = 0.12;
       head.add(cup);
+    } else if (look.hat === 'beanie') {
+      const b = new THREE.Mesh(new THREE.SphereGeometry(0.162, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), hm); b.position.y = 0.02; b.scale.y = 1.15;
+      const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.165, 0.165, 0.05, 16), hm); cuff.position.y = 0.03;
+      const pom = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), mat(0xf2f2ee)); pom.position.y = 0.2;
+      head.add(b, cuff, pom);
+    } else if (look.hat === 'cowboy') {
+      const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.018, 20), hm); brim.position.y = 0.07; brim.scale.z = 0.85; brim.rotation.x = -0.08;
+      const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 0.16, 14), hm); crown.position.y = 0.15;
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.151, 0.151, 0.03, 14), mat(0x3a2414)); band.position.y = 0.09;
+      head.add(brim, crown, band);
+    } else if (look.hat === 'tophat') {
+      const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.015, 18), hm); brim.position.y = 0.09;
+      const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.26, 16), hm); tube.position.y = 0.22;
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.132, 0.132, 0.04, 16), mat(0x8a1a1a)); band.position.y = 0.12;
+      head.add(brim, tube, band);
+    } else if (look.hat === 'crown') {
+      const gold = new THREE.MeshStandardMaterial({ color: 0xe8c547, metalness: 0.6, roughness: 0.3 });
+      const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.14, 0.08, 16, 1, true), gold); ring.position.y = 0.12; ring.material.side = THREE.DoubleSide;
+      head.add(ring);
+      for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; const sp = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.08, 4), gold); sp.position.set(Math.sin(a) * 0.145, 0.2, Math.cos(a) * 0.145); head.add(sp); const gem = new THREE.Mesh(new THREE.SphereGeometry(0.014, 6, 4), new THREE.MeshStandardMaterial({ color: [0xc62828, 0x2f7fd8, 0x3aa760][i % 3], emissive: 0x220000 })); gem.position.set(Math.sin(a) * 0.152, 0.12, Math.cos(a) * 0.152); head.add(gem); }
     } else {
       const helm = new THREE.Mesh(new THREE.SphereGeometry(0.165, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.6), hm);
       helm.position.y = 0.01;
       head.add(helm);
     }
   }
+  if (look.glasses) { // shades
+    const lens = new THREE.MeshStandardMaterial({ color: look.glasses === 'gold' ? 0x6a4a10 : 0x101010, metalness: 0.6, roughness: 0.15 });
+    for (const x of [-0.055, 0.055]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.04, 0.012), lens); l.position.set(x, 0.03, 0.145); head.add(l); }
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.012, 0.012), mat(look.glasses === 'gold' ? 0xc9a040 : 0x111111)); bridge.position.set(0, 0.045, 0.145); head.add(bridge);
+  }
   root.add(head);
   parts.head = head;
+  if (look.chain) { // a gold chain
+    const ch = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.012, 6, 20), new THREE.MeshStandardMaterial({ color: 0xe8c547, metalness: 0.7, roughness: 0.3 }));
+    ch.position.set(0, 0.5, 0.06); ch.rotation.x = Math.PI / 2 - 0.5; ch.scale.y = 0.75; root.add(ch);
+  }
+  if (look.backpack) {
+    const bp = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.42, 0.16), mat(look.backpack === true ? 0x2a4a6a : look.backpack)); bp.position.set(0, 0.28, -0.2); root.add(bp);
+  }
 
   const limb = (name, size, joint, side, m, sideMat) => {
     const pivot = new THREE.Group();

@@ -15,6 +15,7 @@ export const CATALOG = {
   pawn: ['watch', 'necklace', 'camera', 'vase', 'handbag', 'radio'],
   diner: ['burger', 'burger', 'soda', 'mug'],
   guns: ['magnum', 'rifle', 'combat', 'sniper', 'lmg', 'pistol'],
+  clothes: ['handbag', 'watch', 'bandana', 'headphones', 'handbag', 'necklace'],
 };
 // What the gun store sells over the counter (each gun comes with some rounds).
 const GUN_STOCK = [
@@ -34,7 +35,7 @@ const GUN_STOCK = [
 const SKIN = [0xf1c9a5, 0xd9a47c, 0xa8724f, 0x7a4f35, 0xffdcbd];
 const UNIFORM = {
   grocery: 0x2f8a52, liquor: 0x3a3a3a, electronics: 0x1f5fbf, hardware: 0xd9622b, pharmacy: 0xf2f2ee,
-  pawn: 0x5a4a3a, diner: 0xd8d0c0, guns: 0x4a5a3a, bank: 0x1f3b2e, police: 0x1c2f6e, hospital: 0x8fd0c8, office: 0x2c3440,
+  pawn: 0x5a4a3a, diner: 0xd8d0c0, guns: 0x4a5a3a, clothes: 0xe06a9b, bank: 0x1f3b2e, police: 0x1c2f6e, hospital: 0x8fd0c8, office: 0x2c3440,
 };
 const price = (def) => Math.max(2, Math.round((def.value ?? 10) * 1.25));
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
@@ -46,6 +47,7 @@ function themeOf(it) {
   if (it.kind === 'bank') return 'bank';
   if (it.kind === 'lobby' || it.kind === 'office') return n.includes('POLICE') ? 'police' : n.includes('HOSPITAL') ? 'hospital' : 'office';
   if (n.includes('GUN')) return 'guns';
+  if (n.includes('THREADS')) return 'clothes';
   if (n.includes('LIQUOR')) return 'liquor';
   if (n.includes('ELECTRONIC') || n.includes('GADGET')) return 'electronics';
   if (n.includes('HARDWARE')) return 'hardware';
@@ -168,6 +170,7 @@ export class Stores {
     if (st.theme === 'bank') { g.bank.open(false); return; }
     if (st.theme === 'pawn') { e.openPawn(); return; }
     if (st.theme === 'guns') { this.openGuns(st); return; }
+    if (st.theme === 'clothes') { g.style.open(st); return; }
     const render = () => {
       const row = (label, small, btn) => `<div class="erow"><div><b>${label}</b><small>${small}</small></div><div class="btns">${btn}</div></div>`;
       const owed = this.unpaid.filter((u) => u.st === st);
@@ -183,7 +186,8 @@ export class Stores {
         html += `<p class="lede">${stars ? '"You do know you\'re a wanted person, right?"' : '"Can I help you?"'}</p>`;
         html += row('Pay your fines', stars ? `Hand yourself in and pay up: clears ${stars} star${stars > 1 ? 's' : ''}` : 'Nothing outstanding', `<button data-a="fine" ${stars && e.money >= fine ? '' : 'disabled'}>${stars ? '$' + fine.toLocaleString() : '—'}</button>`);
       } else if (st.theme === 'office') {
-        html += '<p class="lede">"Sorry, staff only beyond this point. Have a nice day."</p>';
+        const L = st.label;
+        html += `<p class="lede">${L.includes('SCHOOL') ? '"Visitors sign in at the office, please. And no running in the halls."' : L.includes('LIBRARY') ? '"Shh. Returns go in the slot, and the computers are for library members."' : L.includes('TOWN HALL') ? '"Planning permission is two doors down. Take a number."' : '"Sorry, staff only beyond this point. Have a nice day."'}</p>`;
       } else {
         html += `<p class="lede">${st.theme === 'diner' ? '"What can I get you, hon?"' : '"Anything I can help you find?"'}</p>`;
         const seen = new Set();

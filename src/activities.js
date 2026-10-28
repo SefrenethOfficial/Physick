@@ -300,14 +300,14 @@ export function taxiMesh() {
   m.userData.spec = 'y';
   return m;
 }
-function ambulanceMesh() {
+export function ambulanceMesh() {
   const spec = { id: 'amb', scale: [1.1, 1.35, 1.22], rack: false };
   const m = modelMesh(spec, 0xf2f2ee);
   for (const s of [-1, 1]) { const st = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.25, 4.6), std({ color: 0xc62828 })); st.position.set(s * 1.06, 1.05, 0.1); m.add(st); const cr = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7), new THREE.MeshBasicMaterial({ map: canvasTex(32, 32, (c) => { c.fillStyle = '#c62828'; c.fillRect(11, 2, 10, 28); c.fillRect(2, 11, 28, 10); }), transparent: true })); cr.position.set(s * 1.08, 1.5, 0.9); cr.rotation.y = s * Math.PI / 2; m.add(cr); }
   for (const [x, c] of [[-0.35, 0xff2020], [0.35, 0x2050ff]]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 0.25), new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 1.4 })); l.position.set(x, 2.2, -1.0); m.add(l); }
   return m;
 }
-function fireTruckMesh() {
+export function fireTruckMesh() {
   const m = modelMesh({ id: 'fire', scale: [1.2, 1.4, 1.55] }, 0xc0201a);
   const steel = std({ color: 0xc8ccd0, metalness: 0.7, roughness: 0.3 });
   const ladder = new THREE.Group(); ladder.position.set(0, 2.35, 0.4); m.add(ladder);

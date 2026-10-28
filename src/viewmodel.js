@@ -120,7 +120,7 @@ export class Viewmodel {
     if (rot) holder.rotation.set(...rot); else holder.rotation.set(0.25, -0.5, 0.1);
     // a two-handed gun: your other (human) hand holds the foregrip
     const fg = mesh.userData.foregrip;
-    if (fg) fg.add(supportHand(fg.userData.r));
+    if (fg) fg.add(supportHand(fg.userData.r, this.look));
     mesh.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
     this.scene.add(holder);
     this.held = holder;

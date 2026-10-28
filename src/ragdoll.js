@@ -21,7 +21,7 @@ export class PlayerRagdoll {
   start(pos, yaw, vel, { dead = false, spin = 4 } = {}) {
     const g = this.game, sb = g.portSandbox;
     if (this.rd) this.clear();
-    const fig = buildFigure(LOOK);
+    const fig = buildFigure(this.game?.style?.figureLook || LOOK);
     // the robot arm
     const metal = new THREE.MeshStandardMaterial({ color: 0x8a9096, metalness: 0.85, roughness: 0.35 });
     fig.parts.armR.material = metal;

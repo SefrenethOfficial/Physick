@@ -137,13 +137,8 @@ export class Saltmarsh {
 
     // general store + parked cars
     { const gl = []; generalStore(g, sb, -666, Y + 0.15, -1350, -Math.PI / 2, gl); for (const p of gl) this.lootSpots.push({ pos: p, kind: 'porch' }); }
-    // the gun store, down the road from the general store: a walk-in shop facing the street
-    {
-      const out = cityBuilding(g, sb, { cx: -670, cz: -1500, y0: Y + 0.15, w: 20, d: 22, front: 'w', streets: new Set(['w']) },
-        { type: 'brick', floors: 1, interior: 'shop', name: 'SALTMARSH GUNS & AMMO', signBg: '#2b2f22', signFg: '#e8c547' });
-      this.interiors.push({ ...out, kind: 'shop', name: 'SALTMARSH GUNS & AMMO', island: 'town' });
-      this.gunStore = out.door ? out.door.clone() : new THREE.Vector3(-681, Y, -1500);
-    }
+    // the town proper: a row of public buildings and shops along the north shore
+    this.buildTownRow();
     // cars parked on the street
     for (let n = 0; n < 8; n++) {
       const z = this.zs[Math.floor(Math.random() * this.zs.length)];
@@ -163,6 +158,76 @@ export class Saltmarsh {
       this.lootSpots.push({ pos: new THREE.Vector3(-752 + (n % 2) * 3.5, Y + 1.2, isl.z1 + 8 + n * 7), kind: 'misc' });
     }
     sign(g, 'SALTMARSH KEY', -742, Y + 3, isl.z1 - 3, 0, { w: 8, h: 1.5, bg: '#2c3e5e', post: Y });
+  }
+
+  // Along the north shore, facing the last street: the school, fire station, police, hospital,
+  // pharmacy, library, bank, town hall, a diner, the clothes shop and the gun store. (Gaps are left
+  // for Dockside Motors' apron and the path down to the fishing dock.)
+  buildTownRow() {
+    const g = this.group, sb = this.sb;
+    const Z = this.zs.at(-1), D = 22, front = Z + 10, cz = front + D / 2, y0 = Y + 0.15;
+    this.places = [];
+    const lot = (cx, w) => ({ cx, cz, y0, w, d: D, front: 'n', streets: new Set(['n']) });
+    const B = [
+      { cx: -975, w: 30, opts: { type: 'brick', floors: 2, interior: 'lobby', name: 'SALTMARSH ELEMENTARY SCHOOL', signBg: '#1f4f8a', signFg: '#ffffff' }, color: '#5aa0ff', label: 'School' },
+      { cx: -945, w: 22, opts: { type: 'brick', floors: 2, name: 'FIRE STATION No. 4', signBg: '#8a1a12', signFg: '#ffffff' }, color: '#ff5a3a', label: 'Fire station', fire: true },
+      { cx: -919, w: 22, opts: { type: 'civic', color: '#d6d8dc', floors: 2, interior: 'lobby', name: 'SALTMARSH POLICE', signBg: '#1c2f6e', signFg: '#ffffff' }, color: '#4a7dff', label: 'Police' },
+      { cx: -889, w: 30, opts: { type: 'civic', color: '#f0eee8', floors: 3, interior: 'lobby', name: 'SALTMARSH HOSPITAL', signBg: '#c62828', signFg: '#ffffff' }, color: '#ff6a6a', label: 'Hospital', hospital: true },
+      { cx: -862, w: 16, opts: { type: 'brick', floors: 1, interior: 'shop', name: 'SALTMARSH PHARMACY', signBg: '#2f8a52', signFg: '#ffffff' }, color: '#3ad38a', label: 'Pharmacy' },
+      { cx: -841, w: 18, opts: { type: 'civic', color: '#e4d8c2', floors: 1, interior: 'lobby', name: 'PUBLIC LIBRARY', signBg: '#4a3a2a', signFg: '#f2e6c8' }, color: '#c9a26a', label: 'Library' },
+      { cx: -821, w: 16, opts: { type: 'civic', color: '#e8e2d4', floors: 1, interior: 'bank', name: 'SALTMARSH SAVINGS', signBg: '#1f3b2e', signFg: '#e8d48a' }, color: '#2fd38a', label: 'Bank' },
+      { cx: -774, w: 24, opts: { type: 'civic', color: '#e9e4d8', floors: 2, interior: 'lobby', name: 'TOWN HALL', signBg: '#2c3e5e', signFg: '#ffe7a0' }, color: '#e8e2d4', label: 'Town hall', flag: true },
+      { cx: -729, w: 18, opts: { type: 'brick', floors: 1, interior: 'diner', name: "MARSHA'S DINER", signBg: '#c23b2a', signFg: '#fff6d8' }, color: '#ffb36b', label: 'Diner' },
+      { cx: -707, w: 18, opts: { type: 'brick', floors: 1, interior: 'shop', name: 'SALTMARSH THREADS', signBg: '#6a2a5a', signFg: '#ffd0f0' }, color: '#ff8ad8', label: 'Clothes (cosmetics)', short: 'Threads' },
+      { cx: -685, w: 18, opts: { type: 'brick', floors: 1, interior: 'shop', name: 'SALTMARSH GUNS & AMMO', signBg: '#2b2f22', signFg: '#e8c547' }, color: '#e8c547', label: 'Gun store', short: 'Guns' },
+    ];
+    for (const b of B) {
+      const out = cityBuilding(g, sb, lot(b.cx, b.w), b.opts);
+      if (b.opts.interior) this.interiors.push({ ...out, kind: b.opts.interior, name: b.opts.name, island: 'town' });
+      const door = out.door ? out.door.clone() : new THREE.Vector3(b.cx, Y, front);
+      this.places.push({ name: b.opts.name, label: b.label, short: b.short, color: b.color, pos: door });
+      if (b.opts.name.includes('GUNS')) this.gunStore = door;
+      if (b.opts.name.includes('THREADS')) this.threads = door;
+      if (b.hospital) this.hospital = new THREE.Vector3(b.cx, Y, front - 3);
+      if (b.fire) { // two red engine-bay doors
+        const red = std({ color: 0xb3261e, roughness: 0.5, metalness: 0.2 });
+        for (const s of [-1, 1]) {
+          const d = new THREE.Mesh(new THREE.BoxGeometry(7.5, 4, 0.12), red); d.position.set(b.cx + s * 5, y0 + 2.05, front - 0.1); g.add(d);
+          for (let k = 1; k < 8; k++) { const r = new THREE.Mesh(new THREE.BoxGeometry(7.5, 0.05, 0.14), std({ color: 0x7a1a14 })); r.position.set(b.cx + s * 5, y0 + k * 0.5, front - 0.1); g.add(r); }
+        }
+      }
+      if (b.flag) this.flagpole(b.cx + b.w / 2 - 2, front - 3);
+      // a bench and a lamp out front
+      lamp(g, sb, b.cx - b.w / 2 + 1.5, Y, front - 1.2);
+    }
+    this.flagpole(-919 - 9, front - 3);
+    // vehicles you'd expect outside: a fire engine, an ambulance and the school bus (stealable, of course)
+    const kerb = Z + 3.6;
+    this.specialParked = [
+      { kind: 'fire', x: -945, z: kerb, heading: Math.PI / 2 },
+      { kind: 'ambulance', x: -889, z: kerb, heading: Math.PI / 2 },
+      { kind: 'schoolbus', x: -975, z: kerb, heading: Math.PI / 2 },
+      { kind: 'police', x: -919, z: kerb, heading: -Math.PI / 2 },
+    ];
+    // the school playground out the back: swings, a slide, a hoop, a sandpit
+    const px = -975, pz = cz + D / 2 + 14;
+    const steel = std({ color: 0xc23b2a, roughness: 0.5, metalness: 0.4 }), blue = std({ color: 0x2f7fd8, roughness: 0.5 });
+    const box = (w, h, d, x, y, z, m, rx = 0, rz = 0) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); o.rotation.set(rx, 0, rz); o.castShadow = true; g.add(o); return o; };
+    for (const s of [-1, 1]) { box(0.12, 2.6, 0.12, px - 8 + s * 2.2, Y + 1.3, pz - 1, steel, 0.25, 0); box(0.12, 2.6, 0.12, px - 8 + s * 2.2, Y + 1.3, pz + 1, steel, -0.25, 0); }
+    box(4.6, 0.12, 0.12, px - 8, Y + 2.55, pz, steel);
+    for (const s of [-1, 1]) { box(0.02, 1.6, 0.02, px - 8 + s * 1.1 - 0.25, Y + 1.75, pz, std({ color: 0x8a8f96 })); box(0.02, 1.6, 0.02, px - 8 + s * 1.1 + 0.25, Y + 1.75, pz, std({ color: 0x8a8f96 })); box(0.6, 0.06, 0.25, px - 8 + s * 1.1, Y + 0.95, pz, std({ color: 0x15161a })); }
+    box(1.2, 0.08, 4.2, px + 2, Y + 1.2, pz, std({ color: 0xe0a030 }), 0.5); box(1.2, 2.2, 1.2, px + 2, Y + 1.1, pz - 2.4, blue);
+    solidBox(g, sb, 0.2, 3.4, 0.2, px + 10, Y, pz + 4, std({ color: 0x8a8f96 }));
+    box(1.4, 1, 0.08, px + 10, Y + 3.3, pz + 3.85, std({ color: 0xf2f2ee }));
+    const sandpit = new THREE.Mesh(new THREE.BoxGeometry(5, 0.2, 5), std({ color: 0xe3cf9a, roughness: 1 })); sandpit.position.set(px + 2, Y + 0.1, pz + 8); g.add(sandpit);
+    sign(g, 'PLAYGROUND', px - 13, Y + 1.6, pz - 5, Math.PI, { w: 3.6, h: 0.6, bg: '#e0a030', fg: '#15161a', post: Y });
+  }
+
+  flagpole(x, z) {
+    const g = this.group;
+    solidBox(g, this.sb, 0.15, 9, 0.15, x, Y, z, std({ color: 0xd8dde2, metalness: 0.7, roughness: 0.3 }));
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.1), new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, map: canvasTex(90, 55, (c, w, h) => { c.fillStyle = '#2c3e5e'; c.fillRect(0, 0, w, h); c.fillStyle = '#e8c547'; c.fillRect(0, h * 0.42, w, h * 0.16); c.beginPath(); c.arc(w * 0.3, h * 0.5, 9, 0, 7); c.fill(); }) }));
+    flag.position.set(x + 0.95, Y + 8.3, z); g.add(flag);
   }
 
   addHome(x, z, yaw, lotW, lotD) {

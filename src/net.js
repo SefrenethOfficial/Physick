@@ -13,6 +13,7 @@ import { buildJet } from './jets.js';
 import { Heli } from './cargo.js';
 import { LAND_Y, islandAt } from './world.js';
 import { setMpSession, seeded } from './netseed.js';
+import { savedLook } from './style.js';
 
 // Multiplayer. Everyone in a room connects to the Physick server (server/index.js), which relays
 // messages. Each game is in charge of its own player: where you are, what you're driving, your
@@ -129,6 +130,7 @@ class Remote {
   constructor(net, id, name, look) {
     this.net = net; this.id = id; this.name = name;
     this.look = look || lookFor(name);
+    this.lookKey = JSON.stringify(this.look);
     this.puppet = new Puppet(net, this.look);
     this.puppet.remote = this;
     this.tag = nameTag(name);
@@ -168,7 +170,8 @@ class Remote {
     const s = this.sample();
     if (!s) return;
     const P = this.puppet, [x, y, z] = s.p;
-    P.place(x, y, z, s.y, s.sp || 0, s.m);
+    if (s.lk && JSON.stringify(s.lk) !== this.lookKey) this.restyle(s.lk); // (they changed clothes)
+    P.place(x, y, z, s.y + Math.PI, s.sp || 0, s.m); // (a player's yaw looks down -Z; a figure faces +Z)
     if (s.m === 'f' || s.m === 's') P.animate(dt);
     // a ride with no physics of its own here: a boat, a helicopter or a jet
     const kind = s.v?.k;
@@ -192,6 +195,17 @@ class Remote {
     const k = Math.max(1, dist / 14); // (about the same size on screen however far away)
     this.tag.scale.set(1.6 * k, 0.4 * k, 1);
     this.where = at;
+  }
+
+  // new clothes: swap the figure, keep the body
+  restyle(look) {
+    this.look = look;
+    this.lookKey = JSON.stringify(look);
+    const P = this.puppet, old = P.fig.root;
+    P.fig = buildFigure(look);
+    P.fig.root.position.copy(old.position); P.fig.root.rotation.copy(old.rotation);
+    old.parent?.add(P.fig.root);
+    old.removeFromParent();
   }
 
   makeRide(kind, n, key) {
@@ -249,6 +263,9 @@ export class Net {
     this.feed = [];
   }
 
+  myLook() { return this.g.style?.figureLook || savedLook() || lookFor(this.s.name); }
+  lookChanged() { this.lookT = 0; } // (send it with the next update)
+
   get isHost() { return this.id != null && this.host === this.id; }
   get mirroring() { return !this.isHost; }
   get carList() { return [...this.pcars.values()]; }
@@ -262,7 +279,7 @@ export class Net {
       try { ws = new WebSocket(wsUrl(this.s.url)); } catch (e) { fail(`Bad server address (${e.message})`); return; }
       this.ws = ws;
       const timer = setTimeout(() => { fail('The server didn\'t answer'); try { ws.close(); } catch { /* */ } }, timeout);
-      ws.onopen = () => { ws.send(JSON.stringify({ t: 'hello', room: this.s.room, name: this.s.name, look: lookFor(this.s.name) })); if (document.hidden) ws.send(JSON.stringify({ t: 'away', v: true })); };
+      ws.onopen = () => { ws.send(JSON.stringify({ t: 'hello', room: this.s.room, name: this.s.name, look: this.myLook() })); if (document.hidden) ws.send(JSON.stringify({ t: 'away', v: true })); };
       if (!this.visBound) { this.visBound = true; document.addEventListener('visibilitychange', () => this.send({ t: 'away', v: document.hidden })); }
       ws.onerror = () => fail('Couldn\'t reach the server');
       ws.onclose = () => {
@@ -626,7 +643,10 @@ export class Net {
       const ct = n.body.translation();
       cops.push([n.lid, r1(ct.x), r2(ct.y), r1(ct.z), r2(n.heading), r1(n.speed), n.swat ? 1 : 0]);
     }
-    this.send({ t: 's', m, p: p.map((x, i) => (i === 1 ? r2(x) : r1(x))), y: r2(yaw), sp: r1(speed), hp: Math.round(g.health.hp), w: g.police.wanted, v, cars, cops });
+    this.lookT = (this.lookT || 0) - 1;
+    const lk = this.lookT <= 0 ? this.myLook() : undefined; // (what we're wearing, every couple of seconds)
+    if (lk) this.lookT = 30;
+    this.send({ t: 's', m, p: p.map((x, i) => (i === 1 ? r2(x) : r1(x))), y: r2(yaw), sp: r1(speed), hp: Math.round(g.health.hp), w: g.police.wanted, v, cars, cops, lk });
   }
 
   // ---------------------------------------------------------------- events

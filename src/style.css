@@ -542,3 +542,16 @@ body.pad-mode { cursor: none; }
 #scope::after { width: 1.5px; height: 76vmin; transform: translate(-50%, -50%); }
 #scope i { position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 50%; background: #ff2a1a; box-shadow: 0 0 6px #ff2a1a; }
 #hud.scoped .crosshair, #hud.scoped .prompt { display: none; }
+
+/* ---------------- Saltmarsh Threads (clothes) */
+.style-shop { display: grid; grid-template-columns: 220px 1fr; gap: 14px; align-items: start; }
+@media (max-width: 620px) { .style-shop { grid-template-columns: 1fr; } .style-preview { justify-self: center; } }
+.style-preview { width: 220px; height: 300px; border-radius: 6px; background: radial-gradient(ellipse at 50% 35%, #4a4f57, #1d1f22); border: 2px solid var(--ink); position: sticky; top: 0; }
+.style-preview canvas { width: 220px; height: 300px; display: block; }
+.style-opts h4 { margin: 12px 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; }
+.style-opts h4 small { opacity: .6; font-weight: 600; margin-left: 6px; text-transform: none; letter-spacing: 0; }
+.style-opts .sw-row { display: flex; flex-wrap: wrap; gap: 6px; }
+#panel .style-opts .sw { width: 30px; height: 30px; padding: 0; border-radius: 50%; border: 2px solid rgba(0,0,0,.6); cursor: pointer; box-shadow: inset 0 0 0 2px rgba(255,255,255,.15); }
+#panel .style-opts .sw.on { box-shadow: 0 0 0 3px #ffd166; }
+.style-opts .opt-row { display: flex; flex-wrap: wrap; gap: 6px; }
+#panel .style-opts .opt-row button.on { background: #ffd166; color: var(--ink); }
