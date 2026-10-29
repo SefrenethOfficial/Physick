@@ -5,6 +5,8 @@ import { std, canvasTex } from './buildkit.js';
 import { islandAt, LAND_Y } from './world.js';
 import { seeded } from './netseed.js';
 import { randomLook } from './figure.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { flatPlan, fitFlat, fitLobby, flatMats, KNOCK } from './flats.js';
 
 // Inside every building. The outside walls, the floors and the roof are always there (see
 // cityBuilding); whatever you're standing in gets fitted out as you go in, a floor or two either
@@ -143,6 +145,10 @@ export class Insides {
       fl.rotation.x = -Math.PI / 2; fl.position.set(0, 0.03, 0); F.group.add(fl);
     }
     const C = B.core;
+    // a bright ceiling (round the stairwell's opening)
+    const ceilM = this.mats.ceil ||= std({ color: 0xf6f4ee, emissive: 0xf6f4ee, emissiveIntensity: 0.5, roughness: 0.9 });
+    const ceil = (x0, x1, z0, z1) => { if (x1 - x0 < 0.1 || z1 - z0 < 0.1) return; const c = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, z1 - z0), ceilM); c.rotation.x = Math.PI / 2; c.position.set((x0 + x1) / 2, y + h - 0.31, (z0 + z1) / 2); F.group.add(c); };
+    if (C) { ceil(C.x1, xR, zB, zF); ceil(xL, C.x1, C.hole, zF); } else ceil(xL, xR, zB, zF);
     if (C) this.stairs(ctx);
     if (f === 0) this.groundFloor(ctx);
     else if (C) {
@@ -151,11 +157,38 @@ export class Insides {
     }
     // a lift in the tall ones: a call panel by the stairs on every floor
     if (C && B.floors >= 5) {
-      box(1.6, 2.3, 0.1, C.x1 + 1.1, y, C.hole - 0.02 + 0.06, M.lift);
-      const btn = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.18, 0.04), new THREE.MeshBasicMaterial({ color: 0xffd166 })); btn.position.set(C.x1 + 2.15, y + 1.2, C.hole + 0.1); F.group.add(btn);
-      F.spots.push({ kind: 'lift', at: B.k.world(C.x1 + 1.1, y, C.hole + 1.2) });
+      const lz = this.liftZ(B);
+      box(0.1, 2.3, 1.6, C.x1 - 0.05, y, lz, M.lift);
+      box(0.12, 0.05, 1.8, C.x1 - 0.05, y + 2.3, lz, M.dark);
+      box(0.02, 2.25, 0.02, C.x1 - 0.11, y, lz, M.dark);
+      const btn = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.18, 0.12), new THREE.MeshBasicMaterial({ color: 0xffd166 })); btn.position.set(C.x1 - 0.12, y + 1.2, lz + 1.05); F.group.add(btn);
+      F.spots.push({ kind: 'lift', at: B.k.world(C.x1 - 0.9, y, lz) });
     }
+    this.merge(F);
     return F;
+  }
+
+  liftZ(B) { return (B.core.hole + this.corridor(B).z0) / 2; }
+
+  // bake the floor's furniture into one mesh per material (hundreds of boxes -> a few dozen draws)
+  merge(F) {
+    const groups = new Map(), drop = [];
+    for (const o of F.group.children) {
+      if (!o.isMesh || Array.isArray(o.material) || o.userData.keep || !o.geometry.index) continue;
+      o.updateMatrix();
+      const geo = o.geometry.clone().applyMatrix4(o.matrix);
+      for (const k of Object.keys(geo.attributes)) if (!['position', 'normal', 'uv'].includes(k)) geo.deleteAttribute(k);
+      if (!geo.attributes.uv || !geo.attributes.normal) { geo.dispose(); continue; }
+      if (!groups.has(o.material)) groups.set(o.material, []);
+      groups.get(o.material).push(geo); drop.push(o);
+    }
+    for (const o of drop) { o.removeFromParent(); o.geometry.dispose(); }
+    for (const [m, geos] of groups) {
+      const g = mergeGeometries(geos, false);
+      for (const q of geos) q.dispose();
+      if (!g) continue;
+      const mesh = new THREE.Mesh(g, m); mesh.receiveShadow = true; F.group.add(mesh);
+    }
   }
 
   // switchback stairs up the corner: up the left half to a half landing, back along the right half
@@ -182,7 +215,7 @@ export class Insides {
     ramp(xb0, xb1, zl, y + half, zt, y + rise);
     box(0.12, rise + 0.9, run, (xa1 + xb0) / 2, y, (zl + zt) / 2, M.wall); // the wall between the flights
     // the stairwell's side wall, between it and the rooms
-    const zEnd = f === 0 ? C.hole : Math.min(B.d / 2 - T, Math.max(C.hole, this.corridor(B).z0));
+    const zEnd = Math.min(B.d / 2 - T, Math.max(C.hole, this.corridor(B).z0));
     box(T, h - 0.3, zEnd - (-B.d / 2 + T), C.x1 + T / 2, y, (zEnd - B.d / 2 + T) / 2, M.wall, true);
     // a sign by the bottom step
     const label = f + 1 > B.floors ? 'ROOF' : `FLOOR ${f + 1}`;
@@ -203,14 +236,21 @@ export class Insides {
     return { z0: zC0, z1: zC1 };
   }
   units(B) {
+    B.unitCache ||= this.makeUnits(B);
+    return B.unitCache;
+  }
+  makeUnits(B) {
     const C = B.core, xL = -B.w / 2 + T, xR = B.w / 2 - T, zB = -B.d / 2 + T, zF = B.d / 2 - T;
     const cor = this.corridor(B), out = [];
     const row = (x0, x1, z0, z1, side) => {
       if (z1 - z0 < 3 || x1 - x0 < 3.5) return;
-      const n = Math.max(1, Math.round((x1 - x0) / 8));
+      const n = Math.max(1, Math.round((x1 - x0) / 7.5));
       for (let i = 0; i < n; i++) {
         const a = x0 + ((x1 - x0) * i) / n, b = x0 + ((x1 - x0) * (i + 1)) / n;
-        out.push({ x0: a, x1: b, z0, z1, side, door: { x: (a + b) / 2, z: side === 'front' ? z0 : z1 } });
+        const u = { x0: a, x1: b, z0, z1, side };
+        u.plan = flatPlan(u);
+        u.door = { x: (a + b) / 2 + u.plan.door, z: side === 'front' ? z0 : z1 };
+        out.push(u);
       }
     };
     row(C.x1 + T, xR, zB, cor.z0, 'back');
@@ -219,33 +259,55 @@ export class Insides {
     return out;
   }
 
-  corridorFloor(ctx, use) {
-    const { B, f, y, h, box, lightAt, rng, F } = ctx, M = this.mats;
-    const C = B.core, xL = -B.w / 2 + T, xR = B.w / 2 - T, cor = this.corridor(B);
+  corridorFloor(ctx, use, rows = 'both') {
+    const { B, f, y, h, box, lightAt, rng, F } = ctx, M = this.mats, FM = flatMats();
+    const C = B.core, xL = -B.w / 2 + T, xR = B.w / 2 - T, cor = this.corridor(B), zc = (cor.z0 + cor.z1) / 2;
     const WH = h - 0.3;
-    // corridor walls, with a door gap for each room
-    const units = this.units(B);
-    const wallRun = (x0, x1, z, doors) => {
+    const units = this.units(B).filter((u) => rows === 'both' || u.side === rows);
+    // corridor walls, with a doorway for each flat, a dado rail, skirting and a lamp between doors
+    const paint = [0x5f7a8a, 0x8a6a5a, 0x5a7a5f, 0x7a6a8a, 0x8a8a6a][B.style % 5];
+    const dado = this.mats.dado ||= new Map();
+    if (!dado.has(paint)) dado.set(paint, std({ color: paint, emissive: paint, emissiveIntensity: 0.2, roughness: 0.8 }));
+    const wallRun = (x0, x1, z, doors, toward) => {
       let at = x0;
-      for (const dx of [...doors.sort((p, q2) => p - q2), x1 + 0.6]) { const b = Math.min(x1, dx - 0.6); if (b - at > 0.05) box(b - at, WH, 0.15, (at + b) / 2, y, z, M.wall, true); at = dx + 0.6; }
-      for (const dx of doors) box(1.2, WH - 2.2, 0.15, dx, y + 2.2, z, M.wall);
+      for (const dx of [...doors.sort((p, q2) => p - q2), x1 + 0.6]) {
+        const b = Math.min(x1, dx - 0.6);
+        if (b - at > 0.05) {
+          box(b - at, WH, 0.15, (at + b) / 2, y, z, M.wall, true);
+          const zz = z + toward * 0.085;
+          box(b - at, 1.0, 0.02, (at + b) / 2, y, zz, dado.get(paint));
+          box(b - at, 0.05, 0.04, (at + b) / 2, y + 1.0, zz, FM.skirt);
+          box(b - at, 0.12, 0.04, (at + b) / 2, y, zz, FM.skirt);
+          if (b - at > 2.2) { const lx = (at + b) / 2; box(0.25, 0.3, 0.1, lx, y + 1.85, z + toward * 0.12, FM.sconce); }
+        }
+        at = dx + 0.6;
+      }
+      for (const dx of doors) {
+        box(1.2, WH - 2.2, 0.15, dx, y + 2.2, z, M.wall);
+        for (const sd of [-1, 1]) box(0.1, 2.26, 0.22, dx + sd * 0.65, y, z, FM.skirt);
+        box(1.4, 0.1, 0.22, dx, y + 2.2, z, FM.skirt);
+      }
     };
-    wallRun(C.x1 + T, xR, cor.z0, units.filter((u) => u.side === 'back').map((u) => u.door.x));
-    wallRun(xL, xR, cor.z1, units.filter((u) => u.side === 'front').map((u) => u.door.x));
-    // the walls between the rooms
+    if (rows === 'both' || rows === 'back') wallRun(C.x1 + T, xR, cor.z0, units.filter((u) => u.side === 'back').map((u) => u.door.x), 1);
+    if (rows === 'both' || rows === 'front') wallRun(xL, xR, cor.z1, units.filter((u) => u.side === 'front').map((u) => u.door.x), -1);
+    // the walls between the flats
     for (const u of units) if (u.x1 < xR - 0.5) box(0.15, WH, u.z1 - u.z0, u.x1, y, (u.z0 + u.z1) / 2, M.wall2, true);
-    for (let x = xL + 2; x < xR; x += 5) lightAt(x, (cor.z0 + cor.z1) / 2, 0.8, 0.8);
-    const runner = new THREE.Mesh(new THREE.PlaneGeometry(xR - xL, 1.4), M.rug[1]); runner.rotation.x = -Math.PI / 2; runner.position.set(0, y + 0.02, (cor.z0 + cor.z1) / 2); F.group.add(runner);
-    // the rooms
+    if (f > 0) {
+      for (let x = xL + 2; x < xR; x += 5) lightAt(x, zc, 0.8, 0.8);
+      const runner = new THREE.Mesh(new THREE.PlaneGeometry(xR - xL - 0.6, 1.3), M.rug[1]); runner.rotation.x = -Math.PI / 2; runner.position.set(0, y + 0.02, zc); F.group.add(runner);
+      // a fire extinguisher and a plant by the stairs
+      box(0.18, 0.5, 0.18, xR - 0.25, y + 0.4, cor.z0 + 0.2, FM.red);
+      box(0.4, 0.45, 0.4, xL + 0.4, y, cor.z1 - 0.35, M.pot); const pl = new THREE.Mesh(new THREE.SphereGeometry(0.42, 8, 6), M.plant); pl.position.set(xL + 0.4, y + 0.9, cor.z1 - 0.35); F.group.add(pl);
+    }
+    // the flats
     const mine = this.rental;
     for (const u of units) {
+      if (use === 'shops') { this.shopUnit(ctx, u); continue; }
       const r = this.roll(B, f, u.i);
       const isMine = mine && mine.id === B.id && mine.f === f && mine.u === u.i;
-      if (use === 'shops') { this.shopUnit(ctx, u); continue; }
-      const state = isMine ? 'mine' : r < 0.18 ? 'rent' : r < 0.82 ? 'home' : 'away';
+      const state = isMine ? 'mine' : r < 0.2 ? 'rent' : r < 0.85 ? 'home' : 'away';
       this.apartment(ctx, u, state, rng);
     }
-    void use;
   }
 
   // a fixed dice roll for a room (who lives there, whether it's to let)
@@ -258,49 +320,48 @@ export class Insides {
   }
 
   apartment(ctx, u, state, rng) {
-    const { B, f, y, box, lightAt, F } = ctx, M = this.mats;
-    const { W, D, s, at } = this.uf(u);
-    // the front door: shut and locked if somebody's in (or out); open if it's empty, or yours
-    const open = state === 'rent' || state === 'mine';
-    const dd = box(1.15, 2.2, 0.08, u.door.x + (open ? 0.5 : 0), y, u.door.z + (open ? s * 0.55 : 0), state === 'mine' ? M.doorMine : M.door, !open, open ? Math.PI / 2 : 0);
-    void dd;
+    const { B, f, y, F } = ctx, M = this.mats, FM = flatMats(), sb = this.game.portSandbox;
+    const { s } = this.uf(u);
     const num = `${f}${String.fromCharCode(65 + u.i)}`;
-    const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.18), new THREE.MeshBasicMaterial({ map: this.labelTex(num, '#d8c890', '#2a2420') }));
-    plate.position.set(u.door.x + 0.95, y + 1.7, u.door.z - s * 0.1); plate.rotation.y = s > 0 ? Math.PI : 0; F.group.add(plate);
+    // the front door: shut if somebody lives there (knock and they'll open it), open if it's to let or yours
+    const open = state === 'rent' || state === 'mine';
+    const leaf = new THREE.Mesh(new THREE.BoxGeometry(1.12, 2.16, 0.06), state === 'mine' ? FM.doorMine : FM.door);
+    leaf.userData.keep = true;
+    const hinge = V3(u.door.x - 0.56, y, u.door.z);
+    const place = (isOpen) => {
+      if (isOpen) { leaf.position.set(hinge.x + 0.03 * 1, y + 1.08, hinge.z + s * 0.58); leaf.rotation.y = Math.PI / 2; }
+      else { leaf.position.set(u.door.x, y + 1.08, u.door.z); leaf.rotation.y = 0; }
+    };
+    place(open);
+    F.group.add(leaf);
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), FM.brass); knob.position.set(0.45, 0, -s * 0.06); leaf.add(knob);
+    // the number on the door, and a FOR RENT card if it's to let
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.12), new THREE.MeshBasicMaterial({ map: this.labelTex(num, '#c8a04a', '#2a2018') })); plate.position.set(0, 0.45, -s * 0.035); plate.rotation.y = s > 0 ? Math.PI : 0; leaf.add(plate);
     if (state === 'rent' || state === 'mine') {
-      const sg = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.5), new THREE.MeshBasicMaterial({ map: this.labelTex(state === 'mine' ? 'HOME' : 'FOR RENT', state === 'mine' ? '#2a6a3a' : '#b3261e') }));
-      sg.position.set(u.door.x - 1.1, y + 1.5, u.door.z - s * 0.1); sg.rotation.y = s > 0 ? Math.PI : 0; F.group.add(sg);
+      const sg = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.16), new THREE.MeshBasicMaterial({ map: this.labelTex(state === 'mine' ? 'HOME' : 'FOR RENT', state === 'mine' ? '#2a6a3a' : '#b3261e') }));
+      sg.position.set(u.door.x + 0.95, y + 1.55, u.door.z - s * 0.1); sg.rotation.y = s > 0 ? Math.PI : 0; F.group.add(sg);
     }
-    F.spots.push({ kind: 'door', state, u, f, at: B.k.world(u.door.x, y, u.door.z - s * 0.8), num, price: this.price(B, u) });
-    // inside: a bed in the far corner, a sofa facing a telly, a kitchen counter by the door, a table
-    const [rx, rz] = at(0, D / 2);
-    const rug = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(3, W - 1.5), Math.min(2.2, D - 1.5)), M.rug[Math.floor(rng() * M.rug.length)]); rug.rotation.x = -Math.PI / 2; rug.position.set(rx, y + 0.02, rz); F.group.add(rug);
-    lightAt(rx, rz, 1.2, 1.2);
-    if (W >= 4 && D >= 4) {
-      const [bx, bz] = at(W / 2 - 1.2, D - 1.25);
-      box(1.6, 0.5, 2.1, bx, y, bz, M.bed, true);
-      box(1.5, 0.12, 1.5, bx, y + 0.5, bz - s * 0.2, M.blanket[Math.floor(rng() * M.blanket.length)]);
-      box(1.5, 0.15, 0.45, bx, y + 0.5, bz + s * 0.75, M.white);
-      F.spots.push({ kind: 'bed', state, u, at: B.k.world(bx, y, bz - s * 1.4), bedAt: B.k.world(bx - 0.9, y, bz), yaw: B.yaw + (s > 0 ? Math.PI : 0) });
-      const [sx, sz] = at(-W / 2 + 1.2, D * 0.62);
-      box(0.9, 0.45, 2.2, sx, y, sz, M.sofa[Math.floor(rng() * M.sofa.length)], true);
-      box(0.25, 0.85, 2.2, sx - 0.45, y, sz, M.sofa[1]);
-      const [tx, tz] = at(W / 2 - 0.5, D * 0.62);
-      if (W > 5) { box(0.5, 0.5, 1.6, tx, y, tz, M.wood, true); box(0.08, 0.7, 1.3, tx, y + 0.5, tz, M.tv); const sc = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.6), M.screen); sc.position.set(tx - 0.05, y + 0.85, tz); sc.rotation.y = -Math.PI / 2; F.group.add(sc); }
-      const [kx, kz] = at(-W / 2 + 0.4, 1.9);
-      box(0.6, 0.92, 2.4, kx, y, kz, M.counter, true);
-      box(0.62, 0.05, 2.42, kx, y + 0.92, kz, M.stone);
-      const [ax, az] = at(0.6, D * 0.35);
-      box(1.1, 0.75, 0.8, ax, y, az, M.wood, true);
-      for (const o of [-0.5, 0.5]) box(0.4, 0.45, 0.4, ax + o, y, az + s * 0.7, M.wood);
-      const [px, pz] = at(-W / 2 + 0.5, D - 0.5);
-      box(0.4, 0.4, 0.4, px, y, pz, M.pot); const pl = new THREE.Mesh(new THREE.SphereGeometry(0.45, 8, 6), M.plant); pl.position.set(px, y + 0.85, pz); F.group.add(pl);
-    }
-    // somebody home
-    if (state === 'home' && this.game.citizens.list.length < 140) {
-      const [nx, nz] = at((rng() - 0.5) * (W - 2), 1.5 + rng() * Math.max(0.5, D - 3));
-      this.person(F, B, B.k.world(nx, y, nz), B.yaw + rng() * Math.PI * 2);
-    }
+    let col = null;
+    { const p = B.k.world(u.door.x, y + 1.08, u.door.z); col = sb.addStaticCollider(RAPIER.ColliderDesc.cuboid(0.56, 1.08, 0.04).setTranslation(p.x, p.y, p.z).setRotation(B.k.q)); F.cols.push(col); col.setEnabled(!open); }
+    const spot = { kind: 'door', state, u, f, at: B.k.world(u.door.x, y, u.door.z - s * 0.8), num, price: this.price(B, u), leaf, col, place, open };
+    F.spots.push(spot);
+    ctx.bedSpot = null;
+    fitFlat(this, ctx, u, state, rng);
+    if (ctx.bedSpot) F.spots.push({ kind: 'bed', state, u, at: ctx.bedSpot.at, bedAt: ctx.bedSpot.bed, yaw: B.yaw });
+  }
+
+  // knock: if anybody's in, they open up for a bit
+  knock(sp) {
+    const g = this.game;
+    g.sfx.play('thud');
+    if (sp.state !== 'home') { g.hud.toast('Nobody answers.', 0xe8e2d4); return; }
+    if (sp.open) { g.hud.toast('"Yes? Still here?"', 0xe8e2d4); return; }
+    setTimeout(() => {
+      if (!sp.leaf.parent) return;
+      sp.place(true); sp.col.setEnabled(false); sp.open = true;
+      g.hud.toast(KNOCK.home[Math.floor(Math.random() * KNOCK.home.length)], 0xe8e2d4);
+      setTimeout(() => { if (!sp.leaf.parent) return; sp.place(false); sp.col.setEnabled(true); sp.open = false; }, 25000);
+    }, 900);
   }
 
   shopUnit(ctx, u) {
@@ -321,9 +382,9 @@ export class Insides {
     this.person(F, B, B.k.world(ex, y, ez), B.yaw + (u.side === 'front' ? -Math.PI / 2 : Math.PI / 2), { shirt: 0x2c2c2c, pants: 0x1d1f22 });
   }
 
-  offices(ctx) {
+  offices(ctx, zMax = null) {
     const { B, y, h, box, lightAt, F, rng } = ctx, M = this.mats;
-    const C = B.core, xL = -B.w / 2 + T, xR = B.w / 2 - T, zB = -B.d / 2 + T, zF = B.d / 2 - T;
+    const C = B.core, xL = -B.w / 2 + T, xR = B.w / 2 - T, zB = -B.d / 2 + T, zF = zMax ?? B.d / 2 - T;
     for (let x = C.x1 + 2.5; x < xR - 1.2; x += 3.6) for (let z = zB + 2; z < zF - 1.2; z += 3.4) {
       if (rng() < 0.12) continue;
       box(1.6, 0.75, 0.8, x, y, z, M.wood, true);
@@ -343,7 +404,27 @@ export class Insides {
     const { B, y, box, lightAt, F, rng } = ctx, M = this.mats;
     const C = B.core, xL = -B.w / 2 + T, xR = B.w / 2 - T, zB = -B.d / 2 + T, zF = B.d / 2 - T;
     const x0 = C ? C.x1 + T : xL;
-    for (let x = xL + 3; x < xR; x += 6) for (let z = zB + 3; z < zF; z += 6) lightAt(x, z, 1.4, 0.6);
+    const WH0 = () => GROUND - 0.3;
+    const flats = C && !B.room && B.ground !== 'store';
+    const cor = C ? this.corridor(B) : null;
+    for (let x = xL + 3; x < xR; x += 6) for (let z = zB + 3; z < zF; z += 6) if (!flats || z > cor.z0 + 1) lightAt(x, z, 1.4, 0.6);
+    if (flats) {
+      // a block's ground floor: the lobby across the front, flats (or offices) behind it
+      const doorX = B.door ? this.local(B, B.door).x : 0;
+      if (B.upper === 'offices') {
+        this.offices(ctx, cor.z0 - 0.5);
+        box(xR - (C.x1 + T), WH0(), 0.15, (C.x1 + T + xR) / 2, y, cor.z0, M.wall, true);
+        // the reception desk facing the door
+        box(3.2, 1.1, 0.8, doorX, y, zF - 4.5, M.wood, true); box(3.3, 0.05, 0.9, doorX, y + 1.1, zF - 4.5, M.stone);
+        this.person(F, B, B.k.world(doorX, y, zF - 5.4), B.yaw, { shirt: 0x2c3e5e, pants: 0x1d1f22 });
+      } else this.corridorFloor(ctx, 'apartments', 'back');
+      fitLobby(this, ctx, xL, xR, cor.z0 + 0.08, zF, doorX);
+      const mat = new THREE.Mesh(new THREE.PlaneGeometry(2, 1.2), M.rug[0]); mat.rotation.x = -Math.PI / 2; mat.position.set(doorX, y + 0.05, zF - 0.8); F.group.add(mat);
+      const dir = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.5), new THREE.MeshBasicMaterial({ map: this.labelTex(`FLOORS 1–${B.floors} ↑`) }));
+      dir.position.set(C.x1 - 0.09, y + 1.9, cor.z0 - 0.7); dir.rotation.y = -Math.PI / 2; F.group.add(dir);
+      if (rng() < 0.5) this.person(F, B, B.k.world(doorX + (rng() - 0.5) * 3, y, zF - 3), B.yaw + Math.PI);
+      return;
+    }
     if (B.ground === 'store') {
       // a corner shop: aisles of shelves, a till by the door, somebody behind it
       const door = B.door ? this.local(B, B.door) : V3(0, 0, B.d / 2);
@@ -391,7 +472,7 @@ export class Insides {
   price(B, u) {
     const area = (u.x1 - u.x0) * (u.z1 - u.z0);
     const base = PRICE[islandAt(B.x, B.z, 4)?.id] ?? 120;
-    return Math.round((base * (0.6 + area / 60)) / 5) * 5;
+    return Math.round((base * (0.7 + area / 250)) / 5) * 5;
   }
 
   save() { try { localStorage.setItem(RENT_KEY, JSON.stringify(this.rental)); } catch { /* storage unavailable */ } }
@@ -454,8 +535,8 @@ export class Insides {
     if (!B?.core) return false;
     const u = this.units(B)[R.u];
     if (!u) return false;
-    const { D, at } = this.uf(u);
-    const [x, z] = at(0, Math.min(2.2, D / 2));
+    const { at } = this.uf(u);
+    const [x, z] = at(...u.plan.hall);
     const p = B.k.world(x, this.levelY(R.f) + 1.1, z);
     g.placeOnShore(p, B.yaw);
     g.hud.toast(`You wake up in apartment ${R.num}`, 0x7be08a);
@@ -479,7 +560,8 @@ export class Insides {
     if (s.kind === 'door') {
       if (s.state === 'rent') return { label: `Rent apartment ${s.num} ($${s.price}/day)`, run: () => this.rent(s) };
       if (s.state === 'mine') return { label: `Apartment ${s.num}: give up the lease`, run: () => this.leaveRental() };
-      return { label: `Knock on ${s.num}`, run: () => { g.sfx.play('thud'); g.hud.toast(s.state === 'home' ? ['"Who is it? …Go away."', '"Not interested!"', '"We gave already."', '"I can hear you breathing out there."'][Math.floor(Math.random() * 4)] : 'Nobody answers.', 0xe8e2d4); } };
+      if (s.open) return null;
+      return { label: `Knock on ${s.num}`, run: () => this.knock(s) };
     }
     return null;
   }
@@ -495,7 +577,8 @@ export class Insides {
       const f = +b.dataset.f, C = B.core;
       g.story.fade(() => {
         if (f > B.floors) g.placeOnShore(B.roofDoor.clone().add(V3(0, 1.1, 0)), B.yaw);
-        else g.placeOnShore(B.k.world(C.x1 + 1.1, this.levelY(f) + 1.1, C.hole + 1.4), B.yaw);
+        else g.placeOnShore(B.k.world(C.x1 - 0.9, this.levelY(f) + 1.1, this.liftZ(B)), B.yaw - Math.PI / 2);
+        void C;
         g.sfx.play('select');
       });
     }));
