@@ -314,7 +314,9 @@ export class City {
     }
 
     // promenade round the edge of the island
-    for (let x = x0 + 10; x < x1; x += 22) for (const z of [isl.z0 + 6, isl.z1 - 6]) {
+    // (only the south shore now: the Hollows carry on from the north side; and none on the avenues)
+    for (let x = x0 + 10; x < x1; x += 22) for (const z of [isl.z1 - 6]) {
+      if (this.xs.some((ax) => Math.abs(ax - x) < 9)) continue;
       if (Math.random() < 0.6) tree(g, sb, x, Y, z, 0.9);
       else lamp(g, sb, x, Y, z);
     }

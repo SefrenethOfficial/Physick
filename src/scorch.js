@@ -56,8 +56,11 @@ export class Scorch {
 
   plan() {
     const yNat = (s, x, z) => Math.max(Y + 0.2, this.natural(x, z) - 0.5);
+    // Route 9 leaves the causeway exactly level with it, then eases up to the desert over 150 m
+    const yRoute = (s, x, z) => { const k = smooth(4, 150, s); return (Y + 0.03) * (1 - k) + yNat(s, x, z) * k; };
     this.route = makeRoad([[-740, 801], [-745, 900], [-790, 1060], [-880, 1250], [-1050, 1440], [-1300, 1590], [-1600, 1740], [-1900, 1950], [-2150, 2250], [-2255, 2470], [-2340, 2650], [-2400, 2900]],
-      { width: 12, yOf: yNat, smoothN: 18, name: 'Route 9' });
+      { width: 12, yOf: yRoute, smoothN: 18, name: 'Route 9' });
+    for (const p of this.route.pts) { const k = smooth(0, 45, p.s); p.y = (Y + 0.03) * (1 - k) + p.y * k; } // (no lip where it meets the causeway)
     this.track = makeRoad([[-1060, 1450], [-990, 1650], [-930, 1900], [-880, 2120]], { width: 6, kind: 'dirt', yOf: yNat, smoothN: 10 });
     this.roads = [this.route, this.track];
     this.index = new RoadIndex(this.roads);

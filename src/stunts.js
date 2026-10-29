@@ -83,14 +83,11 @@ export class Stunts {
     const g = this.game, H = g.hood, S = g.saltmarsh, Y = LAND_Y;
     const v = (x, z, y = Y) => new THREE.Vector3(x, y, z);
     const E = -Math.PI / 2, W = Math.PI / 2, N = 0, Sth = Math.PI; // (yaw for driving east / west / north (-z) / south (+z))
-    // over the strait between Saltmarsh Key and the Hollows, both ways
-    this.ramp('strait-e', v(S.isl.x1 - 10, S.zs[3]), E, { dist: 84, minSpeed: 22, rise: 2.6, name: 'Strait leap' });
-    this.ramp('strait-w', v(H.isl.x0 + 8, H.zs[1]), W, { dist: 84, minSpeed: 22, rise: 2.6, name: 'Hollows getaway' });
-    // over the water between the Hollows and Pelican Point, both ways
+    // over the strait between the Hollows and the tip of Pelican Point, both ways (beside the causeway)
     const P = g.pelican;
-    if (P) {
-      this.ramp('point-e', v(H.isl.x1 - 8, H.zs[3]), E, { dist: 78, minSpeed: 22, rise: 2.6, landY: P.heightAt(P.isl.x0 + 20, H.zs[3]), name: 'Pelican plunge' });
-      this.ramp('point-w', v(P.isl.x0 + 9, H.zs[1], P.heightAt(P.isl.x0 + 9, H.zs[1])), W, { dist: 74, minSpeed: 22, rise: 2.6, name: 'Point break' });
+    if (P && H) {
+      this.ramp('point-n', v(-686, H.isl.z0 + 10), N, { dist: 92, minSpeed: 22, rise: 2.6, landY: P.heightAt(-686, -730), name: 'Pelican plunge' });
+      this.ramp('point-s', v(-654, -716, P.heightAt(-654, -716)), Sth, { dist: 96, minSpeed: 22, rise: 2.6, landY: LAND_Y, name: 'Point break' });
     }
     // the airport: fly in over the gate from the causeway, and jump back out again
     const A = g.airport;
@@ -168,7 +165,7 @@ export class Stunts {
     // city: tucked in by the kerbs at the block corners, the alleys, the marina, the ferry pier
     for (const [i, j] of [[0, 0], [4, 0], [0, 4], [4, 4], [2, 1], [1, 2], [3, 3], [2, 4]]) { const b = C.block(i, j); add(b.x0 + 1.2, b.z0 + 1.2); }
     for (const a of C.alleys) add(a.x1 - 3, a.z);
-    add(C.isl.x1 + 66, 0); add(-762, -258);
+    add(C.isl.x1 + 66, 0); add(-950, g.hood.isl.z0 - 30);
     // the Hollows
     for (const [x, z] of [[H.xs[0] + 8, H.zs[0] + 8], [H.xs[3] - 8, H.zs[4] - 8], [H.xs[1] + 8, H.zs[2] - 8], [H.xs[2] - 8, H.zs[3] + 8]]) add(x, z);
     // Saltmarsh: the beach, the dock, the market, the lighthouse, the church

@@ -323,12 +323,12 @@ export class Fleet {
     }
   }
 
-  // ---- ferry: the city's north pier <-> the Saltmarsh fishing dock
+  // ---- ferry: the north pier (off the Hollows' shore) <-> the Saltmarsh fishing dock
   buildFerry() {
     const g = this.game, Y = LAND_Y;
     const grp = new THREE.Group(); g.scene.add(grp);
-    // a new pier off the north shore of the city
-    const px = -762, z0 = -212, z1 = -262;
+    // a pier off the north shore of the Hollows (Verian's north end)
+    const px = -950, z0 = g.hood.isl.z0, z1 = g.hood.isl.z0 - 50;
     const deck = std({ color: 0x8a6a48, roughness: 0.9 });
     const box = (w, h, d, x, y, z, m, col = true) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y + h / 2, z); b.receiveShadow = true; b.castShadow = true; grp.add(b); if (col) g.portSandbox.addStaticCollider(RAPIER.ColliderDesc.cuboid(w / 2, h / 2, d / 2).setTranslation(x, y + h / 2, z)); };
     box(8, 0.5, z0 - z1 + 2, px, Y - 0.5, (z0 + z1) / 2, deck);
@@ -338,10 +338,10 @@ export class Fleet {
     box(3, 2.6, 2.2, px - 2, Y, z0 - 6, std({ color: 0x1f4f8a }));
     sign(grp, 'VERIAN FERRY', px, Y + 3.6, z0 - 3.5, 0, { w: 6, h: 1, bg: '#1f4f8a', fg: '#ffffff', glow: true, post: Y });
     const dk = g.saltmarsh.dock;
-    sign(grp, 'FERRY TO VERIAN CITY', -705, Y + 3, dk.z + 60, Math.PI, { w: 6, h: 0.9, bg: '#1f4f8a', fg: '#ffffff', post: Y });
+    sign(grp, 'FERRY TO VERIAN CITY', -795, Y + 3, dk.z + 60, Math.PI, { w: 6, h: 0.9, bg: '#1f4f8a', fg: '#ffffff', post: Y });
     // where the ferry ties up (alongside, its long axis along the pier), and where you board
     const A = { at: new THREE.Vector3(px + 9, 0, (z0 + z1) / 2 - 4), board: new THREE.Vector3(px + 2.5, Y, (z0 + z1) / 2 - 4), land: new THREE.Vector3(px, Y + 1.1, z0 - 10), yaw: Math.PI };
-    const B = { at: new THREE.Vector3(-690, 0, dk.z + 67), board: new THREE.Vector3(-712, Y, dk.z + 67), land: new THREE.Vector3(-720, Y + 1.1, dk.z + 66), yaw: Math.PI / 2 };
+    const B = { at: new THREE.Vector3(-810, 0, dk.z + 67), board: new THREE.Vector3(-788, Y, dk.z + 67), land: new THREE.Vector3(-780, Y + 1.1, dk.z + 66), yaw: -Math.PI / 2 };
     this.ferry = new Ferry(g, A, B);
     this.ferryStops = [A, B];
   }

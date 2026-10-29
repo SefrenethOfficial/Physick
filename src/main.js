@@ -1464,7 +1464,7 @@ class Game {
     P(this.saltmarsh.dock, '#a07d55', 'Fishing dock');
     P(this.hood.kingsPost, this.gangs.crews.kings.color, 'Eastside Kings', true);
     P(this.hood.hollowPost, this.gangs.crews.hollow.color, 'Hollow Boys', true);
-    P(this.hood.entrance, '#bbb3a0', 'Bridge to the Hollows');
+    P(this.hood.entrance, '#bbb3a0', 'The Hollows');
     P(this.park.entrance, '#7be08a', 'Trailhead');
     P({ x: -1165, z: -80 }, '#c9a26a', 'Ranger station');
     for (const [x, z] of [[-1380, -262], [-1420, 240], [-1605, -62]]) P({ x, z }, '#ff9a3a', 'Campsite', false, 3.5);
