@@ -14,6 +14,7 @@ import { Heli } from './cargo.js';
 import { LAND_Y, islandAt } from './world.js';
 import { setMpSession, seeded } from './netseed.js';
 import { savedLook } from './style.js';
+import { spawnRagdoll } from './ragdoll.js';
 import { makeSwat, tankMesh } from './swat.js';
 
 // Multiplayer. Everyone in a room connects to the Physick server (server/index.js), which relays
@@ -174,6 +175,7 @@ class Remote {
     const P = this.puppet, [x, y, z] = s.p;
     if (s.lk && JSON.stringify(s.lk) !== this.lookKey) this.restyle(s.lk); // (they changed clothes)
     P.place(x, y, z, s.y + Math.PI, s.sp || 0, s.m); // (a player's yaw looks down -Z; a figure faces +Z)
+    this.updateRag(dt, s);
     if (s.m === 'f' || s.m === 's') P.animate(dt);
     // a ride with no physics of its own here: a boat, a helicopter or a jet
     const kind = s.v?.k;
@@ -197,6 +199,32 @@ class Remote {
     const k = Math.max(1, dist / 14); // (about the same size on screen however far away)
     this.tag.scale.set(1.6 * k, 0.4 * k, 1);
     this.where = at;
+  }
+
+  // Sent flying: while they're a ragdoll on their screen, they're one on ours too. It starts with
+  // their velocity and is pulled along towards where they say their body is, so it lands about
+  // where theirs did.
+  updateRag(dt, s) {
+    const g = this.net.g, sb = g.portSandbox;
+    const want = s.m === 'r' && s.p;
+    if (this.rag && (!want || !this.rag.parts.every((q) => sb.props.has(q)))) this.dropRag();
+    if (!want) return;
+    const target = new THREE.Vector3(s.p[0], s.p[1] - 0.5, s.p[2]);
+    if (!this.rag) {
+      const v = new THREE.Vector3().fromArray(this.state?.rv || s.rv || [0, 2, 0]);
+      this.rag = spawnRagdoll(g, this.look, target.clone().add(new THREE.Vector3(0, 0.35, 0)), s.y + Math.PI, v, 4);
+      for (const q of this.rag.parts) q.netRag = true;
+    }
+    this.puppet.fig.root.visible = false;
+    const tb = this.rag.torso.body, t = tb.translation(), d = target.clone().sub(t);
+    if (d.length() > 12) { for (const q of this.rag.parts) { const b = q.body, p = b.translation(); b.setTranslation({ x: p.x + d.x, y: p.y + d.y, z: p.z + d.z }, true); } return; }
+    if (d.length() > 0.6) { const v = tb.linvel(), k = Math.min(1, dt * 3); tb.setLinvel({ x: v.x + d.x * k * 4, y: v.y + d.y * k * 4, z: v.z + d.z * k * 4 }, true); }
+  }
+
+  dropRag() {
+    const sb = this.net.g.portSandbox;
+    for (const q of this.rag?.parts || []) if (sb.props.has(q)) sb.remove(q);
+    this.rag = null;
   }
 
   // new clothes: swap the figure, keep the body
@@ -231,6 +259,7 @@ class Remote {
     this.puppet.dispose();
     this.tag.removeFromParent();
     this.dropRide();
+    this.dropRag();
   }
 }
 
@@ -615,7 +644,8 @@ export class Net {
     const veh = g.vehicles.active, boat = g.boats.active, jet = g.jets.active;
     const pose = (o) => ({ p: [r1(o.position.x), r2(o.position.y), r1(o.position.z)], q: o.quaternion.toArray().map((x) => +x.toFixed(3)) });
     if (g.health.dead) m = 'd';
-    if (g.pragdoll.active) { m = 'r'; const tp = g.pragdoll.torsoPos(); p = [tp.x, tp.y + 0.5, tp.z]; }
+    let rv;
+    if (g.pragdoll.active) { m = 'r'; const tp = g.pragdoll.torsoPos(); p = [tp.x, tp.y + 0.5, tp.z]; const lv = g.pragdoll.rd.torso.body.linvel(); rv = [r1(lv.x), r1(lv.y), r1(lv.z)]; }
     else if (veh?.isHeli) { m = 'h'; v = { k: 'h', ...pose(veh.mesh) }; }
     else if (veh) { m = 'c'; veh.cid ||= this.nextCid++; v = { k: 'c', cid: veh.cid }; }
     else if (boat) { m = 'b'; v = { k: 'b', n: boat.type?.id, ...pose(boat.mesh) }; }
@@ -649,7 +679,7 @@ export class Net {
     this.lookT = (this.lookT || 0) - 1;
     const lk = this.lookT <= 0 ? this.myLook() : undefined; // (what we're wearing, every couple of seconds)
     if (lk) this.lookT = 30;
-    this.send({ t: 's', m, p: p.map((x, i) => (i === 1 ? r2(x) : r1(x))), y: r2(yaw), sp: r1(speed), hp: Math.round(g.health.hp), w: g.police.wanted, v, cars, cops, lk });
+    this.send({ t: 's', m, p: p.map((x, i) => (i === 1 ? r2(x) : r1(x))), y: r2(yaw), sp: r1(speed), hp: Math.round(g.health.hp), w: g.police.wanted, v, cars, cops, lk, rv });
   }
 
   // ---------------------------------------------------------------- events
@@ -659,11 +689,21 @@ export class Net {
       case 'hit': { // someone shot / punched / blew us up
         if (g.health.dead || g.health.god) return;
         this.lastHitBy = from; this.lastHitT = g.time;
+        // a blast, a car or a good punch sends you flying (and so does being killed)
+        const onFoot = g.onShore && !g.vehicles.active && !g.flying && !g.boats.active && !g.skydive?.active;
+        const push = m.push ? new THREE.Vector3(m.push[0], 0, m.push[1]) : new THREE.Vector3();
+        const fly = { blast: [1.6, 7], car: [0.9, 4 + push.length() * 0.15], punch: [1.6, 3] }[m.how];
+        const throwVel = fly ? push.clone().multiplyScalar(fly[0]).setY(fly[1]) : push.clone().setY(2);
+        if (onFoot) g.shorePlayer.vel.copy(throwVel); // (so a killing blow throws the body too)
         g.health.damage(m.dmg, 'player');
-        if (m.push && g.onShore && !g.vehicles.active) g.shorePlayer.vel.add(new THREE.Vector3(m.push[0], 2.5, m.push[1]));
+        if (onFoot && !g.health.dead && !g.pragdoll.active && fly && (m.how !== 'punch' || Math.random() < 0.45)) {
+          const t = g.shorePlayer.body.translation();
+          g.pragdoll.start(new THREE.Vector3(t.x, t.y, t.z), g.shorePlayer.yaw, throwVel, { spin: m.how === 'blast' ? 7 : 4 });
+          if (m.how !== 'punch') g.hud.toast(`${this.nameOf(from)} ${m.how === 'car' ? 'ran you down' : 'blew you off your feet'}! Space to get up`, 0xff8a6a);
+        } else if (onFoot && m.push && !g.pragdoll.active) g.shorePlayer.vel.add(new THREE.Vector3(m.push[0], 2.5, m.push[1]));
         if (g.health.dead) {
           this.event('kill', { by: from, how: m.how || 'shot' });
-          this.say(`${this.nameOf(from)} ${m.how === 'blast' ? 'blew you up' : m.how === 'punch' ? 'beat you to death' : 'killed you'}`, '#ff6a6a');
+          this.say(`${this.nameOf(from)} ${m.how === 'blast' ? 'blew you up' : m.how === 'punch' ? 'beat you to death' : m.how === 'car' ? 'ran you over' : 'killed you'}`, '#ff6a6a');
           g.hud.showDeath(true, `Killed by ${this.nameOf(from)}`);
         }
         break;
@@ -758,6 +798,25 @@ export class Net {
     return true;
   }
 
+  // Driving into another player on foot: they go flying (it's their screen that throws them).
+  carVsPlayers() {
+    const g = this.g, car = g.vehicles.active;
+    if (!car || car.isHeli || car.wreck) return;
+    const sp = Math.hypot(car.vel.x, car.vel.z);
+    if (sp < 5) return;
+    const now = g.time, f = car.forward, side = new THREE.Vector3(f.z, 0, -f.x);
+    for (const r of this.players.values()) {
+      const s = r.state;
+      if (!s || s.m !== 'f' || (r.runT || -9) > now - 1.5) continue;
+      const d = new THREE.Vector3(s.p[0] - car.pos.x, 0, s.p[2] - car.pos.z);
+      if (Math.abs(s.p[1] - car.pos.y - 1) > 2.2) continue;
+      if (Math.abs(d.dot(f)) > car.half.z + 0.7 || Math.abs(d.dot(side)) > car.half.x + 0.6) continue;
+      r.runT = now;
+      this.event('hit', { dmg: Math.round(sp * 1.6), how: 'car', push: [r1(car.vel.x), r1(car.vel.z)] }, r.id);
+      g.sfx.play('thud'); g.shake = Math.max(g.shake || 0, 0.4);
+    }
+  }
+
   // We shot (or rammed) someone's car.
   carHit(car, dmg) {
     if (car.netOwner == null) return false;
@@ -798,6 +857,7 @@ export class Net {
     const g = this.g;
     if (this.status !== 'online') return;
     for (const r of this.players.values()) r.update(dt);
+    this.carVsPlayers();
     for (const car of this.pcars.values()) {
       if (car.mirror) car.follow(dt, car.mirror);
       if (!car.wreck) runOver(g, car, false);

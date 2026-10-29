@@ -96,7 +96,7 @@ export class Admin {
       ['Cargo ship ladder', g.cargo?.ladderFoot?.clone().add(v(0, 1.2, 0))], ['The Hollows', H.entrance.clone().add(v(10, 1.2, 0))],
       ['Trailhead', P.entrance?.clone().add(v(0, 1.2, 0))], ['Underpass Customs', P.garage?.bay.clone().add(v(4, 1.2, 0))], ['Bunker (lab)', P.bunker?.out.clone().add(v(0, 1.2, 0))],
       ['Bridge (middle)', (() => { const b = g.bridge, p = b.at(b.length / 2, 6); return v(p.x, b.deckAt(b.length / 2) + 1.2, p.z); })()],
-      ['Airport (stunt park)', v(-1600, LAND_Y + 1.2, 600)], ['Naval air station', v(400, LAND_Y + 1.2, 0)],
+      ['Airport terminal', v(-1220 + 280, LAND_Y + 1.2, 445)], ['Airport runway', v(-1600 + 280, LAND_Y + 1.2, 640)], ['Naval air station', v(400, LAND_Y + 1.2, 0)],
       ['Pelican Point', g.pelican?.entrance.clone().add(v(10, 1.4, 0))], ['Lighthouse', g.pelican && v(g.pelican.hill.x - 6, g.pelican.flats[1].y + 1.4, g.pelican.hill.z - 8)],
       ['Ridgeback Hills (gas)', g.ridgeback && v(g.ridgeback.flats[0].x, g.ridgeback.flats[0].y + 1.4, g.ridgeback.flats[0].z + 14)], ['Ridgeback summit', g.ridgeback?.summit.clone().add(v(6, 1.4, 6))],
       ['Scorch gate', g.scorch?.gate.clone().add(v(0, 1.4, -10))], ['Scorch: Copper Gulch', g.scorch && v(g.scorch.town.x + 25, g.scorch.flats[1].y + 1.6, g.scorch.town.z)],

@@ -61,6 +61,7 @@ import { HomeLife } from './homelife.js';
 import { Stocks } from './stocks.js';
 import { Business } from './business.js';
 import { Airport } from './airport.js';
+import { Terminal } from './terminal.js';
 import { Bank } from './bank.js';
 import { Vehicles } from './vehicles.js';
 import { Car, clearSpot } from './carphys.js';
@@ -168,9 +169,11 @@ class Game {
       this.bridge.groundRoad([[e.x, e.z], [-1010, -1262], [-1000, -1300]]);
     }
     mergeStatic(this.bridge.group);
-    await this.loadStep('Closing the airport…', 80);
+    await this.loadStep('Opening the airport…', 80);
     this.airport = new Airport(this, this.portSandbox);
     mergeStatic(this.airport.group);
+    this.terminal = new Terminal(this);
+    mergeStatic(this.terminal.group);
     await this.loadStep('Raising Ridgeback Hills…', 82);
     this.pelican = new Pelican(this, this.portSandbox);
     mergeStatic(this.pelican.group);
@@ -1467,7 +1470,7 @@ class Game {
     for (const [x, z] of [[-1380, -262], [-1420, 240], [-1605, -62]]) P({ x, z }, '#ff9a3a', 'Campsite', false, 3.5);
     P({ x: -1650, z: 330 }, '#c9a26a', 'Lookout');
     { const m = this.bridge.at(this.bridge.length / 2); P(m, '#c0442c', 'Saltmarsh Gate Bridge', true); }
-    P({ x: -1215, z: 475 }, '#b3261e', 'Airport (closed)', true);
+    P({ x: -1220 + 280, z: 445 }, '#4a9fe0', 'Airport', true);
     const sp = this.ship.root.position;
     P(sp, '#c9ced4', 'Destroyer', true);
     P({ x: 420, z: 0 }, '#c9ced4', 'Air base', true);
@@ -1602,6 +1605,8 @@ class Game {
     this.bank.update(dt);
     this.stores.update(dt);
     this.story.update(dt);
+    this.airport?.update(dt);
+    this.terminal?.update(dt);
     this.updateHostage();
     this.updateGrenades(dt);
     this.gangs.update(dt);

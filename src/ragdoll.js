@@ -8,6 +8,53 @@ import { LAND_Y } from './world.js';
 
 const LOOK = { shirt: 0x2c3440, pants: 0x3a3f46, skin: 0xd9a47c };
 
+// A ragdoll of a figure: six linked bodies in the shore physics world, thrown at vel.
+// (Yours, and other players' in multiplayer.) Returns { torso, head, armL, armR, legL, legR, parts }.
+export function spawnRagdoll(g, look, pos, yaw, vel, spin = 4, { robot = false } = {}) {
+  const sb = g.portSandbox;
+  const fig = buildFigure(look);
+  if (robot) fig.parts.armR.material = new THREE.MeshStandardMaterial({ color: 0x8a9096, metalness: 0.85, roughness: 0.35 }); // the robot arm
+  fig.root.position.copy(pos);
+  fig.root.rotation.y = yaw;
+  g.scene.add(fig.root);
+  fig.root.updateMatrixWorld(true);
+  const { parts } = fig;
+  const make = (mesh, desc) => {
+    const wp = mesh.getWorldPosition(new THREE.Vector3());
+    const wq = mesh.getWorldQuaternion(new THREE.Quaternion());
+    const copy = mesh.clone(true);
+    copy.position.set(0, 0, 0);
+    copy.rotation.set(0, 0, 0);
+    const def = { id: 'ragdoll', name: 'You', radius: 0.3, build: () => ({ mesh: copy, colliders: [desc], density: 40, friction: 0.9, restitution: 0.08 }) };
+    const prop = sb.spawn(def, wp, wq, { noHistory: true });
+    const r = () => (Math.random() - 0.5) * 2 * spin;
+    prop.body.setLinvel({ x: vel.x * (0.9 + Math.random() * 0.2), y: vel.y, z: vel.z * (0.9 + Math.random() * 0.2) }, true);
+    prop.body.setAngvel({ x: r(), y: r(), z: r() }, true);
+    prop.body.setAngularDamping(0.9);
+    prop.body.setLinearDamping(0.1);
+    prop.playerPart = true;
+    return prop;
+  };
+  const C = RAPIER.ColliderDesc;
+  const rd = {
+    torso: make(parts.torso, C.cuboid(0.21, 0.3, 0.12)),
+    head: make(parts.head, C.ball(0.15)),
+    armL: make(parts.armL, C.cuboid(0.06, 0.31, 0.07)),
+    armR: make(parts.armR, C.cuboid(0.06, 0.31, 0.07)),
+    legL: make(parts.legL, C.cuboid(0.08, 0.4, 0.09)),
+    legR: make(parts.legR, C.cuboid(0.08, 0.4, 0.09)),
+  };
+  const at = (obj, x = 0, y = 0, z = 0) => obj.localToWorld(new THREE.Vector3(x, y, z));
+  sb.link(rd.torso, rd.head, at(parts.torso, 0, 0.32, 0));
+  sb.link(rd.torso, rd.armL, at(parts.armLPivot));
+  sb.link(rd.torso, rd.armR, at(parts.armRPivot));
+  sb.link(rd.torso, rd.legL, at(parts.legLPivot));
+  sb.link(rd.torso, rd.legR, at(parts.legRPivot));
+  rd.parts = [rd.torso, rd.head, rd.armL, rd.armR, rd.legL, rd.legR];
+  fig.root.removeFromParent();
+  return rd;
+}
+
 export class PlayerRagdoll {
   constructor(game) {
     this.game = game;
@@ -19,50 +66,9 @@ export class PlayerRagdoll {
 
   // pos: where your body is (capsule centre), yaw: facing, vel: how fast you're going.
   start(pos, yaw, vel, { dead = false, spin = 4 } = {}) {
-    const g = this.game, sb = g.portSandbox;
+    const g = this.game;
     if (this.rd) this.clear();
-    const fig = buildFigure(this.game?.style?.figureLook || LOOK);
-    // the robot arm
-    const metal = new THREE.MeshStandardMaterial({ color: 0x8a9096, metalness: 0.85, roughness: 0.35 });
-    fig.parts.armR.material = metal;
-    fig.root.position.copy(pos);
-    fig.root.rotation.y = yaw;
-    g.scene.add(fig.root);
-    fig.root.updateMatrixWorld(true);
-    const { parts } = fig;
-    const make = (mesh, desc) => {
-      const wp = mesh.getWorldPosition(new THREE.Vector3());
-      const wq = mesh.getWorldQuaternion(new THREE.Quaternion());
-      const copy = mesh.clone(true);
-      copy.position.set(0, 0, 0);
-      copy.rotation.set(0, 0, 0);
-      const def = { id: 'ragdoll', name: 'You', radius: 0.3, build: () => ({ mesh: copy, colliders: [desc], density: 40, friction: 0.9, restitution: 0.08 }) };
-      const prop = sb.spawn(def, wp, wq, { noHistory: true });
-      const r = () => (Math.random() - 0.5) * 2 * spin;
-      prop.body.setLinvel({ x: vel.x * (0.9 + Math.random() * 0.2), y: vel.y, z: vel.z * (0.9 + Math.random() * 0.2) }, true);
-      prop.body.setAngvel({ x: r(), y: r(), z: r() }, true);
-      prop.body.setAngularDamping(0.9);
-      prop.body.setLinearDamping(0.1);
-      prop.playerPart = true;
-      return prop;
-    };
-    const C = RAPIER.ColliderDesc;
-    const rd = {
-      torso: make(parts.torso, C.cuboid(0.21, 0.3, 0.12)),
-      head: make(parts.head, C.ball(0.15)),
-      armL: make(parts.armL, C.cuboid(0.06, 0.31, 0.07)),
-      armR: make(parts.armR, C.cuboid(0.06, 0.31, 0.07)),
-      legL: make(parts.legL, C.cuboid(0.08, 0.4, 0.09)),
-      legR: make(parts.legR, C.cuboid(0.08, 0.4, 0.09)),
-    };
-    const at = (obj, x = 0, y = 0, z = 0) => obj.localToWorld(new THREE.Vector3(x, y, z));
-    sb.link(rd.torso, rd.head, at(parts.torso, 0, 0.32, 0));
-    sb.link(rd.torso, rd.armL, at(parts.armLPivot));
-    sb.link(rd.torso, rd.armR, at(parts.armRPivot));
-    sb.link(rd.torso, rd.legL, at(parts.legLPivot));
-    sb.link(rd.torso, rd.legR, at(parts.legRPivot));
-    rd.parts = [rd.torso, rd.head, rd.armL, rd.armR, rd.legL, rd.legR];
-    fig.root.removeFromParent();
+    const rd = spawnRagdoll(g, g?.style?.figureLook || LOOK, pos, yaw, vel, spin, { robot: true });
     this.rd = rd;
     this.dead = dead;
     this.t = 0;

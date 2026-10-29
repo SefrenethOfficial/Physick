@@ -92,11 +92,11 @@ export class Stunts {
       this.ramp('point-e', v(H.isl.x1 - 8, H.zs[3]), E, { dist: 78, minSpeed: 22, rise: 2.6, landY: P.heightAt(P.isl.x0 + 20, H.zs[3]), name: 'Pelican plunge' });
       this.ramp('point-w', v(P.isl.x0 + 9, H.zs[1], P.heightAt(P.isl.x0 + 9, H.zs[1])), W, { dist: 74, minSpeed: 22, rise: 2.6, name: 'Point break' });
     }
-    // the closed airport: crash the chained gate from the causeway, and jump back out again
+    // the airport: fly in over the gate from the causeway, and jump back out again
     const A = g.airport;
     if (A) {
-      this.ramp('gate-in', v(-1094, A.isl.z0 - 17), Sth, { dist: 42, minSpeed: 21, rise: 2.4, name: 'Gate crasher' });
-      this.ramp('gate-out', v(-1086, A.isl.z0 + 52), N, { dist: 62, minSpeed: 22, rise: 2.6, name: 'Jailbreak' });
+      this.ramp('gate-in', v(A.gateAt.x - 4, A.isl.z0 - 17), Sth, { dist: 42, minSpeed: 21, rise: 2.4, name: 'Gate crasher' });
+      this.ramp('gate-out', v(A.gateAt.x + 4, A.isl.z0 + 52), N, { dist: 62, minSpeed: 22, rise: 2.6, name: 'Jailbreak' });
     }
   }
 
@@ -178,7 +178,7 @@ export class Stunts {
     const gp = g.park.garage?.pos; if (gp) add(gp.x - 6, gp.z + 4);
     const bk = g.park.bunker?.out; if (bk) add(bk.x + 3, bk.z + 3);
     // the airport and the docks scrapyard
-    add(-1600, 470); add(-1150, 760); add(-660, -160);
+    add(-1600 + 280, 470); add(-1150 + 280, 760); add(-660, -160);
     const mat = new THREE.MeshStandardMaterial({ color: 0x3aff7a, emissive: 0x20d860, emissiveIntensity: 1.2, roughness: 0.4 });
     spots.slice(0, 30).forEach((p, i) => {
       // sit it on whatever's there (pavement, sand, a pier, the hillside)

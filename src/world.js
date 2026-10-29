@@ -7,7 +7,7 @@ export const ISLANDS = [
   { id: 'naval', name: 'NAS Halyard', x0: 10, x1: 1500, z0: -1000, z1: 1000, color: '#6a8f45' },
   { id: 'city', name: 'Verian City', x0: -1115, x1: -700, z0: -212, z1: 212, color: '#8d8f93' },
   { id: 'park', name: 'Cherry Estate', x0: -1715, x1: -1115, z0: -420, z1: 420, color: '#3f6b35' },
-  { id: 'airport', name: 'Verian International (closed)', x0: -2000, x1: -1060, z0: 420, z1: 800, color: '#6f6f68' },
+  { id: 'airport', name: 'Verian International', x0: -1720, x1: -780, z0: 420, z1: 800, color: '#6f6f68' },
   { id: 'hood', name: 'The Hollows', x0: -580, x1: -180, z0: -1750, z1: -1250, color: '#5a5550' },
   { id: 'point', name: 'Pelican Point', x0: -120, x1: 230, z0: -1690, z1: -1370, color: '#6f8f5a' },
   { id: 'hills', name: 'Ridgeback Hills', x0: -2300, x1: -1480, z0: -1180, z1: -420, color: '#4a6a3a' },

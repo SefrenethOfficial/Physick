@@ -61,6 +61,7 @@ export function mergeStatic(group, tile = 200) {
     m.castShadow = cast;
     m.receiveShadow = true;
     m.matrixAutoUpdate = false;
+    m.matrix.copy(group.matrixWorld).invert(); // (the geometry is already in world space: undo the group's own move)
     group.add(m);
     merged.computeBoundingSphere();
     if (tile < 1e5) MERGED.push(m);

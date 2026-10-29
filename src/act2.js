@@ -8,6 +8,7 @@ import { buildAirliner, buildBizJet } from './planes.js';
 import { ITEM_BY_ID } from './items.js';
 import { CAR_MODELS, modelMesh } from './dealership.js';
 import { DUMP } from './elmonstruo.js';
+import { AX, TERM } from './airport.js';
 
 // ACT II: Fallout. The Chemist, the Ashen Hand's chemical weapons man, is flying a nerve agent out
 // of Verian through the "closed" airport. Find out how, get in, and stop him.
@@ -53,13 +54,13 @@ export const ACT2_MISSIONS = [
   },
   {
     id: 'm9', title: 'Blueprints', requires: 'm8', stealth: true,
-    brief: `${FIXER}: "The Airport Authority keeps the plans for every building in a safe in their office, on the airport's landside. Pike's pass opens the gate. Inside there are guards and cameras. If anyone sees you, it's over. Crouch (C), stay out of their light, and get the Hangar 3 plans."`,
+    brief: `${FIXER}: "The Airport Authority keeps the plans for every building in a safe in their wing of the terminal, behind the STAFF ONLY door. Pike's pass opens it. Inside there are guards and cameras. If anyone sees you, it's over. Crouch (C), stay out of their light, and get the Hangar 3 plans."`,
     reward: 4000,
     passText: `${FIXER}: "A lab in a hangar. That's where he's cooking it. We need to know when he's moving it."`,
   },
   {
     id: 'm10', title: 'Gate Crasher', requires: 'm9', stealth: true,
-    brief: `${FIXER}: "Ground crew wear hi-vis and hard hats, and nobody looks twice at ground crew. I've got you the uniform. Walk into Hangar 3 like you work there, put trackers on his jet and his fuel truck, and read the departure off the board. Don't run, don't get your gun out, don't get close to them."`,
+    brief: `${FIXER}: "Ground crew wear hi-vis and hard hats, and nobody looks twice at ground crew. I've got you the uniform. Go through the staff wing in the terminal and out airside, walk into Hangar 3 like you work there, put trackers on his jet and his fuel truck, and read the departure off the board. Don't run, don't get your gun out, don't get close to them."`,
     reward: 5000,
     passText: `${FIXER}: "Six in the morning, runway 27. And there's an empty airliner sitting on that runway that nobody's flown in months…"`,
   },
@@ -96,14 +97,10 @@ export class Act2 {
     // Marsh Storage: a row of lock-ups on the grass behind Saltmarsh's town row
     this.yard = V3(-905, Y, -1236);
     this.buildLockups();
-    // the Airport Authority office on the airport's landside, west of the terminal
-    this.office = { x0: -1460, x1: -1420, z0: 440, z1: 466 };
-    this.buildOffice();
+    // the Airport Authority's staff wing at the east end of the terminal (Pike's pass opens its door)
+    this.buildWing();
     // Hangar 3 (the western hangar) gets its number, a concrete pad and a site office
     this.buildHangar3();
-    // the gate: Pike's pass opens it
-    const gp = g.airport?.gateParts;
-    this.gate = { x: gp?.x ?? -1090, z: gp?.z ?? 424 };
     if (this.story.state.gateOpen) this.openGate(true);
   }
 
@@ -144,94 +141,98 @@ export class Act2 {
     u.col.setEnabled(!open);
   }
 
-  buildOffice() {
-    const g = this.group, sb = this.game.portSandbox, O = this.office, H = 3.4, T = 0.3;
-    const wallM = std({ color: 0xd8d4cc, roughness: 0.85 }), outer = std({ map: canvasTex(64, 64, (c, w, h) => { c.fillStyle = '#b9bcc0'; c.fillRect(0, 0, w, h); for (let y = 0; y < h; y += 16) { c.fillStyle = 'rgba(0,0,0,.12)'; c.fillRect(0, y, w, 1); } }, [4, 1]), roughness: 0.8 });
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(O.x1 - O.x0, O.z1 - O.z0), std({ map: canvasTex(64, 64, (c, w, h) => { c.fillStyle = '#6a6e74'; c.fillRect(0, 0, w, h); c.strokeStyle = 'rgba(0,0,0,.2)'; c.strokeRect(0, 0, w, h); }, [10, 6]), roughness: 0.9 }));
-    floor.rotation.x = -Math.PI / 2; floor.position.set((O.x0 + O.x1) / 2, Y + 0.05, (O.z0 + O.z1) / 2); g.add(floor);
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(O.x1 - O.x0 + 0.6, 0.3, O.z1 - O.z0 + 0.6), std({ color: 0x4a4f55 }));
-    roof.position.set((O.x0 + O.x1) / 2, Y + H + 0.15, (O.z0 + O.z1) / 2); g.add(roof);
-    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(O.x1 - O.x0, O.z1 - O.z0), std({ color: 0xe8e6e0, emissive: 0xe8e6e0, emissiveIntensity: 0.25, side: THREE.DoubleSide }));
-    ceil.rotation.x = Math.PI / 2; ceil.position.set((O.x0 + O.x1) / 2, Y + H - 0.02, (O.z0 + O.z1) / 2); g.add(ceil);
-    // a wall from (ax, az) to (bx, bz) (axis-aligned), with door gaps at the given offsets along it
-    const wallRun = (ax, az, bx, bz, gaps = [], m = wallM) => {
+  // The staff wing: a door off the public hall (STAFF ONLY), a corridor down the middle, offices
+  // either side, Records (and the safe) at the far end, and a door out the back onto the apron.
+  buildWing() {
+    const g = this.group, sb = this.game.portSandbox, T = TERM, H = 3.4, th = 0.3;
+    const x0 = T.wing, x1 = T.x1, z0 = T.z0, z1 = T.z1; // (the airport's frame: AX() for the world)
+    const wallM = std({ color: 0xd8d4cc, roughness: 0.85 }), panel = std({ color: 0xd8d8d4, roughness: 0.6 });
+    const box = (w, h, d, x, y, z, m, o) => solidBox(g, sb, w, h, d, AX(x), y, z, m, o);
+    // a wall from (ax, az) to (bx, bz) (axis-aligned, airport frame), with door gaps at offsets along it
+    const wallRun = (ax, az, bx, bz, gaps = [], m = wallM, h = H) => {
       const horiz = az === bz, len = Math.abs(horiz ? bx - ax : bz - az), s0 = Math.min(horiz ? ax : az, horiz ? bx : bz);
       const cuts = [...gaps].sort((p, q) => p - q);
       let at = 0;
       for (const c of [...cuts, len + 0.9]) {
         const a = at, b = Math.min(len, c - 0.9);
-        if (b - a > 0.05) {
-          const mid = s0 + (a + b) / 2;
-          if (horiz) solidBox(g, sb, b - a, H, T, mid, Y, az, m); else solidBox(g, sb, T, H, b - a, ax, Y, mid, m);
-        }
+        if (b - a > 0.05) { const mid = s0 + (a + b) / 2; if (horiz) box(b - a, h, th, mid, Y, az, m); else box(th, h, b - a, ax, Y, mid, m); }
         at = c + 0.9;
       }
-      for (const c of cuts) { const mid = s0 + c; if (horiz) solidBox(g, sb, 1.8, 0.8, T, mid, Y + H - 0.8, az, m); else solidBox(g, sb, T, 0.8, 1.8, ax, Y + H - 0.8, mid, m); } // lintels
+      for (const c of cuts) { const mid = s0 + c; if (horiz) box(1.8, h - 2.6, th, mid, Y + 2.6, az, m); else box(th, h - 2.6, 1.8, ax, Y + 2.6, mid, m); } // lintels
     };
-    // outside: the front door faces north (towards the fence and the road)
-    wallRun(O.x0, O.z0, O.x1, O.z0, [6], outer);
-    wallRun(O.x0, O.z1, O.x1, O.z1, [], outer);
-    wallRun(O.x0, O.z0, O.x0, O.z1, [], outer);
-    wallRun(O.x1, O.z0, O.x1, O.z1, [], outer);
-    // inside: the lobby (west), a corridor down the middle, offices either side, records at the east end
-    const zc0 = 450, zc1 = 456; // corridor
-    wallRun(O.x0 + 12, O.z0, O.x0 + 12, zc0, [5]);
-    wallRun(O.x0 + 12, zc1, O.x0 + 12, O.z1, [4]);
-    wallRun(O.x0 + 12, zc0, O.x1, zc0, [8, 20]);
-    wallRun(O.x0 + 12, zc1, O.x1, zc1, [8, 15, 22]);
-    wallRun(O.x0 + 22, O.z0, O.x0 + 22, zc0, []);
-    wallRun(O.x0 + 22, zc1, O.x0 + 22, O.z1, []);
-    wallRun(O.x1 - 8, zc1, O.x1 - 8, O.z1, []); // records room: x1-8 .. x1, south of the corridor
-    sign(g, 'VERIAN AIRPORT AUTHORITY', O.x0 + 6, Y + H - 0.4, O.z0 - 0.2, Math.PI, { w: 9, h: 0.9, bg: '#1f3b63', fg: '#ffffff' });
-    sign(g, 'RECORDS', O.x1 - 4, Y + 2.5, zc1 + 0.18, 0, { w: 2.4, h: 0.5, bg: '#2c3e5e', fg: '#ffffff' });
-    // furniture: reception desk, desks and filing cabinets to hide behind
+    // the wall between the hall and the wing (full height), with the staff door
+    const dz = 479;
+    wallRun(x0, z0, x0, z1, [dz - z0], panel, T.h);
+    this.wingDoor = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.6, 1.8), std({ color: 0x5a6068, metalness: 0.4, roughness: 0.5 }));
+    this.wingDoor.position.set(AX(x0), Y + 1.3, dz); g.add(this.wingDoor);
+    this.wingDoorCol = sb.addStaticCollider(RAPIER.ColliderDesc.cuboid(0.1, 1.3, 0.9).setTranslation(AX(x0), Y + 1.3, dz));
+    sign(g, 'STAFF ONLY · AIRPORT AUTHORITY', AX(x0) - 0.2, Y + 3.1, dz, -Math.PI / 2, { w: 3.6, h: 0.55, bg: '#b3261e', fg: '#ffffff' });
+    const reader = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, 0.12), new THREE.MeshBasicMaterial({ color: 0x7be08a })); reader.position.set(AX(x0) - 0.18, Y + 1.3, dz - 1.3); g.add(reader);
+    this.reader = reader;
+    // the back of the wing (onto the apron), with the staff door out to the stands
+    const ax = -1141;
+    wallRun(x0, z1, x1, z1, [ax - x0], panel, T.h);
+    sign(g, 'AIRSIDE', AX(ax), Y + 3, z1 + 0.2, 0, { w: 2.2, h: 0.5, bg: '#f2c418', fg: '#15161a' });
+    // inside: a corridor (z 476..482) end to end, offices north and south, Records in the far south corner
+    const zc0 = 476, zc1 = 482;
+    wallRun(x0, zc0, x1, zc0, [10, 31, 52]);
+    wallRun(x0, zc1, x1, zc1, [10, 31, 48]);
+    for (const x of [-1151, -1131]) { wallRun(x, z0, x, zc0); wallRun(x, zc1, x, z1); }
+    sign(g, 'RECORDS', AX(-1120), Y + 2.9, zc1 - 0.18, Math.PI, { w: 2.4, h: 0.5, bg: '#2c3e5e', fg: '#ffffff' });
+    sign(g, 'AIRPORT AUTHORITY', AX(x0) + 0.2, Y + 2.9, dz + 3, Math.PI / 2, { w: 3.6, h: 0.6, bg: '#1f3b63', fg: '#ffffff' });
+    // a low ceiling over the wing, and its lights
+    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, z1 - z0), std({ color: 0xe8e6e0, emissive: 0xe8e6e0, emissiveIntensity: 0.25, side: THREE.DoubleSide }));
+    ceil.rotation.x = Math.PI / 2; ceil.position.set(AX((x0 + x1) / 2), Y + H, (z0 + z1) / 2); g.add(ceil);
+    for (let x = x0 + 8; x < x1; x += 14) for (const z of [464, 479, 494]) { const l = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.05, 0.35), new THREE.MeshBasicMaterial({ color: 0xfff6e0 })); l.position.set(AX(x), Y + H - 0.06, z); g.add(l); }
+    const carpet = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, z1 - z0), std({ map: canvasTex(64, 64, (c, w, h) => { c.fillStyle = '#5a6068'; c.fillRect(0, 0, w, h); c.strokeStyle = 'rgba(0,0,0,.2)'; c.strokeRect(0, 0, w, h); }, [12, 10]), roughness: 0.95 }));
+    carpet.rotation.x = -Math.PI / 2; carpet.position.set(AX((x0 + x1) / 2), Y + 0.06, (z0 + z1) / 2); g.add(carpet);
+    // desks and filing cabinets to hide behind
     const desk = std({ color: 0x6a5a48 }), cab = std({ color: 0x8a9096, metalness: 0.4 });
-    solidBox(g, sb, 4, 1.1, 1, O.x0 + 6, Y, O.z0 + 6, desk);
-    for (const [x, z] of [[O.x0 + 15, 445], [O.x0 + 19, 446], [O.x0 + 15, 462], [O.x0 + 19, 461], [O.x0 + 26, 445], [O.x0 + 30, 446], [O.x0 + 25, 462]]) solidBox(g, sb, 2, 1.05, 1, x, Y, z, desk);
-    for (const [x, z] of [[O.x0 + 13, 441.2], [O.x0 + 20.5, 464.8], [O.x0 + 34, 441.2], [O.x1 - 1, 459.5], [O.x1 - 6.5, 464.8]]) solidBox(g, sb, 0.9, 1.6, 0.6, x, Y, z, cab);
-    for (const [x, z] of [[O.x0 + 3, 452.5], [O.x0 + 9, 459]]) solidBox(g, sb, 1.2, 1.2, 0.6, x, Y, z, std({ color: 0x3a6a3a })); // planters
-    // the safe in records
-    this.safe = V3(O.x1 - 1, Y, 463.5);
+    for (const [x, z] of [[-1166, 462], [-1160, 468], [-1146, 460], [-1138, 469], [-1124, 461], [-1116, 470], [-1166, 492], [-1158, 499], [-1146, 494], [-1136, 500]]) box(2, 1.05, 1, x, Y, z, desk);
+    for (const [x, z] of [[-1170.5, 455], [-1152, 455], [-1132.5, 455], [-1111, 488], [-1111, 492], [-1128, 505], [-1170.5, 503]]) box(0.9, 1.6, 0.6, x, Y, z, cab);
+    // the safe, in Records
+    this.safe = V3(AX(-1112.5), Y, 502);
     solidBox(g, sb, 1, 1.2, 0.9, this.safe.x, Y, this.safe.z, std({ color: 0x2a2c30, metalness: 0.6, roughness: 0.4 }));
     const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.05, 16), std({ color: 0xc8ccd0, metalness: 0.8 })); dial.rotation.z = Math.PI / 2; dial.position.set(this.safe.x - 0.52, Y + 0.7, this.safe.z); g.add(dial);
-    // ceiling lights
-    for (const x of [O.x0 + 6, O.x0 + 17, O.x0 + 28, O.x1 - 4]) for (const z of [445, 453, 461]) { const l = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.05, 0.35), new THREE.MeshBasicMaterial({ color: 0xfff6e0 })); l.position.set(x, Y + H - 0.05, z); g.add(l); }
-    this.officeDoor = V3(O.x0 + 6, Y, O.z0 - 1.5);
-    this.officeInside = (p) => p.x > O.x0 && p.x < O.x1 && p.z > O.z0 && p.z < O.z1;
+    this.staffDoor = V3(AX(x0) - 1.6, Y, dz); // (the hall side)
+    this.airsideDoor = V3(AX(ax), Y, z1 + 2);
+    this.wingInside = (p) => p.x > AX(x0) && p.x < AX(x1) && p.z > z0 && p.z < z1;
+    this.officeInside = this.wingInside;
+    this.officeDoor = this.staffDoor;
   }
 
   buildHangar3() {
     const g = this.group, sb = this.game.portSandbox;
-    this.h3 = V3(-1840, Y, 530);
-    sign(g, 'HANGAR 3', -1840, Y + 10.6, 552.6, 0, { w: 8, h: 1.6, bg: '#f2f2ee', fg: '#15161a' });
-    sign(g, 'HANGAR 2', -1720, Y + 10.6, 552.6, 0, { w: 8, h: 1.6, bg: '#f2f2ee', fg: '#15161a' });
-    sign(g, 'PRIVATE · NO ADMITTANCE', -1840, Y + 2.2, 553, 0, { w: 6, h: 0.7, bg: '#b3261e', fg: '#ffffff' });
+    this.h3 = V3(AX(-1840), Y, 530);
+    sign(g, 'HANGAR 3', AX(-1840), Y + 10.6, 552.6, 0, { w: 8, h: 1.6, bg: '#f2f2ee', fg: '#15161a' });
+    sign(g, 'HANGAR 2', AX(-1720), Y + 10.6, 552.6, 0, { w: 8, h: 1.6, bg: '#f2f2ee', fg: '#15161a' });
+    sign(g, 'PRIVATE · NO ADMITTANCE', AX(-1840), Y + 2.2, 553, 0, { w: 6, h: 0.7, bg: '#b3261e', fg: '#ffffff' });
     const pad = new THREE.Mesh(new THREE.PlaneGeometry(120, 60), std({ color: 0x9a978f, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -1 }));
-    pad.rotation.x = -Math.PI / 2; pad.position.set(-1810, Y + 0.035, 584); g.add(pad);
+    pad.rotation.x = -Math.PI / 2; pad.position.set(AX(-1810), Y + 0.035, 584); g.add(pad);
     // the site office: a portakabin with the departures board inside (well, on its wall)
     const cabin = std({ color: 0xd8d0b0 });
-    solidBox(g, sb, 6, 2.8, 3, -1885, Y, 572, cabin);
-    sign(g, 'SITE OFFICE', -1885, Y + 2.4, 573.55, 0, { w: 2.6, h: 0.45, bg: '#2c3e5e', fg: '#ffffff' });
-    this.board = V3(-1885, Y, 574.3);
+    solidBox(g, sb, 6, 2.8, 3, AX(-1885), Y, 572, cabin);
+    sign(g, 'SITE OFFICE', AX(-1885), Y + 2.4, 573.55, 0, { w: 2.6, h: 0.45, bg: '#2c3e5e', fg: '#ffffff' });
+    this.board = V3(AX(-1885), Y, 574.3);
     const bd = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.2), new THREE.MeshBasicMaterial({ map: canvasTex(256, 140, (c, w, h) => { c.fillStyle = '#10141a'; c.fillRect(0, 0, w, h); c.fillStyle = '#ffd166'; c.font = 'bold 16px monospace'; ['DEPARTURES', 'HX-3  06:00  RWY 27', 'CARGO: AGRI SAMPLES', 'CREW: C. + 2'].forEach((t, i) => c.fillText(t, 12, 28 + i * 30)); }) }));
-    bd.position.set(-1885, Y + 1.5, 573.56); g.add(bd);
+    bd.position.set(AX(-1885), Y + 1.5, 573.56); g.add(bd);
     // a fuel bowser by the pad
-    const truck = new THREE.Group(); truck.position.set(-1790, Y, 590); truck.rotation.y = Math.PI / 2; g.add(truck);
+    const truck = new THREE.Group(); truck.position.set(AX(-1790), Y, 590); truck.rotation.y = Math.PI / 2; g.add(truck);
     const tb = (w, h, d, x, y, z, m) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); o.castShadow = true; truck.add(o); };
     tb(2.4, 2.2, 2.4, 0, 1.6, -3, std({ color: 0xe8e4d4 }));
     const tank = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 6, 16), std({ color: 0xd8dde2, metalness: 0.6, roughness: 0.3 })); tank.rotation.x = Math.PI / 2; tank.position.set(0, 1.9, 1.5); truck.add(tank);
     for (const z of [-3, 0, 3]) for (const s of [-1, 1]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.4, 12), std({ color: 0x15161a })); w.rotation.z = Math.PI / 2; w.position.set(s * 1.2, 0.5, z); truck.add(w); }
-    sb.addStaticCollider(RAPIER.ColliderDesc.cuboid(4.5, 1.6, 1.3).setTranslation(-1790, Y + 1.6, 590));
-    this.fuelTruck = V3(-1790, Y, 590);
-    this.jetSpot = { x: -1835, z: 590, yaw: Math.PI / 2 };
+    sb.addStaticCollider(RAPIER.ColliderDesc.cuboid(4.5, 1.6, 1.3).setTranslation(AX(-1790), Y + 1.6, 590));
+    this.fuelTruck = V3(AX(-1790), Y, 590);
+    this.jetSpot = { x: AX(-1835), z: 590, yaw: Math.PI / 2 };
   }
 
+  // Pike's pass on the reader: the staff door slides open (and stays open)
   openGate(silent = false) {
-    const ap = this.game.airport;
-    if (!ap?.gateParts) return;
-    for (const m of ap.gateParts.meshes) { m.visible = false; }
-    ap.gateParts.col?.setEnabled(false);
-    if (!silent) { this.game.sfx.play('switch'); this.game.hud.toast('The gate buzzes and slides open', 0x7be08a); }
+    this.wingDoor.visible = false;
+    this.wingDoorCol.setEnabled(false);
+    this.reader.material.color.set(0x7be08a);
+    if (!silent) { this.game.sfx.play('switch'); this.game.hud.toast('Beep. The staff door slides open', 0x7be08a); }
     this.story.state.gateOpen = true; this.story.save();
   }
 
@@ -388,9 +389,9 @@ export class Act2 {
     const g = this.game, open = this.story.state.gateOpen;
     let at = null, yaw = 0;
     if (a.id === 'm8') { at = a.pikeDoor.clone().addScaledVector(a.pikeOut, 26); yaw = Math.atan2(a.pikeOut.x, a.pikeOut.z); }
-    if (a.id === 'm9' && open) { at = this.officeDoor.clone().add(V3(0, 0, -9)); yaw = Math.PI; }
-    if (a.id === 'm10' && open) { at = V3(-1700, Y, 572); yaw = Math.PI / 2; }
-    if (a.id === 'm11' && open) { at = a.plane.pos.clone().add(V3(4, 0, -22)); yaw = Math.PI; }
+    if (a.id === 'm9') { at = this.staffDoor.clone().add(V3(-6, 0, 0)); yaw = -Math.PI / 2; }
+    if (a.id === 'm10' && open) { at = this.airsideDoor.clone().add(V3(0, 0, 8)); yaw = Math.PI; }
+    if (a.id === 'm11') { at = a.plane.pos.clone().add(V3(4, 0, -22)); yaw = Math.PI; }
     if (!at) return;
     this.story.fade(() => { g.placeOnShore(V3(at.x, Y + 1.2, at.z), yaw); g.cullFar?.(); g.hud.toast('Checkpoint: back where it started', 0x9ec5ff); });
   }
@@ -420,10 +421,10 @@ export class Act2 {
     const g = this.game;
     if (!a || !this.owns(a.id)) {
       // the gate, any time after it's been opened once (or with the pass)
-      if (!this.story.state.gateOpen && this.story.has('pass') && this.nearP(pos, V3(this.gate.x, Y, this.gate.z - 2), 6)) return { label: "Swipe Pike's pass at the gate", run: () => this.openGate() };
+      if (!this.story.state.gateOpen && this.nearP(pos, this.staffDoor, 2.6)) return this.story.has('pass') ? { label: "Swipe Pike's pass on the staff door", run: () => this.openGate() } : { label: 'STAFF ONLY (locked)', run: () => this.game.hud.toast('A card reader. Staff only.') };
       return null;
     }
-    if (!this.story.state.gateOpen && this.story.has('pass') && this.nearP(pos, V3(this.gate.x, Y, this.gate.z - 2), 6)) return { label: "Swipe Pike's pass at the gate", run: () => { this.openGate(); if (a.stage === 'gate') a.stage = a.id === 'm9' ? 'office' : 'hangar'; } };
+    if (!this.story.state.gateOpen && this.story.has('pass') && this.nearP(pos, this.staffDoor, 2.6)) return { label: "Swipe Pike's pass on the staff door", run: () => { this.openGate(); if (a.stage === 'gate') a.stage = a.id === 'm9' ? 'office' : 'hangar'; } };
     const td = (a.id === 'm9' || a.id === 'm10') && this.takedownTarget(a, pos);
     if (td) return { label: 'Silent takedown', run: () => this.takedown(a, td) };
     if (a.id === 'm6') {
@@ -898,24 +899,26 @@ export class Act2 {
   setupOffice(a) {
     const O = this.office, look = { shirt: 0x2c3e5e, pants: 0x1d1f22, skin: 0xd9a47c, hat: 'cap', hatColor: 0x1c2f6e };
     const P = (x, z) => V3(x, Y, z);
-    // one walks the corridor end to end; one does the big office on the north side; one walks
-    // between Records and the middle office on the south side (through the doors, there and back)
-    this.spawnGuard(a, P(-1446, 452), { look, route: [P(-1446, 452), P(-1423, 452)], range: 13, fov: 0.6 });
-    this.spawnGuard(a, P(-1436.5, 448), { look: { ...look, skin: 0x7a4f35 }, route: [P(-1436.5, 448), P(-1423.5, 448), P(-1423.5, 442.5), P(-1436.5, 442.5)], range: 11, fov: 0.6 });
-    const south = [P(-1423.5, 460.5), P(-1426, 457.5), P(-1426, 454.5), P(-1433, 454.5), P(-1433, 457.5), P(-1432, 460)];
+    // one walks the corridor end to end; one does the north offices; one walks between Records and
+    // the middle office on the south side (through the doors, there and back). Cameras watch the
+    // corridor from the door, and Records.
+    const L = (x, z) => V3(AX(x), Y, z);
+    this.spawnGuard(a, L(-1167, 479), { look, route: [L(-1167, 479), L(-1114, 479)], range: 14, fov: 0.6 });
+    const north = [L(-1141, 468), L(-1141, 478.4), L(-1120, 478.4), L(-1120, 465)];
+    this.spawnGuard(a, north[0], { look: { ...look, skin: 0x7a4f35 }, route: [...north, ...north.slice(1, -1).reverse()], pauseAt: [0, 3], range: 11, fov: 0.6 });
+    const south = [L(-1116, 496), L(-1124, 486), L(-1124, 480.4), L(-1141, 480.4), L(-1141, 486), L(-1141, 496)];
     this.spawnGuard(a, south[0], { look: { ...look, skin: 0xf1c9a5 }, route: [...south, ...south.slice(1, -1).reverse()], pauseAt: [0, 5], range: 11, fov: 0.6 });
-    // cameras: one in the lobby, one looking down the corridor
-    this.addCamera(a, V3(O.x0 + 1, Y + 3, O.z0 + 1), Math.PI / 4, 0.7, 11);
-    this.addCamera(a, V3(O.x0 + 12.5, Y + 3, 455.5), Math.PI / 2, 0.5, 14);
+    this.addCamera(a, V3(AX(TERM.wing + 1), Y + 3, 481.6), Math.PI / 2, 0.45, 15);
+    this.addCamera(a, V3(AX(-1111), Y + 3, 483), Math.atan2(-1, 1), 0.6, 13);
     a.crack = 0;
   }
 
   updM9(a, p, dt) {
     const g = this.game;
-    if (a.stage === 'gate') { a.text = "Use Pike's pass at the airport gate"; a.wp = V3(this.gate.x, Y, this.gate.z - 3); return; }
+    if (a.stage === 'gate') { a.text = "Go into the airport terminal and swipe Pike's pass on the STAFF ONLY door (the east end of the hall)"; a.wp = this.staffDoor.clone(); return; }
     const inside = this.officeInside(p);
     if (a.stage === 'office') {
-      a.text = inside ? `Find the safe in Records (east end). Crouch (C) and stay out of the cones. ${a.detect > 0.05 ? `<b style="color:#ff8a6a">Detection ${Math.round(a.detect * 100)}%</b>` : ''}` : 'Get into the Airport Authority office (landside, west of the terminal)';
+      a.text = inside ? `Find the safe in Records (the far south-east room). Crouch (C) and stay out of the cones. ${a.detect > 0.05 ? `<b style="color:#ff8a6a">Detection ${Math.round(a.detect * 100)}%</b>` : ''}` : 'Go through the STAFF ONLY door at the east end of the terminal hall';
       a.wp = inside ? null : this.officeDoor.clone();
       if (this.updateStealth(a, dt, p)) return;
       // cracking: hold E at the safe
@@ -926,10 +929,10 @@ export class Act2 {
       return;
     }
     if (a.stage === 'out') {
-      a.text = `Get out without being seen ${a.detect > 0.05 ? `<b style="color:#ff8a6a">Detection ${Math.round(a.detect * 100)}%</b>` : ''}`;
+      a.text = `Get back out to the terminal hall without being seen ${a.detect > 0.05 ? `<b style="color:#ff8a6a">Detection ${Math.round(a.detect * 100)}%</b>` : ''}`;
       a.wp = inside ? this.officeDoor.clone() : null;
       if (this.updateStealth(a, dt, p)) return;
-      if (!inside && Math.hypot(p.x - this.officeDoor.x, p.z - this.officeDoor.z) > 35) this.story.end(true);
+      if (!inside && Math.hypot(p.x - this.officeDoor.x, p.z - this.officeDoor.z) > 20) this.story.end(true);
     }
   }
 
@@ -955,11 +958,11 @@ export class Act2 {
     // the Chemist himself: lab coat, glasses, watching them load
     a.chemist = g.citizens.spawnCitizen('airport', 'escort', P(J.x + 6, J.z - 6), { look: { shirt: 0xf2f2ee, pants: 0x2c3440, skin: 0xf1c9a5, outfit: 'labcoat', glasses: 'black', shoes: 'dress' } });
     if (a.chemist) { a.chemist.faceYaw = Math.PI; a.chemist.hp = 1e6; }
-    this.spawnGuard(a, P(-1860, 560), { look: crew, route: [P(-1860, 560), P(-1810, 560)], range: 14 });
-    this.spawnGuard(a, P(-1830, 605), { look: crew, route: [P(-1830, 605), P(-1870, 600), P(-1870, 580)], range: 14 });
-    this.spawnGuard(a, P(-1800, 575), { look: crew, facing: Math.PI / 2, sweep: 1.2, range: 15 });
-    this.spawnGuard(a, P(-1880, 585), { look: crew, facing: -Math.PI / 2, sweep: 1.0, range: 14 });
-    this.spawnGuard(a, P(-1770, 600), { look: { shirt: 0x2c3e5e, pants: 0x1d1f22, skin: 0xd9a47c, hat: 'cap', hatColor: 0x1c2f6e }, route: [P(-1770, 600), P(-1770, 640), P(-1820, 640)], range: 13 });
+    this.spawnGuard(a, P(AX(-1860), 560), { look: crew, route: [P(AX(-1860), 560), P(AX(-1810), 560)], range: 14 });
+    this.spawnGuard(a, P(AX(-1830), 605), { look: crew, route: [P(AX(-1830), 605), P(AX(-1870), 600), P(AX(-1870), 580)], range: 14 });
+    this.spawnGuard(a, P(AX(-1800), 575), { look: crew, facing: Math.PI / 2, sweep: 1.2, range: 15 });
+    this.spawnGuard(a, P(AX(-1880), 585), { look: crew, facing: -Math.PI / 2, sweep: 1.0, range: 14 });
+    this.spawnGuard(a, P(AX(-1770), 600), { look: { shirt: 0x2c3e5e, pants: 0x1d1f22, skin: 0xd9a47c, hat: 'cap', hatColor: 0x1c2f6e }, route: [P(AX(-1770), 600), P(AX(-1770), 640), P(AX(-1820), 640)], range: 13 });
     a.disguise = true;
     a.firedAt = g.time;
     a.lastShot = g.lastShotT;
@@ -969,7 +972,7 @@ export class Act2 {
     const g = this.game;
     if (g.lastShotT !== a.lastShot) { this.story.end(false, 'Gunfire! Your cover\'s blown'); return; }
     if (this.game.police.wanted > 0) { this.story.end(false, 'The police are after you: the cover\'s blown'); return; }
-    if (a.stage === 'gate') { a.text = "Use Pike's pass at the airport gate"; a.wp = V3(this.gate.x, Y, this.gate.z - 3); return; }
+    if (a.stage === 'gate') { a.text = "Swipe Pike's pass on the STAFF ONLY door in the terminal"; a.wp = this.staffDoor.clone(); return; }
     const d = a.done, todo = [];
     if (!d.jet) todo.push('tracker on the jet');
     if (!d.truck) todo.push('tracker on the fuel truck');
@@ -981,16 +984,16 @@ export class Act2 {
       a.wp = near ? null : V3(this.h3.x, Y, this.h3.z + 40);
       return;
     }
-    a.text = 'Walk out of the airport (back through the gate)';
-    a.wp = V3(this.gate.x, Y, this.gate.z - 6);
-    if (p.z < this.gate.z - 4) this.story.end(true);
+    a.text = 'Walk back out through the staff wing into the terminal hall';
+    a.wp = this.staffDoor.clone().add(V3(-4, 0, 0));
+    if (p.z < TERM.z1 - 1 && p.x < this.staffDoor.x + 0.5 && Math.abs(p.x - AX(-1250)) < 120) this.story.end(true);
   }
 
   // ---------------------------------------------------------------- m11: Last Flight
   setupFlight(a) {
     const g = this.game;
     // the empty airliner, lined up on runway 27 (the east end, facing west)
-    const plane = new Jet(g, { x: -1185, z: 690, yaw: Math.PI / 2 }, 'VA1', {
+    const plane = new Jet(g, { x: AX(-1185), z: 690, yaw: Math.PI / 2 }, 'VA1', {
       build: () => buildAirliner(0x1f5fbf, 'VERIAN AIR'),
       half: [2.4, 2.4, 19, 0, 2.25, 1], wing: [16, 0.4, 3, 0, 1.0, 0],
       agility: 0.5, thrust: 0.18, noRespawn: true, name: 'airliner', // (heavy: a long take-off roll and ~400 km/h flat out)
@@ -1001,8 +1004,8 @@ export class Act2 {
     // the Chemist's jet: already rolling, then climbing out over the sea and flying a big loop
     const b = buildBizJet();
     g.scene.add(b.root);
-    a.target = { mesh: b.root, pos: V3(-1700, Y + 30, 690), heading: Math.PI / 2, speed: 62, alt: 450, t: 0, alive: true, wp: 0, roll: 0, quat: new THREE.Quaternion() };
-    a.route = [V3(-2600, 0, 400), V3(-2200, 0, -900), V3(-900, 0, -1500), V3(200, 0, -900), V3(300, 0, 400), V3(-800, 0, 1300)];
+    a.target = { mesh: b.root, pos: V3(AX(-1700), Y + 30, 690), heading: Math.PI / 2, speed: 62, alt: 450, t: 0, alive: true, wp: 0, roll: 0, quat: new THREE.Quaternion() };
+    a.route = [V3(-2320, 0, 400), V3(-1920, 0, -900), V3(-620, 0, -1500), V3(480, 0, -900), V3(580, 0, 400), V3(-520, 0, 1300)];
     a.callDone = false;
     a.marker = this.marker(0xff3a2a);
     g.hud.toast('The Chemist\'s jet is taking off! Get to the airliner on the runway!', 0xff6a5a);
@@ -1041,7 +1044,7 @@ export class Act2 {
     // impact: the airliner (with or without you aboard) into the Chemist's jet
     if (T.alive && dist < 30 && !P.crashed) this.impact(a);
     if (a.stage === 'board' && g.jets.active === P) { a.stage = 'chase'; g.hud.toast('Full throttle (W) and pull back past 200 km/h. Mouse to fly, G for the gear, F to EJECT', 0xffd166); }
-    if (a.stage === 'board') { a.text = !this.story.state.gateOpen ? "Get to the airliner on the runway: Pike's pass opens the airport gate" : 'Get to the airliner on the runway (the east end) and climb aboard'; a.wp = P.pos.clone(); return; }
+    if (a.stage === 'board') { a.text = 'Get to the airliner on the runway (through the terminal\'s staff wing and out airside) and climb aboard'; a.wp = P.pos.clone(); return; }
     if (a.stage === 'chase') {
       if (!a.callDone && !P.onGround && dist < 2600) {
         a.callDone = true;

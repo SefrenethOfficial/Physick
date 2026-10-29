@@ -726,6 +726,11 @@ export class Citizens extends Npcs {
       npc.phase += dt * (2.5 + npc.speed * 2.6);
       if ((npc.state === 'flee' && npc.role === 'civ') || npc.hostage || npc.handsUp > 0) animatePanic(npc.fig.parts, npc.phase * (npc.handsUp > 0 ? 0.15 : 1));
       else if (!(npc.busker && npc.speed < 0.3)) animateWalk(npc.fig.parts, npc.phase, npc.speed / 1.5); // (a busker standing at his pitch is posed by the ambient code: he's playing)
+      if (npc.sit && npc.speed < 0.3) { // sat on a bench (the terminal's travellers)
+        const P = npc.fig.parts;
+        npc.fig.root.position.y -= 0.42;
+        P.legLPivot.rotation.set(-1.5, 0, 0); P.legRPivot.rotation.set(-1.5, 0, 0);
+      }
     }
     // top islands back up (out of sight of the player)
     if (this.game.settings.civRespawn && !this.game.net?.mirroring) {
