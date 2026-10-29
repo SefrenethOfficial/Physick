@@ -128,7 +128,7 @@ export class City {
     this.plaza = plaza;
     this.spawn = plaza.clone().add(new THREE.Vector3(0, 1.1, 14));
     const special = new Set(['2,2', '1,1', '3,3', '1,3', '2,3']);
-    const ALLEYS = ['0,2', '4,1', '2,4']; // blocks cut through by a service alley
+    const ALLEYS = ['0,3', '4,1', '2,4']; // blocks cut through by a service alley
     this.alleys = [];
 
     // every block gets a kerbed pavement slab
@@ -264,7 +264,7 @@ export class City {
 
     // everything else: taller in the middle, low-rise brick at the edges
     for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) {
-      if (special.has(`${i},${j}`) || (i === 3 && j === 2) || (i === 2 && j === 1) || (i === 0 && j === 3)) continue; // (0,3): Verian Motors
+      if (special.has(`${i},${j}`) || (i === 3 && j === 2) || (i === 2 && j === 1) || (i === 0 && j === 2) || (i === 4 && j === 4)) continue; // (0,2): Verian Motors, first thing you see coming in off the highway; (4,4): MARCOS, between the airport and Scorch causeways
       if (ALLEYS.includes(`${i},${j}`)) {
         // two rows of walk-ups back to back with a grimy service alley between them
         const b = whole(i, j), mid = (b.z0 + b.z1) / 2, AW = 7;

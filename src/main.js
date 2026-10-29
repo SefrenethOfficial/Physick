@@ -45,6 +45,7 @@ import { Highway } from './highway.js';
 import { Homes } from './homes.js';
 import { Garage } from './garage.js';
 import { Dealership } from './dealership.js';
+import { Marcos } from './marcos.js';
 import { DayNight } from './daynight.js';
 import { News } from './news.js';
 import { Radio } from './radio.js';
@@ -62,12 +63,14 @@ import { Stocks } from './stocks.js';
 import { Business } from './business.js';
 import { Airport } from './airport.js';
 import { Terminal } from './terminal.js';
+import { Insides } from './insides.js';
 import { Bank } from './bank.js';
 import { Vehicles } from './vehicles.js';
 import { Car, clearSpot } from './carphys.js';
 import { Underworld } from './underworld.js';
 import { ChaseMusic } from './music.js';
 import { mpSession, seedRandom, setMpSession } from './netseed.js';
+const WORLD_SEED = 20261029; // the city's layout: fixed, not rolled fresh every load
 import { isCriminal } from './citizens.js';
 import { Style } from './style.js';
 import { Skydive } from './skydive.js';
@@ -111,7 +114,7 @@ class Game {
     const loadingEl = document.getElementById('loading');
     // multiplayer: everyone in the room builds the same world from the room's seed
     this.mp = mpSession() || await linkSession(); // (an invite link: ?join=CODE&server=…)
-    const unseed = this.mp ? seedRandom(this.mp.seed) : null;
+    const unseed = seedRandom(WORLD_SEED); // (the same Verian every time, in multiplayer rooms too)
     await this.loadStep('Starting physics…', 3);
     await RAPIER.init();
     this.RAPIER = RAPIER; // (handy from the console)
@@ -277,6 +280,8 @@ class Game {
     this.garage = new Garage(this);
     this.fleet = new Fleet(this);
     this.dealer = new Dealership(this);
+    this.marcos = new Marcos(this);
+    this.insides = new Insides(this); // (inside every building)
     this.news = new News(this);
     this.daynight = new DayNight(this);
     this.radio = new Radio(this, import.meta.env.BASE_URL);
@@ -786,6 +791,7 @@ class Game {
     this.clearHand();
     this.police.clearWanted();
     if (this.homes?.wakeAtHome()) { this.hud.toast(`You come round at home: ${this.homes.inside.name}`, 0x7be08a); return; }
+    if (this.insides?.wakeAtRental()) return;
     // the nearer hospital: Verian City's or Saltmarsh's
     const pt = this.shorePlayer.body.translation(), sh = this.saltmarsh.hospital;
     const city = this.city.hospital;
@@ -1089,10 +1095,14 @@ class Game {
     const pos = this.shorePlayer.body.translation();
     const sa = this.story.action(pos);
     if (sa) return sa;
+    const ia = this.insides?.action(pos);
+    if (ia) return ia;
     const home = this.homes?.action(pos);
     if (home) return home;
     const dl = this.dealer?.action(pos);
     if (dl) return dl;
+    const mc = this.marcos?.action(pos);
+    if (mc) return mc;
     const amb = this.ambient?.action(pos);
     if (amb) return amb;
     const fl = this.fleet?.action(pos);
@@ -1223,7 +1233,7 @@ class Game {
       // on the title screen, only the Play button starts; anywhere else just turns the sound on
       if (!this.started && this.title?.active && !e.target.closest('.play')) return; // only the Play button starts
       if (this.title?.active) { this.title.stop(); document.getElementById('overlay').classList.remove('title'); }
-      if (!this.started) this.homes?.wakeAtHome();
+      if (!this.started && !this.homes?.wakeAtHome()) this.insides?.wakeAtRental();
       this.started = true;
       this.lock();
       if (!this.story.state.introSeen) setTimeout(() => this.story.showIntro(), 400);
@@ -1466,6 +1476,7 @@ class Game {
     P(c.dealerCounter, '#7fd3ff', 'Boat sales', true);
     P(c.hospital, '#ff6a6a', 'Hospital');
     if (this.dealer) P(this.dealer.desk, '#e8c547', 'Verian Motors (cars)', true, 5);
+    if (this.marcos) P(this.marcos.door, '#ffc72c', 'MARCOS (food)', true, 5);
     for (const m of this.business?.marks() || []) if (m.name) P(m, m.color, m.name, m.label === '!', m.label === '!' ? 6 : 4);
     for (const m of this.stunts?.marks() || []) P(m, m.color, m.name, false, 3.5);
     for (const m of this.net?.marks() || []) P(m, m.color, m.name, true, 5.5);
@@ -1602,6 +1613,7 @@ class Game {
     this.homes?.update(dt);
     this.garage?.update(dt);
     this.dealer?.update(dt);
+    this.marcos?.update(dt);
     this.daynight?.update(dt);
     this.radio?.update(dt);
     this.ambient?.update(dt);
@@ -1621,6 +1633,7 @@ class Game {
     this.story.update(dt);
     this.airport?.update(dt);
     this.terminal?.update(dt);
+    this.insides?.update(dt);
     this.updateHostage();
     this.updateGrenades(dt);
     this.gangs.update(dt);

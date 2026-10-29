@@ -8,6 +8,7 @@ import { LAND_Y } from './world.js';
 import { bikeMesh } from './fleet.js';
 import { Chopper } from './homes.js';
 import { Heli } from './cargo.js';
+import { GLOW } from './effects.js';
 
 // Verian Motors: a glass showroom on the west side of Verian City. Buy a car here and it's yours
 // for good: it's saved (with its paint and every upgrade Underpass Customs fits), waits in the
@@ -56,7 +57,7 @@ export function modelMesh(m, color = m.color) {
 export class Dealership {
   constructor(game) {
     this.game = game;
-    const b = game.city.block(0, 3);
+    const b = game.city.block(0, 2); // on the corner where the highway from the bridge comes into the city
     this.b = b;
     this.cars = new Map(); // uid -> live Car
     this.respawnT = new Map(); // uid -> seconds until it's delivered again
@@ -104,6 +105,27 @@ export class Dealership {
     box(x1 - x0 + 1, 0.4, z1 - z0 + 1, cx, Y + H - 0.4, (z0 + z1) / 2, white).castShadow = false; // roof (lets the daylight in: it's mostly glass)
     box(x1 - x0 + 2, 0.15, 3, cx, Y + 3.2, z0 - 1.4, white, false).castShadow = false; // canopy over the door
     sign(g, 'VERIAN MOTORS', cx, Y + H + 0.9, z0 - 0.1, Math.PI, { w: 14, h: 1.6, bg: '#14161c', fg: '#e8c547', glow: true });
+    // ---- lighting: rows of panels in the ceiling, spots on the cars, floodlights over the lot, and
+    // a bright sign on a pole by the road. (It all comes up at night; by day it's just the panels.)
+    const glow = (c) => new THREE.MeshBasicMaterial({ color: c });
+    for (let x = x0 + 4; x < x1 - 2; x += 6) for (let z = z0 + 4; z < z1 - 2; z += 6) { const p = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.06, 0.8), glow(0xfff6e8)); p.position.set(x, Y + H - 0.45, z); p.userData.noMerge = true; g.add(p); }
+    this.lights = [];
+    for (const lx of [x0 + (x1 - x0) * 0.28, x0 + (x1 - x0) * 0.72]) { const L = new THREE.PointLight(0xfff0dc, 0, 30, 1.4); L.position.set(lx, Y + H - 1, (z0 + z1) / 2); g.add(L); this.lights.push(L); }
+    this.floods = [];
+    const pole = std({ color: 0x3a3c40, metalness: 0.6, roughness: 0.4 });
+    for (const [px, pz] of [[x0 - 1.5, z0 - 2], [x1 + 1.5, z0 - 2], [x0 - 1.5, z1 + 16], [x1 + 1.5, z1 + 16]]) {
+      box(0.25, 8, 0.25, px, Y, pz, pole, true);
+      const head = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.3, 0.6), glow(0xffffff)); head.position.set(px, Y + 8, pz); head.userData.noMerge = true; g.add(head);
+      const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0xfff2d0, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
+      halo.position.set(px, Y + 7.8, pz); halo.scale.setScalar(7); g.add(halo); this.floods.push(halo);
+      const pool = new THREE.Mesh(new THREE.CircleGeometry(9, 24), new THREE.MeshBasicMaterial({ color: 0xfff2d0, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+      pool.rotation.x = -Math.PI / 2; pool.position.set(px + (px < cx ? 5 : -5), Y + 0.06, pz + (pz < z0 ? 3 : -3)); pool.userData.noMerge = true; g.add(pool); this.floods.push(pool);
+    }
+    // the pole sign by the road
+    box(0.5, 9, 0.5, x0 - 3, Y, z0 - 4, pole, true);
+    sign(g, 'VERIAN MOTORS', x0 - 3, Y + 10, z0 - 4, Math.PI, { w: 6, h: 1.4, bg: '#e8c547', fg: '#14161c', glow: true });
+    sign(g, 'VERIAN MOTORS', x0 - 3, Y + 10, z0 - 3.9, 0, { w: 6, h: 1.4, bg: '#e8c547', fg: '#14161c', glow: true });
+    sign(g, 'CARS · BIKES · CHOPPERS', x0 - 3, Y + 8.7, z0 - 4, Math.PI, { w: 5.2, h: 0.8, bg: '#14161c', fg: '#ffffff', glow: true });
     // the cars on display, on round plinths
     const plinth = std({ color: 0xb8bcc2, roughness: 0.25, metalness: 0.5 });
     const lz = z1 + 2 + 15; // the open part of the lot, behind the customer bays
@@ -309,6 +331,9 @@ export class Dealership {
   update(dt) {
     const g = this.game;
     this.t = (this.t || 0) + dt;
+    const night = g.daynight?.night ?? 0;
+    for (const L of this.lights || []) L.intensity = 0.4 + night * 2.2;
+    for (const f of this.floods || []) f.material.opacity = (f.isSprite ? 0.85 : 0.18) * night;
     if (this.salesman.parts?.armR) this.salesman.parts.armR.rotation.x = -0.2 + Math.sin(this.t * 1.3) * 0.15;
     // wrecked or gone: a replacement is delivered to the lot a minute later
     this.chopper?.update(dt);

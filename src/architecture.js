@@ -111,7 +111,27 @@ const M = {
   glass: () => mat('glassClear', () => new THREE.MeshStandardMaterial({ color: 0x9fc3d8, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.28, depthWrite: false })),
   light: () => mat('ceilLight', () => std({ color: 0xffffff, emissive: 0xfff4dc, emissiveIntensity: 1.2 })),
   tex: (t, extra = {}) => mat(`t|${t.uuid}|${JSON.stringify(extra)}`, () => std({ map: t, ...extra })),
+  // the inside face of an outside wall: plaster with the window it looks out of (lit by daylight)
+  innerWin: (glass = false) => mat(`innerWin${glass}`, () => { const t = innerWinTex(glass); return std({ map: t, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.35, roughness: 0.8 }); }),
+  inner: (c = 0xe9e4da) => mat(`inner${c}`, () => std({ color: c, emissive: c, emissiveIntensity: 0.3 })),
+  floor: (kind) => mat(`floorIn|${kind}`, () => { const map = kind === 'tile' ? tileTex('#d6d1c8', '#bfb9af') : kind === 'carpet' ? carpetTex() : woodTex(); return std({ map, roughness: 0.6, emissive: 0xffffff, emissiveMap: map, emissiveIntensity: 0.2 }); }),
 };
+const innerWinTex = (glass) => cached(`innerWin|${glass}`, () => canvasTex(128, 112, (g, w, h) => {
+  g.fillStyle = '#ece6da'; g.fillRect(0, 0, w, h);
+  const [x0, y0, x1, y1] = glass ? [4, 14, 124, 108] : [30, 18, 98, 90];
+  const grd = g.createLinearGradient(0, y0, 0, y1); grd.addColorStop(0, '#cfe6f6'); grd.addColorStop(1, '#9cc3dc');
+  g.fillStyle = '#5a5e64'; g.fillRect(x0 - 3, y0 - 3, x1 - x0 + 6, y1 - y0 + 6);
+  g.fillStyle = grd; g.fillRect(x0, y0, x1 - x0, y1 - y0);
+  g.fillStyle = '#5a5e64'; g.fillRect((x0 + x1) / 2 - 2, y0, 4, y1 - y0);
+  if (!glass) { g.fillStyle = '#d8d0c0'; g.fillRect(x0 - 5, y1 + 2, x1 - x0 + 10, 5); } // sill
+}));
+const carpetTex = () => cached('carpet', () => canvasTex(64, 64, (g, w, h) => { g.fillStyle = '#7a8088'; g.fillRect(0, 0, w, h); speckle(g, w, h, 900, 0.08); }));
+export { M as MATS };
+
+// Every building in the world with an inside (see insides.js, which fits them out as you go in).
+export const BUILDINGS = [];
+export const CORE = { w: 4.3, d: 7.3, run: 5 }; // the stairwell, in the back-left corner of every building
+export const WALL = 0.3;
 
 // Box with UVs scaled so a texture tile covers tw x th metres on the sides.
 function boxUV(w, h, d, tw = 4, th = FLOOR) {
@@ -218,74 +238,125 @@ export function cityBuilding(group, sb, lot, opts) {
   const shopM = M.tex(shopfrontTex(pick(FRAMES), Math.floor(Math.random() * 6)));
   const ceilM = M.plaster(0xd8d4cc);
 
+  const T = WALL;
   const H = GROUND + floors * FLOOR;
+  // the stairwell: the back-left corner, open from the ground to the roof (too small a building and
+  // there's no going upstairs)
+  const C = CORE;
+  const core = w >= C.w + 7 && d >= C.d + 5 ? { x0: -w / 2 + T, x1: -w / 2 + T + C.w, z0: -d / 2 + T, z1: -d / 2 + T + C.d, hole: -d / 2 + T + C.run } : null;
+  const storeGround = !opts.interior && type === 'brick' && street('front');
+  const upper = type === 'office' || type === 'civic' ? 'offices' : type === 'apartment' ? 'apartments' : storeGround && floors >= 3 && Math.random() < 0.6 ? 'shops+apartments' : 'apartments';
+  const B = { id: BUILDINGS.length, k, x: lot.cx, z: lot.cz, y0, yaw: YAW[lot.front], w, d, floors, H, type, name: opts.name || null, interior: opts.interior || null, core, upper, ground: opts.interior ? 'room' : storeGround ? 'store' : 'lobby', island: opts.island || null, room: null, style: Math.floor(Math.random() * 1e9) };
+  BUILDINGS.push(B);
+  out.building = B;
+  const innerG = M.innerWin(false);
+  // an outside wall: the facade on the outer face, plaster (with the windows) on the inner one
+  // (box faces: +x, -x, +y, -y, +z, -z)
+  const wallBox = (bw, bh, bd, x, y, z, outer, outerM, innerM = innerG, uv = [4, FLOOR], o = {}) => {
+    const mats = [innerM, innerM, M.plaster(0xd8d4cc), M.plaster(0xd8d4cc), innerM, innerM];
+    mats[outer] = outerM;
+    return k.box(bw, bh, bd, x, y, z, mats, { uv, ...o });
+  };
+  const FRONT = 4, BACK = 5, RIGHT = 0, LEFT = 1;
   // ---- ground floor
   const fm = (local) => (street(local) && type !== 'civic' ? shopM : plainM);
+  const DW = 2.4, DH = 3.0; // a front door
+  const frontRun = (x0, x1, door) => { // the front wall from x0 to x1, with the door gap if it's in this run
+    const segs = door != null && door > x0 && door < x1 ? [[x0, door - DW / 2], [door + DW / 2, x1]] : [[x0, x1]];
+    for (const [a, c] of segs) if (c - a > 0.05) wallBox(c - a, GROUND, T, (a + c) / 2, 0, d / 2 - T / 2, FRONT, fm('front'), M.inner(), [8, GROUND]);
+    if (door != null && door > x0 && door < x1) {
+      wallBox(DW, GROUND - DH, T, door, DH, d / 2 - T / 2, FRONT, fm('front'), M.inner(), [8, GROUND]);
+      for (const sx of [-1, 1]) k.box(0.18, DH, T + 0.08, door + sx * (DW / 2 + 0.09), 0, d / 2 - T / 2, M.dark(), { collide: false });
+      k.box(DW + 0.36, 0.18, T + 0.08, door, DH, d / 2 - T / 2, M.dark(), { collide: false });
+    }
+  };
   if (opts.interior) {
-    // a walk-in room at the front of the ground floor; the rest of the footprint is solid
+    // a walk-in room at the front of the ground floor (a shop, a diner, a bank…); behind and round
+    // it, the building's lobby and its stairs (through a door in the room's back wall)
     const rw = Math.min(w, 18), rd = Math.min(d, 15);
     const oz = d / 2 - rd / 2;
     const rp = k.world(0, 0, oz);
     const rk = new Kit(k.root.parent, k.sb, rp.x, rp.y, rp.z, YAW[lot.front]);
-    Object.assign(out, interior(rk, rw, rd, opts.interior, plainM, opts));
-    const mats = [fm('right'), fm('left'), roofM, ceilM, plainM, fm('back')];
-    if (d > rd + 0.1) k.box(w, GROUND, d - rd, 0, 0, -d / 2 + (d - rd) / 2, mats, { uv: [8, GROUND] });
-    if (w > rw + 0.1) {
-      for (const s of [-1, 1]) {
-        k.box((w - rw) / 2, GROUND, rd, s * (rw / 2 + (w - rw) / 4), 0, oz, [fm('right'), fm('left'), roofM, ceilM, fm('front'), plainM], { uv: [8, GROUND] });
-      }
-    }
+    Object.assign(out, interior(rk, rw, rd, opts.interior, plainM, { ...opts, backDoor: d - rd > 3 ? { x: 0 } : null }));
+    B.room = { x0: -rw / 2, x1: rw / 2, z0: d / 2 - rd, z1: d / 2 };
+    if (w > rw + 0.1) { frontRun(-w / 2, -rw / 2, null); frontRun(rw / 2, w / 2, null); }
+    const sideTo = rw >= w - 0.1 ? d / 2 - rd : d / 2 - T;
+    wallBox(T, GROUND, sideTo + d / 2 - T, w / 2 - T / 2, 0, (sideTo - d / 2 + T) / 2, RIGHT, fm('right'), M.inner(), [8, GROUND]);
+    wallBox(T, GROUND, sideTo + d / 2 - T, -w / 2 + T / 2, 0, (sideTo - d / 2 + T) / 2, LEFT, fm('left'), M.inner(), [8, GROUND]);
   } else {
-    // face order +x(right) -x(left) +y -y +z(front) -z(back)
-    const mats = [fm('right'), fm('left'), roofM, ceilM, fm('front'), fm('back')];
-    k.box(w, GROUND, d, 0, 0, 0, mats, { uv: [8, GROUND] });
+    frontRun(-w / 2, w / 2, core ? Math.max(core.x1 + 2, 0) : 0);
+    wallBox(T, GROUND, d - 2 * T, w / 2 - T / 2, 0, 0, RIGHT, fm('right'), M.inner(), [8, GROUND]);
+    wallBox(T, GROUND, d - 2 * T, -w / 2 + T / 2, 0, 0, LEFT, fm('left'), M.inner(), [8, GROUND]);
+    B.door = k.world(core ? Math.max(core.x1 + 2, 0) : 0, 0, d / 2 + 1.2);
   }
-  // ---- upper floors
+  wallBox(w, GROUND, T, 0, 0, -d / 2 + T / 2, BACK, fm('back'), M.inner(), [8, GROUND]);
+  // ---- upper floors: the outside walls, all the way up
   let top = GROUND;
+  const ring = (y, h, outerM, innerM = innerG) => {
+    wallBox(w, h, T, 0, y, d / 2 - T / 2, FRONT, outerM, innerM);
+    wallBox(w, h, T, 0, y, -d / 2 + T / 2, BACK, outerM, innerM);
+    wallBox(T, h, d - 2 * T, w / 2 - T / 2, y, 0, RIGHT, outerM, innerM);
+    wallBox(T, h, d - 2 * T, -w / 2 + T / 2, y, 0, LEFT, outerM, innerM);
+  };
+  if (floors > 0) {
+    if (type === 'office') {
+      // a stone podium for the lowest floors, then glass all the way up
+      const podium = Math.min(2, floors);
+      k.box(w + 0.4, 0.5, d + 0.4, 0, GROUND, 0, plainM, { collide: false });
+      ring(GROUND, podium * FLOOR, plainM);
+      if (floors > podium) ring(GROUND + podium * FLOOR, (floors - podium) * FLOOR, wallM, M.innerWin(true));
+    } else ring(GROUND, floors * FLOOR, wallM);
+  }
+  top = H;
+  // ---- floors (each with the stairwell open through it) and the roof
+  const slab = (yTop, topM) => {
+    const mats = [M.plaster(0xd8d4cc), M.plaster(0xd8d4cc), topM, M.inner(0xe8e4dc), M.plaster(0xd8d4cc), M.plaster(0xd8d4cc)];
+    const iw = w - 2 * T + 0.02, id = d - 2 * T + 0.02;
+    if (!core) { k.box(iw, 0.3, id, 0, yTop - 0.3, 0, mats, { cast: false }); return; }
+    const ax0 = core.x1, ax1 = w / 2 - T;
+    k.box(ax1 - ax0, 0.3, id, (ax0 + ax1) / 2, yTop - 0.3, 0, mats, { cast: false });
+    k.box(core.x1 - (-w / 2 + T), 0.3, d / 2 - T - core.hole, (-w / 2 + T + core.x1) / 2, yTop - 0.3, (core.hole + d / 2 - T) / 2, mats, { cast: false });
+  };
+  const floorTop = type === 'office' || type === 'civic' ? M.floor('carpet') : M.floor('wood');
+  for (let f = 1; f <= floors; f++) slab(GROUND + (f - 1) * FLOOR, floorTop);
+  slab(H, roofM);
+  // the roof: a parapet all round, and a little hut over the top of the stairs with a door out
+  if (floors > 0 || core) {
+    k.box(w + 0.7, 0.55, d + 0.7, 0, top - 0.2, 0, type === 'brick' ? M.plaster(0xe8e0d0) : plainM, { collide: false });
+    k.box(w - 0.4, 1.0, 0.25, 0, top, d / 2 - 0.2, plainM);
+    k.box(w - 0.4, 1.0, 0.25, 0, top, -d / 2 + 0.2, plainM);
+    k.box(0.25, 1.0, d - 0.4, w / 2 - 0.2, top, 0, plainM);
+    k.box(0.25, 1.0, d - 0.4, -w / 2 + 0.2, top, 0, plainM);
+  }
+  k.box(w + 0.3, 0.35, d + 0.3, 0, GROUND - 0.1, 0, plainM, { collide: false }); // belt course over the shops
+  if (core) {
+    const hutM = M.plaster(0xcfc9bd), hx0 = -w / 2 + T, hx1 = core.x1 + 0.3, hz0 = -d / 2 + T, hz1 = core.z1 + 0.3, HH = 3;
+    k.box(T, HH, hz1 - hz0, hx1 - T / 2, top, (hz0 + hz1) / 2, hutM);
+    k.box(hx1 - hx0, HH, T, (hx0 + hx1) / 2, top, hz0 + T / 2, hutM);
+    k.box(T, HH, hz1 - hz0, hx0 + T / 2, top, (hz0 + hz1) / 2, hutM);
+    const dx0 = core.x0 + 1.2, dx1 = core.x0 + 3.1; // the door out onto the roof
+    k.box(dx0 - hx0, HH, T, (hx0 + dx0) / 2, top, hz1 - T / 2, hutM);
+    k.box(hx1 - dx1, HH, T, (dx1 + hx1) / 2, top, hz1 - T / 2, hutM);
+    k.box(dx1 - dx0, HH - 2.3, T, (dx0 + dx1) / 2, top + 2.3, hz1 - T / 2, hutM);
+    k.box(hx1 - hx0 + 0.4, 0.25, hz1 - hz0 + 0.4, (hx0 + hx1) / 2, top + HH, (hz0 + hz1) / 2, M.dark());
+    B.roofDoor = k.world((dx0 + dx1) / 2, top, hz1 + 1);
+  }
+  // rooftop kit (kept clear of the stairs hut), solid now so you can climb about up there
+  const rx = () => (core ? core.x1 + 2 + Math.random() * Math.max(0.1, w / 2 - core.x1 - 5) : (Math.random() - 0.5) * w * 0.4);
   if (type === 'office') {
-    // stone podium for the first upper floor, then the glass shaft (with a setback on tall towers)
-    k.box(w + 0.4, 0.5, d + 0.4, 0, GROUND, 0, plainM);
-    const podium = Math.min(2, floors);
-    k.box(w, podium * FLOOR, d, 0, GROUND, 0, [plainM, plainM, roofM, ceilM, plainM, plainM], { uv: [4, FLOOR] });
-    top += podium * FLOOR;
-    const rest = floors - podium;
-    if (rest > 0) {
-      const setback = rest > 10 && Math.random() < 0.6;
-      const low = setback ? Math.ceil(rest * 0.6) : rest;
-      const sw = w - 2, sd = d - 2;
-      k.box(sw, low * FLOOR, sd, 0, top, 0, [wallM, wallM, roofM, roofM, wallM, wallM], { uv: [4, FLOOR] });
-      top += low * FLOOR;
-      if (setback) {
-        k.box(sw * 0.68, (rest - low) * FLOOR, sd * 0.68, 0, top, 0, [wallM, wallM, roofM, roofM, wallM, wallM], { uv: [4, FLOOR] });
-        top += (rest - low) * FLOOR;
-        k.box(sw * 0.3, 2.5, sd * 0.3, 0, top, 0, M.metal(), { collide: false });
-        k.cyl(0.15, 8 + Math.random() * 10, 0, top + 2.5, 0, M.metal());
-      } else {
-        k.box(sw * 0.4, 3, sd * 0.3, sw * 0.15, top, 0, M.metal(), { collide: false });
-      }
-    }
-  } else {
-    if (floors > 0) k.box(w, floors * FLOOR, d, 0, GROUND, 0, [wallM, wallM, roofM, roofM, wallM, wallM], { uv: [4, FLOOR] });
-    top = H;
-    // belt course over the shops and a cornice / parapet
-    k.box(w + 0.3, 0.35, d + 0.3, 0, GROUND - 0.1, 0, plainM, { collide: false });
-    if (floors > 0) {
-      k.box(w + 0.7, 0.55, d + 0.7, 0, top - 0.2, 0, type === 'brick' ? M.plaster(0xe8e0d0) : plainM, { collide: false });
-      k.box(w - 0.4, 0.9, 0.25, 0, top, d / 2 - 0.2, plainM, { collide: false });
-      k.box(w - 0.4, 0.9, 0.25, 0, top, -d / 2 + 0.2, plainM, { collide: false });
-      k.box(0.25, 0.9, d - 0.4, w / 2 - 0.2, top, 0, plainM, { collide: false });
-      k.box(0.25, 0.9, d - 0.4, -w / 2 + 0.2, top, 0, plainM, { collide: false });
-    }
-    if (type === 'brick' && Math.random() < 0.5) { // rooftop water tank
-      const tx = (Math.random() - 0.5) * w * 0.4, tz = (Math.random() - 0.5) * d * 0.4;
-      for (const [a, b] of [[-0.9, -0.9], [0.9, -0.9], [-0.9, 0.9], [0.9, 0.9]]) k.box(0.15, 2, 0.15, tx + a, top, tz + b, M.dark(), { collide: false });
-      k.cyl(1.4, 2.6, tx, top + 2, tz, M.wood());
-      const cone = new THREE.Mesh(new THREE.ConeGeometry(1.5, 0.9, 10), M.dark());
-      cone.position.set(tx, top + 5.05, tz);
-      k.root.add(cone);
-    } else if (type !== 'brick') {
-      k.box(Math.min(w, 6) * 0.6, 1.8, Math.min(d, 6) * 0.5, (Math.random() - 0.5) * w * 0.3, top, (Math.random() - 0.5) * d * 0.3, M.metal(), { collide: false });
-    }
+    k.box(Math.min(w * 0.3, 8), 2.5, Math.min(d * 0.3, 6), w * 0.22, top, d * 0.12, M.metal());
+    if (floors > 14) k.cyl(0.15, 8 + Math.random() * 10, w * 0.22, top + 2.5, d * 0.12, M.metal());
+  } else if (type === 'brick' && Math.random() < 0.5) { // a water tank on legs
+    const tx = rx(), tz = (Math.random() - 0.5) * d * 0.4;
+    for (const [a, b] of [[-0.9, -0.9], [0.9, -0.9], [-0.9, 0.9], [0.9, 0.9]]) k.box(0.15, 2, 0.15, tx + a, top, tz + b, M.dark());
+    k.cyl(1.4, 2.6, tx, top + 2, tz, M.wood(), { collide: true });
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(1.5, 0.9, 10), M.dark());
+    cone.position.set(tx, top + 5.05, tz);
+    k.root.add(cone);
+  } else if (type !== 'brick') {
+    k.box(Math.min(w, 6) * 0.6, 1.8, Math.min(d, 6) * 0.5, rx(), top, (Math.random() - 0.5) * d * 0.3, M.metal());
+  }
+  {
     // fire escape on brick buildings' side street faces
     if (type === 'brick' && floors >= 3) {
       for (const local of ['left', 'right']) {
@@ -313,9 +384,9 @@ export function cityBuilding(group, sb, lot, opts) {
             const [x, z, bw, bd] = local === 'front' ? [a, d / 2 + 0.6, 3, 1.2] : local === 'back' ? [a, -d / 2 - 0.6, 3, 1.2]
               : local === 'right' ? [w / 2 + 0.6, a, 1.2, 3] : [-w / 2 - 0.6, a, 1.2, 3];
             k.box(bw, 0.15, bd, x, y, z, plainM, { collide: false });
-            const rx = local === 'right' ? x + 0.55 : local === 'left' ? x - 0.55 : x;
+            const rx2 = local === 'right' ? x + 0.55 : local === 'left' ? x - 0.55 : x;
             const rz = local === 'front' ? z + 0.55 : local === 'back' ? z - 0.55 : z;
-            k.box(local === 'front' || local === 'back' ? bw : 0.06, 1, local === 'front' || local === 'back' ? 0.06 : bd, rx, y + 0.15, rz, M.metal(), { collide: false });
+            k.box(local === 'front' || local === 'back' ? bw : 0.06, 1, local === 'front' || local === 'back' ? 0.06 : bd, rx2, y + 0.15, rz, M.metal(), { collide: false });
           }
         }
       }
@@ -358,14 +429,21 @@ function interior(k, w, d, kind, wallM, opts) {
   const fl = new THREE.Mesh(fg, floorM);
   fl.rotation.x = -Math.PI / 2; fl.position.y = 0.02; fl.receiveShadow = true;
   k.root.add(fl);
-  k.box(w, 0.3, d, 0, GROUND - 0.3, 0, inner, { collide: false, cast: false });
+  k.box(w, 0.22, d, 0, GROUND - 0.32, 0, inner, { collide: false, cast: false }); // (just under the floor above)
   // side and back walls (outside: the building's wall; inside: plaster lining)
   k.box(T, GROUND, d, -w / 2 + T / 2, 0, 0, wallM, { uv: [4, FLOOR] });
   k.box(T, GROUND, d, w / 2 - T / 2, 0, 0, wallM, { uv: [4, FLOOR] });
-  k.box(w, GROUND, T, 0, 0, -d / 2 + T / 2, wallM, { uv: [4, FLOOR] });
+  if (opts.backDoor) { // a door at the back, through to the rest of the building (and its stairs)
+    const bx = opts.backDoor.x ?? 0, seg = (a, b) => { if (b - a > 0.05) { k.box(b - a, GROUND, T, (a + b) / 2, 0, -d / 2 + T / 2, wallM, { uv: [4, FLOOR] }); k.box(b - a, GROUND - 0.3, 0.05, (a + b) / 2, 0, -d / 2 + T + 0.03, inner, { collide: false, cast: false }); } };
+    seg(-w / 2, bx - 0.9); seg(bx + 0.9, w / 2);
+    k.box(1.8, GROUND - 2.6, T, bx, 2.6, -d / 2 + T / 2, wallM);
+    out.backDoor = k.world(bx, 0, -d / 2 - 1);
+  } else {
+    k.box(w, GROUND, T, 0, 0, -d / 2 + T / 2, wallM, { uv: [4, FLOOR] });
+    k.box(w - 2 * T, GROUND - 0.3, 0.05, 0, 0, -d / 2 + T + 0.03, inner, { collide: false, cast: false });
+  }
   k.box(0.05, GROUND - 0.3, d - 2 * T, -w / 2 + T + 0.03, 0, 0, inner, { collide: false, cast: false });
   k.box(0.05, GROUND - 0.3, d - 2 * T, w / 2 - T - 0.03, 0, 0, inner, { collide: false, cast: false });
-  k.box(w - 2 * T, GROUND - 0.3, 0.05, 0, 0, -d / 2 + T + 0.03, inner, { collide: false, cast: false });
   // shopfront: sill, big windows either side of the door, fascia over the top
   const fz = d / 2 - T / 2;
   const frameM = mat(`frame${opts.frame || 0}`, () => std({ color: 0x1d2420, roughness: 0.5 }));
