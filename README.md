@@ -313,7 +313,7 @@ Shelf stock in the shops is only drawn when you're at the shop. Distant scenery 
 ## Controls
 
 **On foot**
-- `W A S D` walk, `Shift` run, `Space` jump
+- `W A S D` walk, `Shift` run, `Space` jump, `C` crouch, `X` ragdoll (go limp and keep your momentum: run or jump first for a real tumble; `X` or `Space` to get back up)
 - `LMB` pick up the item you're looking at (it's held in your robot-arm hand), `LMB` again to put it down; empty-handed, `LMB` punches
 - `RMB` throw the held item; empty-handed, `RMB` grabs a person (knocking them out) and drags them
 - `F` use the held item (medkits heal, coffee perks you up)

@@ -694,6 +694,19 @@ class Game {
     }
   }
 
+  // X: go limp. You keep whatever speed you had, so run (or jump) first for a proper tumble.
+  goLimp() {
+    if (!this.onShore || this.vehicles.active || this.boats.active || this.flying || this.skydive?.active || this.atHelm || this.gunnery.active) return false;
+    if (this.hostage || this.dragging || this.homes?.inside || this.story?.underground || this.pragdoll.active) return false;
+    const sp = this.shorePlayer, t = sp.body.translation();
+    const fwd = new THREE.Vector3(-Math.sin(sp.yaw), 0, -Math.cos(sp.yaw));
+    const run = Math.hypot(sp.vel.x, sp.vel.z);
+    const vel = sp.vel.clone().addScaledVector(fwd, 1.2 + run * 0.15);
+    vel.y = Math.max(sp.vel.y, 0) + 1 + run * 0.2;
+    this.pragdoll.start(new THREE.Vector3(t.x, t.y, t.z), sp.yaw, vel, { spin: 1.5 + run * 0.35 });
+    return true;
+  }
+
   leaveJetAt(pos, yaw) {
     this.onShore = true;
     this.shorePlayer.body.setTranslation(pos, true);
@@ -1290,7 +1303,8 @@ class Game {
       if (e.repeat || !this.locked) return;
       this.keys.add(e.code);
       if (this.health.dead) return;
-      if (this.pragdoll.active) { if (e.code === 'Space' && this.pragdoll.canGetUp()) this.pragdoll.getUp(); return; }
+      if (this.pragdoll.active) { if ((e.code === 'Space' || e.code === 'KeyX') && this.pragdoll.canGetUp()) this.pragdoll.getUp(); return; }
+      if (e.code === 'KeyX' && this.goLimp()) return; // the ragdoll button
       if (this.flying && e.code !== 'KeyE') { this.jets.key(e.code); return; }
       if (e.code === 'KeyE') {
         if (this.flying) { this.jets.exit(); return; }
@@ -1347,7 +1361,7 @@ class Game {
   }
 
   promptText() {
-    if (this.pragdoll.active) return this.pragdoll.canGetUp() ? '<kbd>Space</kbd> Get up' : null;
+    if (this.pragdoll.active) return this.pragdoll.canGetUp() ? '<kbd>Space</kbd> / <kbd>X</kbd> Get up' : null;
     if (this.health.dead || this.atHelm || this.gunnery.active || this.flying) return null;
     if (this.boats.active) {
       const b = this.boats.active;
