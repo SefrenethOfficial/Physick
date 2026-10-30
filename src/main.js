@@ -1674,7 +1674,7 @@ class Game {
     this.graphics.update(dt);
     const under = this.story.underground;
     this.music.update(dt, this.started && this.settings.music && !this.health.dead ? Math.max(this.police.wanted, this.gangs.war.active ? 1 : 0) : 0, this.started && under, this.started && this.settings.music && !this.health.dead ? this.story.musicTrack : null, this.started && this.settings.music && !this.health.dead && this.police.swatActive, this.started && this.settings.music && !this.health.dead && !!this.activities?.cur?.racers);
-    this.setUnderground(under ? 'lab' : this.homes?.inside ? 'home' : this.volcano?.playerInside ? 'cave' : false);
+    this.setUnderground(under ? 'lab' : this.homes?.inside ? 'home' : this.volcano?.playerInside && !this.volcano?.cine ? 'cave' : false);
     this.police.update(dt);
     this.updatePickpocket(dt);
     this.blood.update(dt);
@@ -1783,10 +1783,11 @@ class Game {
     if (this.mapT <= 0) { this.mapT = 0.1; this.drawMinimap(viewYaw); }
     if (this.hud.bigMapOpen) { this.bigMapT = (this.bigMapT || 0) - dt; if (this.bigMapT <= 0) { this.bigMapT = 0.15; this.drawBigMap(viewYaw); } }
 
+    const cine = this.volcano?.cinema(dt, this.camera);
     const r = this.renderer;
     r.autoClear = true;
     r.render(this.scene, this.camera);
-    const showArm = !this.title?.active && !this.atHelm && !this.gunnery.active && !this.health.dead && !this.flying && !this.boats.active && !this.vehicles.active && !this.pragdoll.active && !this.skydive.active;
+    const showArm = !cine && !this.title?.active && !this.atHelm && !this.gunnery.active && !this.health.dead && !this.flying && !this.boats.active && !this.vehicles.active && !this.pragdoll.active && !this.skydive.active;
     this.viewmodel.update(dt, this.player, this.mouseDX, this.mouseDY, false);
     this.mouseDX = this.mouseDY = 0;
     if (showArm && !this.scopeShown && !(this.zoomK > 0.6 && this.held?.use === 'photo')) {

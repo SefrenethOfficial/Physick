@@ -28,7 +28,7 @@ export class Ridgeback {
     this.peak = { x: -2075, z: -1075 }; // the volcano (its crater)
     // the volcano's hollow: a cone-shaped cavern (radius cave at the floor, the base's level), its roof 7 m
     // under the mountainside, open to the sky through a little hole at the very top
-    this.crater = { cave: 46, slope: 0.75, top: 58, thick: 7, oculus: 4.5 };
+    this.crater = { cave: 46, top: 300, R0: 118, p: 1.5, thick: 7, oculus: 4.5 }; // (a spire: top m above the base's floor, coming down to it R0 m out)
     this.quarry = { x: -1735, z: -985, r: 62 };
     this.plan();
     this.build();
@@ -39,7 +39,7 @@ export class Ridgeback {
     const e = Math.min(x - isl.x0, isl.x1 - x, z - isl.z0, isl.z1 - z);
     const mask = smooth(6, 90, e);
     const dP = Math.hypot(x - this.peak.x, z - this.peak.z);
-    const mount = 175 * Math.pow(Math.max(0, 1 - dP / 310), 1.25) * (0.92 + 0.16 * fbm(x / 80 + 1.7, z / 80 - 4.2)); // a steep cone
+    const mount = 150 * Math.pow(Math.max(0, 1 - dP / 310), 1.25) * (0.92 + 0.16 * fbm(x / 80 + 1.7, z / 80 - 4.2)); // a steep cone
     const ridge = 1 - Math.abs(fbm(x / 210, z / 210) * 2 - 1);
     const hills = 34 * (Math.pow(fbm(x / 150 + 9, z / 150 - 3), 1.5) * 0.7 + ridge * ridge * 0.4);
     return Y + mask * (mount + hills * (0.5 + 0.5 * smooth(-1560, -1900, x)));
@@ -62,7 +62,7 @@ export class Ridgeback {
     this.flats = [
       { ...gas, r: 30, blend: 26 }, // the gas station, level with the road
       { x: -1880, z: -640, r: 34, y: passY(-1880, -640), blend: 45 }, // the meadow with the cabins (at road level, sloping gently up to the hills)
-      { x: P.x, z: P.z - 6, r: 22, y: P.y }, // the summit car park, at the mouth of the tunnel into the crater
+      { x: P.x, z: P.z - 6, r: 15, y: P.y }, // the summit car park, at the mouth of the tunnel into the crater
     ];
     // the tunnel: from the car park, straight in to the cavern (its portal is where the ground is high enough)
     const V = this.peak, dx = V.x - P.x, dz = V.z - P.z, dl = Math.hypot(dx, dz);
@@ -96,19 +96,21 @@ export class Ridgeback {
 
   // The volcano's summit: a clean cone (its slope parallel to the cavern's roof inside), with the
   // tunnel cut into its side from the car park to the portal (beyond that it runs underground).
-  coneAt(r) { const K = this.crater; return this.summitY + K.top - K.slope * r; }
+  // the ground's opened up over the tunnel (beyond the portal), so it can run under the mountain
+  underTunnel(x, z) { const T = this.tunnel; if (T.portal == null) return false; const ax = x - T.a.x, az = z - T.a.z, t = ax * T.u.x + az * T.u.z, lat = Math.abs(ax * T.u.z - az * T.u.x); return t > T.portal - 2 && t < T.len + 4 && lat < 8.5; }
+  coneAt(r) { const K = this.crater; return r < K.R0 ? this.summitY + K.top * Math.pow(1 - r / K.R0, K.p) : this.summitY - (r - K.R0) * 0.5; }
   volcanoAt(x, z, h) {
     const V = this.peak, r = Math.hypot(x - V.x, z - V.z);
     if (r > 200) return h;
     const cone = this.coneAt(r);
-    h = r < 40 ? cone : cone + (Math.max(h, cone) - cone) * smooth(40, 75, r);
+    if (r < this.crater.R0) h = Math.max(h, cone); // (the cone's always the top: no dip)
     const T = this.tunnel;
     if (T.portal != null) {
       const ax = x - T.a.x, az = z - T.a.z, t = ax * T.u.x + az * T.u.z, lat = Math.abs(ax * T.u.z - az * T.u.x);
       if (t > -4 && t < T.portal + 1) h = Math.min(h, T.y - 0.05 + Math.max(0, lat - 6.5) * 2.2);
     }
     const sm = this.flats[2], dsm = Math.hypot(x - sm.x, z - sm.z);
-    if (dsm < sm.r + 22) h = sm.y + (h - sm.y) * smooth(sm.r, sm.r + 22, dsm);
+    if (dsm < sm.r + 12) h = sm.y + (h - sm.y) * smooth(sm.r, sm.r + 12, dsm);
     return h;
   }
 
@@ -129,7 +131,7 @@ export class Ridgeback {
     const q = this.quarry;
     buildTerrain(g, sb, isl, {
       heightAt: (x, z) => this.heightAt(x, z), step: 5, sideColor: 0x6a604e, castShadow: true,
-      hole: (x, z) => Math.hypot(x - this.peak.x, z - this.peak.z) < this.crater.oculus + 0.5, // the vent at the top
+      hole: (x, z) => Math.hypot(x - this.peak.x, z - this.peak.z) < this.crater.oculus + 0.5 || this.underTunnel(x, z), // the vent at the top, and the tunnel (roofed over: volcano.js)
       map: photoTex(`${base}assets/textures/grass.jpg`, W / 9, D / 9),
       colorAt: (x, y, z, ny) => {
         const steep = smooth(0.9, 0.66, ny), high = smooth(Y + 90, Y + 145, y);

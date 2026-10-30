@@ -132,6 +132,7 @@ export class VolcanoBase {
     const pw = new THREE.Mesh(new THREE.CylinderGeometry(PIT, PIT - 1, 18, 40, 1, true), M.rockLit); pw.position.set(V.x, Y - 9, V.z); g.add(pw);
     const lav = new THREE.Mesh(new THREE.CircleGeometry(PIT - 0.8, 40), M.lava); lav.rotation.x = -Math.PI / 2; lav.position.set(V.x, this.lavaY, V.z); g.add(lav);
     this.lavaMesh = lav;
+    sb.addStaticCollider(RAPIER.ColliderDesc.cylinder(1, PIT).setTranslation(V.x, this.lavaY - 1.2, V.z)); // (things land in it, not through it)
     const glowS = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0xff7a20, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.8 })); glowS.scale.set(34, 34, 1); glowS.position.set(V.x, this.lavaY + 4, V.z); g.add(glowS);
     this.lavaLight = new THREE.PointLight(0xff6a20, 4, 75, 1.2); this.lavaLight.position.set(V.x, Y + 2, V.z); g.add(this.lavaLight);
     for (const a of [0.9, 3.0, 5.1]) { const p = this.at(R * 0.55, a), L = new THREE.PointLight(0xfff0d8, 1.6, 70, 1.3); L.position.set(p.x, Y + 13, p.z); g.add(L); }
@@ -157,12 +158,56 @@ export class VolcanoBase {
     }
     this.buildTunnel();
     this.buildRooms();
+    this.ventTop = ventTop;
+    // seen from far off (through the haze): the spire, so you can pick it out from the city
+    { const prof = []; for (let r = 0; r <= 300; r += 6) prof.push(new THREE.Vector2(r, rb.coneAt(r) + 2 - Math.max(0, r - 110) * 0.15)); prof.reverse();
+      const far = new THREE.Mesh(new THREE.LatheGeometry(prof, 48), new THREE.MeshBasicMaterial({ color: 0x40434c, fog: false, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }));
+      far.position.set(V.x, 0, V.z); far.visible = false; far.renderOrder = -1; this.game.scene.add(far); this.far = far; }
+    // the eruption: big glowing blobs out of the vent, and its light on the mountainside
+    this.blobs = [];
+    this.ventLight = new THREE.PointLight(0xff6a20, 0, 400, 1.2); this.ventLight.position.set(V.x, ventTop + 15, V.z); this.game.scene.add(this.ventLight);
+  }
+
+  // out of the top: the spout keeps going, right out of the vent
+  erupt() {
+    const V = this.V, top = this.ventTop;
+    for (let i = 0; i < 46; i++) {
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: [0xffd060, 0xff7a20, 0xff4a10][i % 3], transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+      const sc = 12 + Math.random() * 16; s.scale.set(sc, sc, 1); s.position.set(V.x, top, V.z); this.game.scene.add(s);
+      const a = Math.random() * 6.28, out = Math.random() * 9;
+      this.blobs.push({ s, v: new THREE.Vector3(Math.cos(a) * out * 2, 40 + Math.random() * 40, Math.sin(a) * out * 2), t: -i * 0.03, life: 3.5 + Math.random() * 1.5 });
+    }
+    // a column of it, right up out of the vent
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 5.5, 1, 14, 1, true), new THREE.MeshBasicMaterial({ color: 0xff8a20, transparent: true, opacity: 0.95, side: THREE.DoubleSide, fog: false }));
+    col.position.set(V.x, top, V.z); this.game.scene.add(col);
+    this.ventCol = { m: col, t: 0 };
+    this.ventLight.intensity = 30;
+  }
+
+  // the camera pulls right out, round the mountain, to watch it go up
+  startCinema() {
+    const g = this.game;
+    if (this.cine) { this.cine.t = Math.min(this.cine.t, 1); return; }
+    const c = g.camera.position, a = Math.atan2(c.x - this.V.x, c.z - this.V.z);
+    this.cine = { t: 0, a0: Number.isFinite(a) ? a : 0, dur: 6 };
+  }
+
+  cinema(dt, cam) {
+    const C = this.cine; if (!C) return false;
+    C.t += dt;
+    if (C.t > C.dur) { this.cine = null; return false; }
+    const k = Math.min(1, C.t / 1.6), e = 1 - Math.pow(1 - k, 3); // (a fast pull-out, then a slow drift round)
+    const dist = 60 + e * 330, a = C.a0 + C.t * 0.12, top = this.ventTop;
+    cam.position.set(this.V.x + Math.sin(a) * dist, this.Y + 40 + e * (top - this.Y + 10), this.V.z + Math.cos(a) * dist);
+    cam.lookAt(this.V.x, top + 18 * e, this.V.z);
+    cam.updateMatrixWorld();
+    return true;
   }
 
   // ---- the tunnel from the summit car park, and its blast door ----
   buildTunnel() {
     const T = this.T, Y = this.Y, M = this.M, sb = this.sb;
-    const t0 = T.portal - 0.5, t1 = T.len + 1.5, L = t1 - t0, tm = (t0 + t1) / 2;
+    const t0 = T.portal - 2.6, t1 = T.len + 1.5, L = t1 - t0, tm = (t0 + t1) / 2;
     const yaw = Math.atan2(T.u.x, T.u.z);
     const k = new Kit(this.group, sb, T.a.x + T.u.x * tm, Y, T.a.z + T.u.z * tm, yaw);
     this.tk = k;
@@ -188,6 +233,20 @@ export class VolcanoBase {
     const sp = k.world(9.5, 0, -L / 2 - 2);
     sign(this.group, 'PRIVATE · KEEP OUT', sp.x, Y + 2.2, sp.z, yaw + Math.PI, { w: 3.4, h: 0.7, bg: '#b3261e', fg: '#ffffff', post: Y });
     this.portal = k.world(0, 0, -L / 2 - 3);
+    // the mountainside over the tunnel (the ground's opened up there so the tunnel can run underneath)
+    {
+      const rb = this.rb, a0 = T.portal - 2.5, a1 = T.len + 4.5, nx = 9, nz = Math.ceil((a1 - a0) / 2.5);
+      const geo = new THREE.PlaneGeometry(21, a1 - a0, nx, nz); geo.rotateX(-Math.PI / 2);
+      const P = geo.attributes.position;
+      for (let i = 0; i < P.count; i++) {
+        const lx = P.getX(i), lt = a0 + (P.getZ(i) + (a1 - a0) / 2);
+        const wx = T.a.x + T.u.x * lt + T.u.z * lx, wz = T.a.z + T.u.z * lt - T.u.x * lx;
+        P.setXYZ(i, wx, Math.max(rb.heightAt(wx, wz) + 0.3, Y + 8.8), wz);
+      }
+      geo.computeVertexNormals();
+      const cap = new THREE.Mesh(geo, Object.assign(std({ color: 0x4a423c, roughness: 1, map: this.M.rock.map }), { side: THREE.DoubleSide })); cap.receiveShadow = true; cap.castShadow = true;
+      this.group.add(cap);
+    }
   }
 
   updateDoor(dt) {
@@ -471,6 +530,8 @@ export class VolcanoBase {
       col.position.set(x, y, z); this.group.add(col);
       this.splashes.push({ col, t: 0 });
       this.lavaLight.intensity = 14;
+      this.erupt();
+      this.startCinema();
     }
   }
 
@@ -481,6 +542,9 @@ export class VolcanoBase {
     if (g.onShore && !g.health.dead && inPit(pp)) { this.splash(pp.x, pp.z); g.health.damage(9999, 'lava'); }
     for (const n of [...g.citizens.list]) { const t = n.body.translation(); if (inPit(t)) { this.splash(t.x, t.z); g.citizens.despawn(n); } }
     for (const c of [...g.vehicles.list]) if (c !== g.vehicles.active && inPit(c.pos)) { this.splash(c.pos.x, c.pos.z); g.vehicles.remove(c); }
+    const pr = g.pragdoll?.rd?.torso?.body?.translation?.();
+    if (pr && inPit(pr) && !this.prSplashed) { this.prSplashed = true; this.splash(pr.x, pr.z); g.health.damage(9999, 'lava'); }
+    if (!pr) this.prSplashed = false;
     const A = g.vehicles.active;
     if (A && inPit(A.pos)) { this.splash(A.pos.x, A.pos.z); g.vehicles.exit(); g.health.damage(9999, 'lava'); if (g.vehicles.list.includes(A)) g.vehicles.remove(A); }
     const C = g.citizens;
@@ -507,6 +571,14 @@ export class VolcanoBase {
       s.col.scale.set(1 + s.t, h, 1 + s.t); s.col.position.y = this.lavaY + h / 2; s.col.material.opacity = Math.max(0, 0.9 - s.t * 0.4);
       if (s.t > 2.2) { s.col.removeFromParent(); s.col.geometry.dispose(); this.splashes.splice(this.splashes.indexOf(s), 1); }
     }
+    for (const b of [...this.blobs]) {
+      b.t += dt; if (b.t < 0) continue;
+      b.v.y -= 16 * dt; b.s.position.addScaledVector(b.v, dt); b.s.material.opacity = Math.max(0, 1 - b.t / b.life);
+      if (b.t > b.life) { b.s.removeFromParent(); b.s.material.dispose(); this.blobs.splice(this.blobs.indexOf(b), 1); }
+    }
+    if (this.ventCol) { const c = this.ventCol; c.t += dt; const h = Math.max(0.01, Math.sin(Math.min(1, c.t / 3) * Math.PI) * 110); c.m.scale.set(1 + c.t * 0.6, h, 1 + c.t * 0.6); c.m.position.y = this.ventTop + h / 2; c.m.material.opacity = Math.max(0, 0.95 - c.t * 0.28); if (c.t > 3.4) { c.m.removeFromParent(); c.m.geometry.dispose(); this.ventCol = null; } }
+    this.ventLight.intensity = Math.max(0, this.ventLight.intensity - dt * 8);
+    { const cam = g.camera.position, d = Math.hypot(cam.x - this.V.x, cam.z - this.V.z), o = Math.max(0, Math.min(1, (d - 650) / 450)); this.far.visible = o > 0.01; this.far.material.opacity = o; }
     // the odd blob of lava pops up on its own
     this.bubT = (this.bubT ?? 2) - dt;
     const p = g.shorePlayer.body.translation(), here = Math.hypot(p.x - this.V.x, p.z - this.V.z) < 160;
