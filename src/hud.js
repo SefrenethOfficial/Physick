@@ -251,9 +251,17 @@ export class Hud {
     if (key === this._wanted) return;
     this._wanted = key;
     let html = '';
-    const slots = n <= 5 ? 5 : n <= 10 ? 10 : n <= 20 ? 20 : 30; // up to 30 stars, in rows of ten
-    for (let k = 1; k <= slots; k++) html += `<span class="${k <= n ? 'on' : ''}${k > 20 && k <= n ? ' max' : ''}${k === 30 && n >= 30 ? ' army' : ''}">★</span>`;
-    if (n > 5) html += `<b class="wcount">${n}</b>`;
+    if (n >= 50) html = '<div class="wskull">☠ 50<small>FULL LOCKDOWN</small></div>'; // (the lot)
+    else if (n > 30) { // the police's thirty, folded up, then the military's row
+      html = '<div class="wpolice">★×30 POLICE</div><div class="wmil"><em>MILITARY</em>';
+      for (let k = 31; k <= 50; k++) html += `<span class="${k <= n ? 'on' : ''}">★</span>`;
+      html += `</div><b class="wcount">${n}</b>`;
+    } else {
+      const slots = n <= 5 ? 5 : n <= 10 ? 10 : n <= 20 ? 20 : 30; // up to 30 stars, in rows of ten
+      for (let k = 1; k <= slots; k++) html += `<span class="${k <= n ? 'on' : ''}${k > 20 && k <= n ? ' max' : ''}${k === 30 && n >= 30 ? ' army' : ''}">★</span>`;
+      if (n > 5) html += `<b class="wcount">${n}</b>`;
+    }
+    this.wantedEl.classList.toggle('mil', n > 30);
     this.wantedEl.classList.toggle('many', n > 5);
     this.wantedEl.classList.toggle('max', n >= 20);
     this.wantedEl.classList.toggle('army', n >= 30);

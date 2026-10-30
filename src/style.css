@@ -304,6 +304,14 @@ kbd {
 .wanted.army.active span.on { color: #ff2a1a; animation: armyPulse .5s infinite alternate; }
 @keyframes armyPulse { to { color: #ffffff; text-shadow: 0 2px 0 #000, 0 0 16px rgba(255,40,20,1); } }
 .wanted .cuff { width: 100%; margin-top: 4px; font-size: 12px; text-align: right; }
+.wanted .wpolice { width: 100%; text-align: right; font-size: 13px; font-weight: 700; color: #ff8a3a; letter-spacing: 1px; text-shadow: 0 1px 2px #000; }
+.wanted .wmil { width: 100%; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 1px; font-size: 17px; }
+.wanted .wmil em { width: 100%; text-align: right; font-style: normal; font-size: 11px; font-weight: 800; letter-spacing: 3px; color: #ff3a2a; text-shadow: 0 1px 2px #000; }
+.wanted .wmil span { width: 21px; text-align: center; }
+.wanted.active .wmil span.on { color: #ff2a1a; text-shadow: 0 2px 0 #000, 0 0 12px rgba(255,30,20,1); animation: armyPulse .4s infinite alternate; }
+.wanted .wskull { width: 100%; text-align: right; font-size: 38px; font-weight: 900; color: #ff2a1a; text-shadow: 0 2px 0 #000, 0 0 18px rgba(255,20,10,1); animation: skullFlash .5s steps(2) infinite; }
+.wanted .wskull small { display: block; font-size: 12px; letter-spacing: 3px; color: #ffd0c8; }
+@keyframes skullFlash { from { opacity: 1; } to { opacity: .45; } }
 .wanted .cuff i { display: block; height: 6px; background: #7fb2ff; border-radius: 2px; margin-left: auto; }
 .wanted .cuff em { font-style: normal; color: #9ec5ff; text-shadow: 0 1px 2px #000; }
 .minimap { position: absolute; left: 14px; bottom: 16px; width: 180px; height: 180px; opacity: .92; }

@@ -8,10 +8,11 @@ import { LAND_Y, islandAt, blocked, onLand } from './world.js';
 // chase and ram you through the streets, and police boats that hunt you down at sea.
 
 import { HEAT, FOOT, CARS, Escalation, makeSwat, SWAT_LOOK, ADV_LOOK } from './swat.js';
+import { Military, armyLook, makeSoldier, LOCKDOWN } from './military.js';
 
 const SWAT_LOOKS = [SWAT_LOOK, ADV_LOOK];
 
-const BOATS = [0, 0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7];
+const BOATS = [0, 0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, ...Array(20).fill(7)];
 const CAR_SPEED = 17;
 
 const angleTo = (from, to) => { let d = to - from; return Math.atan2(Math.sin(d), Math.cos(d)); };
@@ -31,6 +32,7 @@ export class Police {
     this.radioT = 0;
     this.tracers = [];
     this.esc = new Escalation(game);
+    this.mil = new Military(game);
   }
 
   tracer(a, b) {
@@ -70,6 +72,7 @@ export class Police {
     this.heat += severity;
     this.setWantedFromHeat();
     this.lastSeen = now;
+    this.seenIsland = islandAt(pos.x, pos.z, 4)?.id || 'sea';
     if (this.wanted > before) {
       this.game.sfx.play('star');
       const msg = { murder: 'A witness saw the killing', copkill: 'Officer down!', assault: 'Someone saw you attack', theft: 'Someone saw you steal', body: 'Someone saw you with a body', blood: 'A witness put you near the blood' }[why] || 'The police are after you';
@@ -77,7 +80,7 @@ export class Police {
       const N = this.game.news, where = N?.place(pos);
       const what = { murder: `a killing in ${where}, witnesses say the suspect fled`, copkill: `an officer down in ${where}`, assault: `an assault in ${where}`, theft: `a theft in ${where}`, carjack: `a carjacking in ${where}`, copcar: `someone stole a police cruiser in ${where}`, shooting: `shots fired in ${where}`, explosion: `an explosion in ${where}` }[why];
       if (what) N.add(`Police are responding to ${what}.`, 'crime');
-      if ([6, 10, 15, 20, 25, 30].includes(this.wanted)) N?.add(this.wanted >= 30 ? 'BREAKING: the National Guard is sending tanks into the streets after a suspect. Residents must stay indoors.' : this.wanted >= 25 ? 'Every police unit in the state is converging on one suspect.' : this.wanted >= 20 ? 'The city has deployed its riot SWAT unit. Residents are told to stay indoors.' : this.wanted >= 10 ? `SWAT teams are in pursuit of a suspect in ${where}.` : `Police helicopters are circling ${where} in a manhunt.`, 'crime');
+      if ([6, 10, 15, 20, 25, 30].includes(this.wanted) && before < this.wanted) N?.add(this.wanted >= 30 ? 'BREAKING: the National Guard is sending tanks into the streets after a suspect. Residents must stay indoors.' : this.wanted >= 25 ? 'Every police unit in the state is converging on one suspect.' : this.wanted >= 20 ? 'The city has deployed its riot SWAT unit. Residents are told to stay indoors.' : this.wanted >= 10 ? `SWAT teams are in pursuit of a suspect in ${where}.` : `Police helicopters are circling ${where} in a manhunt.`, 'crime');
     }
   }
 
@@ -275,9 +278,10 @@ export class Police {
     for (const [s, back] of spots) {
       const p = car.pos.clone().addScaledVector(side, s * (car.swat ? 2.4 : 2)).addScaledVector(fwd, back);
       p.y = LAND_Y;
-      const n = c.spawnCitizen(car.island, 'cop', p, car.swat ? { look: SWAT_LOOKS[car.swat - 1] } : {});
+      const n = c.spawnCitizen(car.island, 'cop', p, car.army ? { look: armyLook() } : car.swat ? { look: SWAT_LOOKS[car.swat - 1] } : {});
       if (!n) continue;
-      if (car.swat) makeSwat(n, car.swat);
+      if (car.army) makeSoldier(n);
+      else if (car.swat) makeSwat(n, car.swat);
       n.dispatched = true;
       n.state = 'chase';
       n.lastSeen = new THREE.Vector3(goal.x, goal.y, goal.z);
@@ -376,11 +380,32 @@ export class Police {
       const t = n.body.translation();
       if (Math.hypot(t.x - target.x, t.z - target.z) > 45 || !n.playerVisible) g.citizens.despawn(n);
     }
-    if (seen && this.wanted > 0) this.lastSeen = now;
-    if (g.flying) this.lastSeen = Math.min(this.lastSeen, now - 1e9); // they lose you in a jet
+    const here = islandAt(target.x, target.z, 4)?.id || 'sea';
+    // the volcano base is a safe haven: nobody can see in, and the heat drains away (not at 50 stars:
+    // they won't open the door to someone with the whole military behind them)
+    const haven = this.wanted > 0 && this.wanted < LOCKDOWN && g.volcano?.playerInside;
+    if (haven) {
+      seen = false;
+      if (!this.inHaven) { this.inHaven = true; this.havenT = 0; g.hud.toast('Safe inside the volcano base: the heat dies down in here', 0x7be08a); }
+      this.havenT += dt;
+      if (this.havenT > 2) {
+        this.havenT = 0; this.wanted -= 1; this.heat = HEAT[this.wanted]; this.lastSeen = now;
+        if (this.wanted === 0) { this.clearWanted(true); g.hud.toast('They\'ve lost you. The coast is clear.', 0x7be08a); }
+      }
+    } else this.inHaven = false;
+    if (seen && this.wanted > 0) { this.lastSeen = now; this.seenIsland = here; }
+    if (g.flying && this.wanted <= 30) this.lastSeen = Math.min(this.lastSeen, now - 1e9); // they lose you in a jet (the military doesn't)
 
-    // losing them
-    if (this.wanted > 0 && now - this.lastSeen > (10 + this.wanted * 6) * (g.economy.perks.scanner ? 650 : 1000)) {
+    // losing them. Past 30 stars the military doesn't give up just because it lost sight of you: get
+    // off the island they last saw you on (or hide away indoors) and keep out of sight, and the level
+    // comes down three stars at a time, back to the police at 30.
+    if (haven) { /* (draining above) */ } else if (this.wanted > 30) {
+      const away = this.mil.hidden() || here !== this.seenIsland;
+      if (away && now - this.lastSeen > 40000) {
+        this.wanted = Math.max(30, this.wanted - 3); this.heat = HEAT[this.wanted]; this.lastSeen = now;
+        g.hud.toast(`Wanted level down: ${this.wanted} stars`, 0x9ec5ff);
+      }
+    } else if (this.wanted > 0 && now - this.lastSeen > (10 + this.wanted * 6) * (g.economy.perks.scanner ? 650 : 1000)) {
       this.wanted -= 1;
       this.heat = HEAT[this.wanted];
       this.lastSeen = now;
@@ -452,7 +477,7 @@ export class Police {
     g.loot?.lose('busted');
     this.esc.reset();
     const lost = g.economy.loseBag();
-    const fine = Math.round(g.economy.money * 0.25);
+    const fine = Math.round(g.economy.money * (this.wanted > 30 ? 0.4 : 0.25)); // (the military's harder on you)
     if (fine) g.economy.addMoney(-fine);
     g.clearHand?.(true);
     this.clearWanted();

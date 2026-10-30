@@ -300,7 +300,20 @@ export class VolcanoBase {
   updateDoor(dt) {
     const p = this.game.shorePlayer.body.translation(), car = this.game.vehicles.active;
     const q = car ? car.pos : p;
-    const want = Math.hypot(q.x - this.portal.x, q.z - this.portal.z) < 30 || this.inside(q, 8) ? 1 : 0;
+    // a safe haven, but not at 50 stars: the door stays shut and the crew won't open it
+    const g = this.game, locked = (g.police?.wanted ?? 0) >= 50, dPortal = Math.hypot(q.x - this.portal.x, q.z - this.portal.z);
+    if (locked && dPortal < 40 && !this.lockNote && !this.playerInside) {
+      this.lockNote = true; g.sfx.play('error');
+      g.hud.toast('Intercom: "You\'ve got the whole army on your tail and you come HERE? Door stays shut. Lose some of that heat first."', 0xff6a5a);
+    }
+    if (!locked || dPortal > 80) this.lockNote = false;
+    if (locked && this.playerInside && !this.showingOut) { // they see you out
+      this.showingOut = true;
+      g.hud.toast('The crew: "Not in here, you don\'t. Out." They march you to the door.', 0xff6a5a);
+      const out = () => { if (g.vehicles.active) g.vehicles.exit?.(); const T = this.T; g.placeOnShore(this.portal.clone().add(new THREE.Vector3(-T.u.x * 4, 1.2, -T.u.z * 4)), Math.atan2(T.u.x, T.u.z)); this.showingOut = false; };
+      if (g.story?.fade) g.story.fade(out); else out();
+    }
+    const want = !locked && (dPortal < 30 || this.inside(q, 8)) ? 1 : 0;
     const before = this.doorOpen;
     this.doorOpen += Math.sign(want - this.doorOpen) * Math.min(Math.abs(want - this.doorOpen), dt * 0.6);
     if (before === this.doorOpen && this.doorPlaced) return;

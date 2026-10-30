@@ -821,6 +821,7 @@ class Game {
     if (this.pragdoll.active) this.pragdoll.clear();
     this.sinkingBoat = null;
     this.clearHand();
+    const military = this.police.wanted > 30;
     this.police.clearWanted();
     if (this.homes?.wakeAtHome()) { this.hud.toast(`You come round at home: ${this.homes.inside.name}`, 0x7be08a); return; }
     if (this.volcano?.wake()) return;
@@ -831,7 +832,7 @@ class Game {
     const useSalt = sh && Math.hypot(pt.x - sh.x, pt.z - sh.z) < Math.hypot(pt.x - city.x, pt.z - city.z);
     this.placeOnShore(useSalt ? new THREE.Vector3(sh.x, LAND_Y + 1.1, sh.z) : city.clone(), useSalt ? Math.PI : 0);
     if (useSalt) this.hud.toast('You come round at Saltmarsh Hospital', 0x9ec5ff);
-    const bill = Math.round(this.economy.money * 0.1);
+    const bill = Math.round(this.economy.money * (military ? 0.25 : 0.1)); // (a bigger bill after a run-in with the military)
     if (bill) this.economy.addMoney(-bill, 'hospital bill');
   }
 

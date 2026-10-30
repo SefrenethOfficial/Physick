@@ -8,7 +8,8 @@ import { std, canvasTex } from './buildkit.js';
 import { DIMS } from './figure.js';
 import { rifleModel, smgModel } from './gunmodels.js';
 
-// The heavy end of a police chase. The wanted level goes all the way to 30 stars:
+// The heavy end of a police chase. The wanted level goes up to 50 stars (past 30 it's the
+// military: see military.js):
 //   6+  police helicopters circle overhead with a searchlight and a marksman
 //   10+ SWAT vans full of tactical officers with rifles
 //   20+ riot SWAT: armoured trucks and officers in full armour behind riot shields
@@ -17,13 +18,17 @@ import { rifleModel, smgModel } from './gunmodels.js';
 // Plus roadblocks (with spike strips) ahead of you when you're driving, and bounty hunters who
 // come for you after a big chase, even once the police have given up.
 
-export const MAX_STARS = 30;
-export const HEAT = [0, 1, 2, 4, 7, 11, 15, 19, 24, 29, 35, 41, 48, 55, 63, 71, 80, 89, 99, 110, 120, 132, 144, 157, 170, 184, 198, 213, 228, 244, 260];
-export const FOOT = [0, 2, 4, 6, 8, 10, 10, 11, 11, 12, 10, 10, 11, 11, 12, 12, 12, 13, 13, 14, 14, 14, 15, 15, 15, 16, 16, 16, 16, 16, 14];
-export const CARS = [0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 4, 4, 5, 5, 5, 5, 5, 5, 6, 6, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 5];
-export const HELIS = (w) => (w >= 25 ? 4 : w >= 20 ? 3 : w >= 10 ? 2 : w >= 6 ? 1 : 0);
+export const MAX_STARS = 50;
+export const HEAT = [0, 1, 2, 4, 7, 11, 15, 19, 24, 29, 35, 41, 48, 55, 63, 71, 80, 89, 99, 110, 120, 132, 144, 157, 170, 184, 198, 213, 228, 244, 260,
+  277, 294, 312, 330, 349, 368, 388, 408, 429, 450, 472, 494, 517, 540, 564, 588, 613, 638, 664, 690];
+export const FOOT = [0, 2, 4, 6, 8, 10, 10, 11, 11, 12, 10, 10, 11, 11, 12, 12, 12, 13, 13, 14, 14, 14, 15, 15, 15, 16, 16, 16, 16, 16, 14,
+  10, 10, 10, 10, 10, 9, 9, 9, 9, 9, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]; // (past 30, soldiers make up the rest)
+export const CARS = [0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 4, 4, 5, 5, 5, 5, 5, 5, 6, 6, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 5,
+  4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3];
+export const HELIS = (w) => (w >= 50 ? 5 : w >= 25 ? 4 : w >= 20 ? 3 : w >= 10 ? 2 : w >= 6 ? 1 : 0); // (police and army together)
+export const GUNSHIPS = (w) => (w >= 50 ? 4 : w >= 46 ? 3 : w >= 36 ? 2 : 0);
 export const VANS = (w) => (w >= 25 ? 4 : w >= 20 ? 3 : w >= 15 ? 2 : w >= 10 ? 1 : 0);
-export const TANKS = (w) => (w >= 30 ? 3 : 0);
+export const TANKS = (w) => (w >= 46 ? 4 : w >= 30 ? 3 : 0);
 
 export const SWAT_LOOK = { shirt: 0x1b1d22, pants: 0x1b1d22, skin: 0xa8724f, hat: 'helmet', hatColor: 0x111214 };
 export const ADV_LOOK = { shirt: 0x262b33, pants: 0x262b33, skin: 0x7a4f35, hat: 'helmet', hatColor: 0x3e4652 };
@@ -148,7 +153,7 @@ export function tankMesh() {
 }
 
 // ---------------------------------------------------------------- police helicopter
-class PoliceHeli {
+export class PoliceHeli {
   constructor(game, at) {
     this.game = game;
     this.h = new Heli(game);
@@ -254,8 +259,8 @@ class PoliceHeli {
       this.beam.visible = this.pool.visible = false;
       this.game.fx.explosion(this.pos.clone());
       this.game.sfx.play('explosion');
-      this.game.hud.toast('Police chopper down!', 0xffd166);
-      this.game.news?.add(`A police helicopter has been shot down over ${this.game.news.place(this.pos)}. Unbelievable scenes.`, 'crime');
+      this.game.hud.toast(`${this.label || 'Police chopper'} down!`, 0xffd166);
+      this.game.news?.add(`${this.gunship ? 'An army attack helicopter' : 'A police helicopter'} has been shot down over ${this.game.news.place(this.pos)}. Unbelievable scenes.`, 'crime');
       this.game.police.heat += 4; this.game.police.setWantedFromHeat();
     }
   }
@@ -488,7 +493,8 @@ export class Escalation {
     for (const s of [-1, 1]) {
       const p = spot.pos.clone().addScaledVector(across, s * (spot.width / 2 - 2.4)).addScaledVector(along, 3);
       const heading = spot.along + Math.PI / 2 + (s > 0 ? 0.25 : -0.25);
-      const c = new Car(g, { police: true, x: p.x, z: p.z, heading });
+      const army = this.police.wanted > 30;
+      const c = army ? this.police.mil.humvee({ x: p.x, z: p.z, heading }) : new Car(g, { police: true, x: p.x, z: p.z, heading });
       const gy = c.groundAt(p.x, p.z, spot.pos.y + 3);
       c.body.setTranslation({ x: p.x, y: gy, z: p.z }, true); c.pos.y = gy; c.groundY = gy;
       Object.assign(c, { blockade: true, leaving: false, life: 0, deployed: 1, island: islandAt(p.x, p.z, 4)?.id || 'park' });
@@ -512,14 +518,16 @@ export class Escalation {
     if (isl && ['city', 'town', 'hood', 'park'].includes(isl)) for (const s of [-1, 1]) {
       const p = spot.pos.clone().addScaledVector(across, s * 2).addScaledVector(along, 7);
       p.y = spot.pos.y + 0.1;
-      const n = g.citizens.spawnCitizen(isl, 'cop', p);
+      const army = this.police.wanted > 30;
+      const n = g.citizens.spawnCitizen(isl, 'cop', p, army ? { look: { shirt: 0x5a6340, pants: 0x4a5034, skin: 0xa8724f, hat: 'helmet', hatColor: 0x4b5232 } } : {});
       if (!n) continue;
-      if (this.police.wanted >= 10) makeSwat(n, this.police.wanted >= 20 ? 2 : 1);
+      if (army) this.police.mil.soldier(n);
+      else if (this.police.wanted >= 10) makeSwat(n, this.police.wanted >= 20 ? 2 : 1);
       Object.assign(n, { dispatched: true, state: 'chase', lastSeen: v.pos.clone() });
       cops.push(n);
     }
     this.blocks.push({ cars, spike, cops, t: 0, pos: spot.pos.clone() });
-    g.hud.toast('Roadblock ahead!', 0xff6a5a);
+    g.hud.toast(this.police.wanted > 30 ? 'Army checkpoint ahead!' : 'Roadblock ahead!', 0xff6a5a);
     return true;
   }
 
@@ -600,19 +608,21 @@ export class Escalation {
     // a long chase only gets hotter while they've got eyes on you
     if (w >= 5 && g.time * 1000 - P.lastSeen < 3000) {
       this.chaseT += dt;
-      if (this.chaseT > 14) { this.chaseT = 0; P.heat += w >= 20 ? 4 : 2; const before = P.wanted; P.setWantedFromHeat(); if (P.wanted > before) { g.sfx.play('star'); g.hud.toast(`They're throwing everything at you: ${P.wanted} stars`, 0xff6a5a); } }
+      if (this.chaseT > 14) { this.chaseT = 0; P.heat += w >= 30 ? 8 : w >= 20 ? 4 : 2; const before = P.wanted; P.setWantedFromHeat(); if (P.wanted > before) { g.sfx.play('star'); g.hud.toast(`They're throwing everything at you: ${P.wanted} stars`, 0xff6a5a); } }
     }
     // helicopters
     const wantH = HELIS(w);
     const live = this.helis.filter((h) => !h.leaving && !h.falling);
     this.heliT -= dt;
-    if (w > 0 && live.length < wantH && this.heliT <= 0) {
-      this.heliT = 8;
-      const a = Math.random() * Math.PI * 2;
-      this.helis.push(new PoliceHeli(g, new THREE.Vector3(target.x + Math.cos(a) * 220, LAND_Y + 70, target.z + Math.sin(a) * 220)));
-      g.hud.toast('Police chopper inbound', 0xff6a5a);
+    const wantG = GUNSHIPS(w), liveG = live.filter((h) => h.gunship).length;
+    if (w > 0 && (live.length < wantH || liveG < wantG) && this.heliT <= 0) {
+      this.heliT = wantG ? 6 : 8;
+      const a = Math.random() * Math.PI * 2, at = new THREE.Vector3(target.x + Math.cos(a) * 220, LAND_Y + 70, target.z + Math.sin(a) * 220);
+      if (liveG < wantG) { this.helis.push(P.mil.makeGunship(at)); g.hud.toast('Army attack helicopter inbound!', 0xff3a2a); }
+      else { this.helis.push(new PoliceHeli(g, at)); g.hud.toast('Police chopper inbound', 0xff6a5a); }
     }
-    if (live.length > wantH) for (const h of live.slice(wantH)) h.leaving = true;
+    if (live.length > Math.max(wantH, wantG)) for (const h of live.filter((x) => !x.gunship).slice(Math.max(0, wantH - wantG))) h.leaving = true;
+    if (liveG > wantG) for (const h of live.filter((x) => x.gunship).slice(wantG)) h.leaving = true;
     let seen = false;
     for (const h of [...this.helis]) {
       if (h.update(dt, target, w >= 20)) seen = true;
@@ -649,7 +659,7 @@ export class Escalation {
     if (w === 0 && this.peak >= 5 && !this.bounty && this.bountyT <= 0 && !this.bountyArmed) { this.bountyArmed = true; this.bountyT = 25 + Math.random() * 20; }
     if (w > 0) this.bountyArmed = false;
     this.updateBounty(dt);
-    void onFoot;
+    if (P.mil.update(dt, onFoot, island)) seen = true;
     return seen;
   }
 
@@ -666,5 +676,6 @@ export class Escalation {
     for (const h of this.helis) h.leaving = true;
     for (const b of [...this.blocks]) this.clearBlock(b);
     this.peak = 0; this.chaseT = 0; this.bountyArmed = false; this.bountyT = 0;
+    this.police?.mil?.reset();
   }
 }

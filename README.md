@@ -305,15 +305,23 @@ Press `M` for the full map: every island, road, trail and landmark, the shops an
   It all sells at the pawn shop.
 - **Pick pockets:** get behind someone and hold `E`. If they notice, they run and call the police.
 - **Witnesses:** anyone who sees a crime runs and phones it in. Townspeople who find **blood or a body** go to look, then call the police, and if you're standing around nearby they'll describe you. People also notice you dragging a body around. Mops (in the plaza, the market and on the fishing dock) clean blood off the street.
-- **Wanted level** (1–30 stars): officers on foot, then squad cars that chase you down the streets and run you over, and at sea police boats that ram your boat. From 2 stars they hit back, from 3 they shoot (at you, and at the car you're in). Stay out of sight and the stars drain away; flying a jet loses them. From 5 stars, every stretch they keep eyes on you makes it worse.
+- **Wanted level** (1–50 stars; past 30 it's the military): officers on foot, then squad cars that chase you down the streets and run you over, and at sea police boats that ram your boat. From 2 stars they hit back, from 3 they shoot (at you, and at the car you're in). Stay out of sight and the stars drain away; flying a jet loses them. From 5 stars, every stretch they keep eyes on you makes it worse.
   - **6+ stars:** police **helicopters** circle overhead, sweeping a searchlight over you while a marksman shoots from the door. Shoot them down (they take a lot) or get out of sight.
   - **10+ stars:** **SWAT** vans roll in and unload four officers each, and half the officers on foot are SWAT too. They're in full tactical kit: helmet, goggles, balaclava, a plate carrier marked POLICE and SWAT, gloves, knee pads and an assault rifle. The music switches to *Oversized* while SWAT are on you.
   - **20+ stars:** **riot SWAT**: bulletproof armoured trucks and officers in full riot armour (chest plate, shoulder, arm and shin guards, a helmet with a face shield) carrying SMGs and clear **riot shields** marked POLICE. A riot shield stops nearly every round that hits it from the front, so get round the side, or use explosives. There are three choppers, and the chase heats up twice as fast. The music switches to *Studiopolis Zone*, and the stars beyond 20 turn red.
   - **25+ stars:** four choppers and four SWAT trucks.
   - **30 stars:** **the army**. Up to three **tanks** roll in through the streets, swing their turrets onto you and shell you; each shell is a big explosion. Bullets just spark off them, so it takes explosives (grenades, or another tank's shell) to knock one out. Find one stopped and you can **steal the tank**: the turret follows where you look and `LMB` fires the main gun.
+  - **31+ stars: the military takes over.** The HUD folds the police's 30 stars into one chip and lights a red **MILITARY** row. Soldiers in olive kit with rifles, **Humvees** with a machine gunner on the roof, **army checkpoints** instead of roadblocks, and the tanks stay on. Soldiers come for you on any island, not just in town. Past 30 the chase heats up twice as fast again.
+  - **36+ stars:** army **attack helicopters** (dark olive, rocket pods, a nose cannon): bursts of cannon fire and pairs of rockets, and they follow you anywhere, out to sea included.
+  - **41+ stars:** **air strikes**. Red smoke goes up where you are (or where you're driving to), a warning sounds, and a few seconds later a jet comes in low and walks a line of five bombs through the smoke. Move.
+  - **46+ stars:** **the Navy**. A frigate stands off the nearest coast and lobs shells in on you, its close-in guns shoot down anything you fly near it, and **marines** come ashore in landing craft.
+  - **50 stars: ☠ FULL LOCKDOWN.** Everything at once, faster, plus bounty hunters straight away.
+  - **NAS Halyard is off limits.** Set foot on the naval air station (or fly in low over it) and you get a warning and five seconds to turn round. Stay and it's **50 stars** on the spot, with soldiers at the gate.
+  - **Losing the military:** past 30 they don't give up just because they've lost sight of you. Get off the island they last saw you on (or hide indoors: a home, the bunker), stay out of sight, and every 40 seconds it drops three stars, until it's the police again at 30. Flying a jet doesn't lose them either.
+  - **The volcano base is a safe haven.** Get inside (through the blast door) and nobody can follow you or see in: the stars drain away, one every two seconds, down to nothing. Except at **50 stars**: the blast door stays shut, the crew tell you over the intercom to lose some heat first, and if you're already inside when it hits 50 they march you back out.
   - **Roadblocks** (4+ stars, while you're driving): two cruisers parked across the road ahead (on the city streets or the long road over the bridge) with officers behind them and a **spike strip** in the gap. Hit the spikes and your tyres are shredded (slow, wobbly, sparking) until Underpass Customs fixes them; bulletproof tyres just roll over.
   - **Bounty hunters:** get away from a chase of 5+ stars and, a little later, someone puts a price on your head. A crew of hunters (one with a shotgun) tracks you down wherever you are. Kill them all for half the bounty, or survive four minutes until they give up.
-- **Busted:** let an officer stay on you for a couple of seconds and you're arrested: fined a quarter of your cash and your bag confiscated. Die and you wake up at the hospital, minus the bill.
+- **Busted:** let an officer stay on you for a couple of seconds and you're arrested: fined a quarter of your cash (40% if it was the military) and your bag confiscated. Die and you wake up at the hospital, minus the bill (a quarter of your cash after a run-in with the military).
 
 ## Multiplayer
 
@@ -442,6 +450,7 @@ src/
   terrain.js   shared terrain kit: noise, graded roads, terrain mesh + collider, road ribbons
   pelican.js   Pelican Point (the headland off Saltmarsh: fishing village, harbour, lighthouse, Lighthouse Loop race)
   ridgeback.js Ridgeback Hills (the pass, the quarry pit, cabins, the mine, plane wreck, Hillclimb race)
+  military.js  31–50 stars: soldiers, Humvees, gunships, air strikes, the Navy; NAS Halyard trespass
   quarry.js    Ridgeback Aggregates: the crusher, conveyors, machines, site office and fence
   woods.js     log cabins, campfires, undergrowth, treehouse, caravan, deer stands, plane wreck, mine, deer
   scorch.js    the Scorch desert and its causeway
