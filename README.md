@@ -68,7 +68,7 @@ Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **
     The fire engine, ambulance, school bus and patrol car can all be stolen.
 - **NAS Halyard** (well out to the east, on its own): the naval air station with the destroyer moored alongside and fighter jets on the apron. The railway doesn't go there: fly, sail or take a boat.
 - **Pelican Point** (a long headland running south off the corner of Saltmarsh Key, pointing straight at Verian): drive off the end of Saltmarsh's town row and on down it, or come over the causeway from the Hollows. A fishing village on the headland: cottages round a village green, the Pelican Point Seafood shack, a jetty with fishing boats bobbing at it, a beach with umbrellas, and the red-and-white lighthouse up on the rocky tip facing the city (a dirt track runs up to it, and its beam sweeps the sea at night). The road loops right round it, and from the tip the causeway carries on to the Hollows: the land route from Saltmarsh into Verian.
-- **Ridgeback Hills** (medium, north-west of Cherry Estate): take the **Ridgeback Expressway** from the west end of 105th Street in Verian City. It climbs onto a viaduct over the Cherry Estate valleys, cuts through the ridge in the middle of the park, swings out over the sea along the park's west coast and comes down at the foot of the Ridgeback Pass, by the gas station (the old coast road from under the Saltmarsh Gate Bridge still works too). Ridgeback Gas & Grocery at the foot (a proper modern station: canopy with lights, pump islands, a shop with a glass front, a price pylon), log cabins round a campfire in the meadow, a gravel quarry with terraced benches, heaps, a crusher and a dump truck, and the Ridgeback Pass climbing through crash-barriered hairpins up the side of **Mount Ridgeback**, a giant black volcano, a spire nearly 370 m high with a little vent at the very top (you can see it from the Plaza, over the police station). At the summit car park a tunnel goes into the mountain behind a blast door: that's the **volcano base** (see below). Thick pine forest below the treeline; bare black rock on the volcano.
+- **Ridgeback Hills** (medium, north-west of Cherry Estate): take the **Ridgeback Expressway** from the west end of 105th Street in Verian City. It climbs onto a viaduct over the Cherry Estate valleys, cuts through the ridge in the middle of the park, swings out over the sea along the park's west coast and comes down at the foot of the Ridgeback Pass, by the gas station (the old coast road from under the Saltmarsh Gate Bridge still works too). Ridgeback Gas & Grocery at the foot (a proper modern station: canopy with lights, pump islands, a shop with a glass front, a price pylon), log cabins round a campfire in the meadow, a gravel quarry with terraced benches, heaps, a crusher and a dump truck, and the Ridgeback Pass climbing through crash-barriered hairpins up the side of **Mount Ridgeback**, a giant black volcano, a spire nearly 370 m high with a little vent at the very top (you can see it from the Plaza, over the police station). At the summit car park a tunnel goes into the mountain behind a blast door: that's the **volcano base** (see below). Beside the car park a footpath (a steel walkway bolted to the cliff) spirals once round the spire up to an **alcove** cut into the rock, 90 m up and facing the city: **Skyhigh Chutes & Gliders** sells parachutes ($900 each, one use, carry up to five) and a hang glider ($12,000, yours to keep), and there's a launch ramp out over the drop. Thick pine forest below the treeline; bare black rock on the volcano.
 - **The Scorch** (huge, south of the city): a desert as big as everything else put together, reached by the long causeway off the south end of Verian City or by train. It's open from the start now. Inside: sand dunes in the west, red mesas, the bone-white Bone Dry Salt Flat, Route 9 running the length of it, the Last Chance gas station (an old sun-bleached stop with round-topped pumps), the ghost town of Copper Gulch (saloon, sheriff, bank, hotel, water tower and windmill), an old airliner wreck, cacti, scrub and tumbleweeds.
 
 ## Things to do
@@ -237,7 +237,8 @@ Inside Mount Ridgeback. Drive up the Ridgeback Pass to the summit car park and t
 | **Counting room** | Bring money bags here: `E` to count them into your account. |
 | **Quarters** | Bunks: `E` at the red one to sleep and make the base home (you wake up here). |
 | **Control room** | The heist board: set up the train heist. |
-| **Lounge** | A bar (`E` for a drink, +15 health), sofas round a big telly, a pool table. |
+| **The Crater (lounge)** | The crew's bar: a lit-up back bar of bottles behind a long counter with beer taps and stools (`E` for a drink, +15 health), a neon sign, a pool table with the balls out and a cue rack, a poker table with chips and cards, sofas round a big telly, a jukebox, an arcade machine and a fish tank. |
+| **MARCOS\*** | *Not an official franchise.* A bootleg MARCOS under a crooked logo: the counter (`E` to order, same menu as the real one), a grill and fryer, booths, and a ball pit with a slide. |
 | **Workshop** | Crates, a workbench and a forklift. |
 
 In the middle of the grating is the **disposal chute**, a steel funnel straight down into the lava (the railing round it is open on one side). Anything that goes down it (a car, a body, you) lands in the lava, which throws up a huge spout of it, right up and out of the vent at the top: the camera pulls out round the volcano so you can watch it go up. The spout's just for show; the lava isn't.
@@ -339,7 +340,7 @@ Open **Settings** from the pause screen. The **Low / Medium / High / Ultra** pre
 - **Resolution:** 50%, 75%, 100% or Native (full sharpness on high-DPI screens). This makes the biggest difference to speed.
 - **Dynamic resolution:** drops the resolution automatically when the frame rate dips, then raises it again.
 - **Shadows:** Off, Low, High or Ultra (shadow map size and how far shadows reach).
-- **View distance:** Near, Medium or Far. Scenery hidden in the haze isn't drawn at all.
+- **View distance:** Near, Medium, Far or Extreme (twice as far again, with the haze pushed way back: you can see right across the map. Heavy on slower machines). Scenery hidden in the haze isn't drawn at all.
 - **Crowds and traffic:** fewer or more people and cars.
 - **Antialiasing:** applies the next time the game loads.
 - **Frame rate cap:** 30 or 60 FPS, or off. **Show FPS:** on or off.
@@ -359,6 +360,10 @@ Shelf stock in the shops is only drawn when you're at the shop. Distant scenery 
 - Look at a body and `LMB` to drag it; `LMB` lets go, `RMB` heaves it
 - Holding a mop: hold `LMB` to scrub blood, `RMB` to put it down
 - `Esc` pause (Settings and Multiplayer are on the pause screen) · `Enter` chat (in a multiplayer room)
+
+**Parachute and hang glider** (from the shop in the volcano's alcove)
+- Falling from somewhere high with a parachute: `Space` opens it (then A/D steer, W dive, S flare)
+- With a hang glider: stand somewhere high facing out over a drop (the end of the alcove's launch ramp is perfect) and press `H`. Mouse or A/D to bank, `W` to dive (faster), `S` to pull up (trades speed for height; too slow and it stalls). Hot air rises off the volcano: circle round it to climb. Land slowly or it's a crash
 
 **In a jet** (walk up to one on the airfield and press `E`)
 - `W` / `S` throttle, `Shift` afterburner (at full throttle)
@@ -468,7 +473,8 @@ src/
   insides.js   on-demand building interiors: stairs, lifts, corridors, rentals, roofs
   flats.js     the fit-out of a flat (kitchen, living room, bedroom, bathroom) and the lobbies
   expressway.js the Ridgeback Expressway (route, height profile, viaduct)
-  volcano.js   the hollow volcano and the crime base inside it, the lava and the disposal chute
+  volcano.js   the hollow volcano and the crime base inside it, the lava and the disposal chute, the cliff path and the alcove
+  airgear.js   parachutes and the hang glider (the Skyhigh shop)
   loot.js      hot money: the money bags from a job, and counting them
   railway.js   Verian Rail: the line, the stations, the trains (and riding them)
   trainheist.js the Scorch Line mail train heist

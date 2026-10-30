@@ -51,6 +51,7 @@ import { Loot } from './loot.js';
 import { VolcanoBase } from './volcano.js';
 import { Railway } from './railway.js';
 import { TrainHeist } from './trainheist.js';
+import { AirGear } from './airgear.js';
 import { Marcos } from './marcos.js';
 import { DayNight } from './daynight.js';
 import { News } from './news.js';
@@ -230,6 +231,7 @@ class Game {
     this.gunnery = new Gunnery(this);
     this.jets = new Jets(this);
     this.skydive = new Skydive(this); // (ejecting from a jet)
+    this.airGear = new AirGear(this); // (parachutes and the hang glider)
     this.stockStores();
     this.economy = new Economy(this);
     this.style = new Style(this); // what you're wearing
@@ -1341,6 +1343,8 @@ class Game {
       if (this.health.dead) return;
       if (this.pragdoll.active) { if ((e.code === 'Space' || e.code === 'KeyX') && this.pragdoll.canGetUp()) this.pragdoll.getUp(); return; }
       if (e.code === 'KeyX' && this.goLimp()) return; // the ragdoll button
+      if (e.code === 'Space' && this.airGear.chuteReady()) { this.airGear.openChute(); return; }
+      if (e.code === 'KeyH' && !this.vehicles.active && !this.boats.active && !this.flying && this.airGear.canLaunch()) { this.airGear.launch(); return; }
       if (this.flying && e.code !== 'KeyE') { this.jets.key(e.code); return; }
       if (e.code === 'KeyE') {
         if (this.flying) { this.jets.exit(); return; }
@@ -1399,6 +1403,7 @@ class Game {
   promptText() {
     if (this.pragdoll.active) return this.pragdoll.canGetUp() ? '<kbd>Space</kbd> / <kbd>X</kbd> Get up' : null;
     if (this.health.dead || this.atHelm || this.gunnery.active || this.flying) return null;
+    { const ag = this.airGear?.prompt(); if (ag) return ag; }
     if (this.boats.active) {
       const b = this.boats.active;
       const p = nearestLandPoint(b.pos.x, b.pos.z);

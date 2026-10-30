@@ -41,7 +41,7 @@ const ROWS = [
   { key: 'resScale', label: 'Resolution', hint: 'Biggest single speed-up. Native = full sharpness on high-DPI screens', type: 'choice', options: [0.5, 0.75, 1, 'native'], fmt: pct },
   { key: 'dynRes', label: 'Dynamic resolution', hint: 'Lowers the resolution automatically when the frame rate drops', type: 'toggle' },
   { key: 'shadows', label: 'Shadows', type: 'choice', options: ['off', 'low', 'high', 'ultra'], fmt: cap },
-  { key: 'viewDist', label: 'View distance', hint: 'How far out the world is drawn before the haze', type: 'choice', options: ['near', 'medium', 'far'], fmt: cap },
+  { key: 'viewDist', label: 'View distance', hint: 'How far out the world is drawn before the haze', type: 'choice', options: ['near', 'medium', 'far', 'extreme'], fmt: cap },
   { key: 'crowd', label: 'Crowds and traffic', hint: 'How many people and cars are about', type: 'choice', options: ['low', 'normal', 'high'], fmt: cap },
   { key: 'antialias', label: 'Antialiasing', hint: 'Smooths jagged edges. Takes effect next time the game loads', type: 'toggle' },
   { key: 'fpsCap', label: 'Frame rate cap', hint: 'A cap saves battery and keeps laptops cooler', type: 'choice', options: [30, 60, 0], fmt: (v) => (v ? `${v} FPS` : 'Off') },

@@ -73,6 +73,16 @@ export class Ridgeback {
     this.index = new RoadIndex(this.roads); // (the tunnel isn't a surface road: the hill stays over it)
     for (let t = 6; t < T.len; t += 1) { const x = P.x + T.u.x * t, z = P.z + T.u.z * t; if (this.heightAt(x, z) - P.y > 9.5) { T.portal = t; break; } }
     T.portal ??= T.len * 0.4;
+    // the alcove up the spire, facing the city: a ledge cut into the rock (the chute and glider shop)
+    { const th = Math.atan2(-T.u.x, -T.u.z) + 0.82, y = P.y + 92; let r = 10; while (this.coneAt(r) > y && r < 118) r += 0.5;
+      this.alcove = { th, y, r, x: V.x + Math.sin(th) * r, z: V.z + Math.cos(th) * r }; }
+    // the footpath up to it: once round the spire, from beside the car park, on a ledge cut into the rock
+    { const A = this.alcove, th0 = Math.atan2(-T.u.x, -T.u.z) + 0.32, th1 = A.th + Math.PI * 2 - 9.5 / A.r, y0 = P.y + 0.2, y1 = A.y, n = 150;
+      const rCone = (y) => { let r = 2; while (this.coneAt(r) > y && r < this.crater.R0) r += 0.25; return r; };
+      const pts = []; for (let i = 0; i <= n; i++) { const t = i / n, th = th0 + (th1 - th0) * t, y = y0 + (y1 - y0) * t, r = Math.min(rCone(y) + 1.2, 112); pts.push({ x: V.x + Math.sin(th) * r, y, z: V.z + Math.cos(th) * r }); }
+      this.walkway = pts;
+      const grid = new Map(); for (const p of pts) for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const k = `${Math.floor(p.x / 12) + a},${Math.floor(p.z / 12) + b}`; if (!grid.has(k)) grid.set(k, []); grid.get(k).push(p); }
+      this.walkNear = (x, z) => { const l = grid.get(`${Math.floor(x / 12)},${Math.floor(z / 12)}`); if (!l) return null; let best = null, bd = Infinity; for (const p of l) { const d = (p.x - x) ** 2 + (p.z - z) ** 2; if (d < bd) { bd = d; best = p; } } return { p: best, d: Math.sqrt(bd) }; }; }
     this.roads.push(this.tunnelRoad);
     for (const f of this.flats) if (f.y == null) f.y = this.natural(f.x, f.z);
   }
@@ -108,6 +118,13 @@ export class Ridgeback {
     if (T.portal != null) {
       const ax = x - T.a.x, az = z - T.a.z, t = ax * T.u.x + az * T.u.z, lat = Math.abs(ax * T.u.z - az * T.u.x);
       if (t > -4 && t < T.portal + 1) h = Math.min(h, T.y - 0.05 + Math.max(0, lat - 6.5) * 2.2);
+    }
+    const wn = this.walkNear?.(x, z);
+    if (wn && wn.d < 9) h = Math.min(h, wn.p.y - 0.3 + Math.max(0, wn.d - 2.2) * 1.4); // (the footpath's ledge)
+    const A = this.alcove;
+    if (A) { // (radial: d in from the cliff face; across: l)
+      const ux = Math.sin(A.th), uz = Math.cos(A.th), dx = x - A.x, dz = z - A.z, out = dx * ux + dz * uz, l = Math.abs(dx * uz - dz * ux);
+      if (out > -8 && out < 10 && l < 12) h = Math.min(h, A.y - 0.05 + Math.max(0, l - 7.5) * 2.5 + Math.max(0, -out - 6.5) * 2.5);
     }
     const sm = this.flats[2], dsm = Math.hypot(x - sm.x, z - sm.z);
     if (dsm < sm.r + 12) h = sm.y + (h - sm.y) * smooth(sm.r, sm.r + 12, dsm);

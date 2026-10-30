@@ -21,6 +21,7 @@ export const VIEW = {
   near: { far: 1600, fogNear: 120, fogFar: 900, cull: 110, ship: 350 },
   medium: { far: 3500, fogNear: 160, fogFar: 1600, cull: 150, ship: 500 },
   far: { far: 6000, fogNear: 180, fogFar: 2400, cull: 170, ship: 700 },
+  extreme: { far: 12000, fogNear: 450, fogFar: 6500, cull: 240, ship: 1200 },
 };
 
 export const CROWD = { low: 0.5, normal: 1, high: 1.35 };
@@ -76,7 +77,7 @@ export class Graphics {
     // ---- view distance ----
     const v = VIEW[s.viewDist] ?? VIEW.far;
     g.camera.far = v.far;
-    g.sky.scale.setScalar(Math.min(1, (v.far * 0.9) / 3000)); // keep the sky dome inside the far plane
+    g.sky.scale.setScalar((v.far * 0.9) / 3000); // keep the sky dome just inside the far plane (behind everything)
     g.camera.updateProjectionMatrix();
     g.scene.fog.near = v.fogNear;
     g.scene.fog.far = v.fogFar;

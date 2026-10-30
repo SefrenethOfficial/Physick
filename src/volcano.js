@@ -6,6 +6,7 @@ import { ITEM_BY_ID } from './items.js';
 import { pistolModel, magnumModel, smgModel, shotgunModel, rifleModel, combatShotgunModel, sniperModel, lmgModel } from './gunmodels.js';
 import { LAUNDER_CUT, moneyBagMesh } from './loot.js';
 import { GLOW } from './effects.js';
+import { marcosLogo } from './marcos.js';
 
 // Inside Mount Ridgeback. The volcano is hollow: a tunnel from the summit car park (behind a blast
 // door) runs into a great cone-shaped cavern with a concrete floor, lit by the lava glowing up
@@ -158,6 +159,7 @@ export class VolcanoBase {
     }
     this.buildTunnel();
     this.buildRooms();
+    this.buildAlcove();
     this.ventTop = ventTop;
     // seen from far off (through the haze): the spire, so you can pick it out from the city
     { const prof = []; for (let r = 0; r <= 300; r += 6) prof.push(new THREE.Vector2(r, rb.coneAt(r) + 2 - Math.max(0, r - 110) * 0.15)); prof.reverse();
@@ -202,6 +204,52 @@ export class VolcanoBase {
     cam.lookAt(this.V.x, top + 18 * e, this.V.z);
     cam.updateMatrixWorld();
     return true;
+  }
+
+  // ---- up the outside: a walkway bolted to the cliff, spiralling up from the car park to the alcove ----
+  buildAlcove() {
+    const rb = this.rb, A = rb.alcove, V = this.V, Y = this.Y, M = this.M, sb = this.sb, g = this.group;
+    if (!A) return;
+    const pts = rb.walkway.map((p) => new THREE.Vector3(p.x, p.y, p.z));
+    this.walk = pts;
+    const deckM = Object.assign(M.grate.clone(), { emissiveIntensity: 0.1 }), railM = M.yellow, postM = M.dark;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1], dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz), yaw = Math.atan2(dx, dz), pitch = -Math.atan2(b.y - a.y, L);
+      const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ')), len = Math.hypot(L, b.y - a.y) + 0.15;
+      const mid = a.clone().add(b).multiplyScalar(0.5);
+      const deck = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.12, len), deckM); deck.position.copy(mid); deck.quaternion.copy(q); g.add(deck);
+      sb.addStaticCollider(RAPIER.ColliderDesc.cuboid(1.2, 0.08, len / 2).setTranslation(mid.x, mid.y - 0.02, mid.z).setRotation(q));
+      // the outer rail (away from the mountain) and a low inner one
+      const ox = mid.x - V.x, oz = mid.z - V.z, ol = Math.hypot(ox, oz), nx = ox / ol, nz = oz / ol;
+      for (const [off, h] of [[1.15, 1.05], [-1.15, 0.5]]) {
+        const rx = mid.x + nx * off, rz = mid.z + nz * off;
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, len), railM); rail.position.set(rx, mid.y + h, rz); rail.quaternion.copy(q); g.add(rail);
+        sb.addStaticCollider(RAPIER.ColliderDesc.cuboid(0.05, h / 2, len / 2).setTranslation(rx, mid.y + h / 2, rz).setRotation(q));
+        if (i % 2 === 0) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, h), postM); post.position.set(rx, mid.y + h / 2, rz); g.add(post); }
+      }
+      if (i % 6 === 0) { const br = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 2.6), postM); br.position.set(mid.x - nx * 0.3, mid.y - 0.5, mid.z - nz * 0.3); br.rotation.y = Math.atan2(nx, nz); br.rotation.x = 0.6; g.add(br); } // brackets into the rock
+    }
+    { const p = pts[0]; sign(g, 'SKYHIGH CHUTES & GLIDERS · FOOTPATH ↑', p.x, p.y + 2.4, p.z, Math.atan2(V.x - p.x, V.z - p.z) + Math.PI, { w: 5.5, h: 0.7, bg: '#2a6ac8', fg: '#ffffff', post: p.y }); }
+    // ---- the alcove: a ledge in a niche cut into the spire ----
+    const k = new Kit(g, sb, A.x, A.y, A.z, A.th); // (local: +z out from the mountain, x across)
+    const wood = M.wood;
+    k.box(15, 0.3, 13, 0, -0.3, 0.5, M.conc); // the floor, out over the edge
+    k.box(15, 1.05, 0.12, 0, 0, 6.95, M.yellow); for (const s of [-1, 1]) k.box(0.12, 1.05, 7, s * 7.45, 0, 3.5, M.yellow); // the rail round it
+    // a rock overhang over the back
+    const roof = new THREE.Mesh(new THREE.SphereGeometry(9, 16, 8, 0, Math.PI, 0, Math.PI / 2), M.rock); roof.scale.set(1, 0.45, 1.0); roof.rotation.y = -Math.PI / 2; k.add(roof, 0, 4.2, -4);
+    // the shop: a booth in the back of the niche
+    k.box(6, 3.0, 3, -2.5, 0, -4.5, lit(0x2a6ac8, 0.25)); k.box(6.4, 0.25, 3.4, -2.5, 3.0, -4.5, lit(0xf2f2ee, 0.3), false);
+    k.box(4.4, 1.05, 0.6, -2.5, 0, -2.75, wood); k.box(4.6, 0.06, 0.8, -2.5, 1.05, -2.75, M.dark, false);
+    k.plane(5.2, 0.8, -2.5, 3.6, -2.95, 0, new THREE.MeshBasicMaterial({ map: canvasTex(512, 80, (c, W, H) => { c.fillStyle = '#2a6ac8'; c.fillRect(0, 0, W, H); c.fillStyle = '#fff'; c.font = 'bold 34px Arial'; c.textAlign = 'center'; c.fillText('SKYHIGH · CHUTES & GLIDERS', W / 2, 52); }) }));
+    for (let i = 0; i < 3; i++) { const wing = new THREE.Mesh(new THREE.ConeGeometry(1.6, 0.2, 3), lit([0xe8b830, 0xc8201e, 0x2a6ac8][i], 0.3)); wing.scale.set(1, 1, 0.5); wing.rotation.set(Math.PI / 2, 0, Math.PI); k.add(wing, 2.8 + i * 1.2, 2.2 + i * 0.25, -5.2); }
+    for (let i = 0; i < 4; i++) k.box(0.45, 0.6, 0.35, -4.2 + i * 0.55, 1.1, -2.85, lit([0xc8201e, 0xe8e8e2, 0xc8201e, 0x2a6ac8][i], 0.3), false); // parachute packs
+    // the launch ramp, out over the drop, and a windsock
+    const ramp = k.box(3.2, 0.2, 6, 3.6, 0.1, 9.2, wood, false); ramp.rotation.x = 0.16;
+    { const p = k.world(3.6, 0.6, 9.2), q = k.q.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), 0.16)); sb.addStaticCollider(RAPIER.ColliderDesc.cuboid(1.6, 0.1, 3).setTranslation(p.x, p.y - 0.4, p.z).setRotation(q)); }
+    k.box(0.1, 0.05, 6, 2.0, 0.6, 9.2, M.yellow, false); k.box(0.1, 0.05, 6, 5.2, 0.6, 9.2, M.yellow, false);
+    k.cyl(0.05, 5, -6.5, 0, 5.5, M.dark, 6); const sock = k.cyl(0.25, 1.4, -6.5, 4.4, 6.2, lit(0xe86a20, 0.4), 8, 0.1); sock.rotation.x = Math.PI / 2; this.sock = sock;
+    this.alcoveShop = k.world(-2.5, 0, -1.8); this.alcoveClerk = k.world(-2.5, 0, -3.8); this.alcoveYaw = k.yaw + Math.PI;
+    this.alcove = k.world(0, 0, 2);
   }
 
   // ---- the tunnel from the summit car park, and its blast door ----
@@ -353,16 +401,81 @@ export class VolcanoBase {
       k.box(1.6, 0.75, 1.0, w / 2 - 2, 0, 0.5, M.wood); for (const s of [-1, 1]) k.box(0.45, 0.45, 0.45, w / 2 - 2 + s * 1.1, 0, 0.5, M.wood, false);
       this.bed = k.world(-w / 2 + 2, 0, -d / 2 + 2.9); this.wakeAt = k.world(-w / 2 + 3.2, 0, 0.5); this.wakeYaw = k.yaw;
     }
-    // ---- the lounge: a bar, sofas round a big telly, a pool table ----
-    { const a = -92 * D2R, w = 16, d = 10, k = this.room(a, w, d, 'LOUNGE');
-      k.box(5, 1.1, 0.8, -w / 2 + 3.2, 0, -2.0, M.wood); k.box(5.2, 0.06, 0.95, -w / 2 + 3.2, 1.1, -2.0, M.dark, false);
-      k.box(5, 1.8, 0.35, -w / 2 + 3.2, 1.0, -d / 2 + 0.4, M.wood, false);
-      for (let i = 0; i < 14; i++) k.cyl(0.07, 0.3, -w / 2 + 1.2 + i * 0.32, 1.6 + (i % 2) * 0.5, -d / 2 + 0.45, [M.cash, M.red, M.yellow, M.white][i % 4], 6);
-      for (let i = 0; i < 3; i++) k.cyl(0.25, 0.75, -w / 2 + 1.8 + i * 1.4, 0, -0.9, M.leather);
-      k.box(2.6, 0.8, 1.4, 3.2, 0, 1.2, M.wood); k.box(2.4, 0.04, 1.2, 3.2, 0.8, 1.2, M.felt, false); // the pool table
-      for (const s of [-1, 1]) { k.box(2.4, 0.45, 0.9, w / 2 - 2.4, 0, -1.6 + s * 1.7, M.leather); k.box(2.4, 0.8, 0.25, w / 2 - 2.4, 0, -1.6 + s * 2.05, M.leather); }
-      k.box(0.12, 1.6, 2.6, w / 2 - 0.3, 1.0, -1.6, M.dark, false); k.plane(2.4, 1.4, w / 2 - 0.37, 1.8, -1.6, -Math.PI / 2, M.screen);
-      this.bar = k.world(-w / 2 + 3.2, 0, -1.0); this.barman = k.world(-w / 2 + 3.2, 0, -3.0); this.barYaw = k.yaw;
+    // ---- the lounge: "The Crater", the crew's bar ----
+    { const a = -92 * D2R, w = 16, d = 10, k = this.room(a, w, d, 'THE CRATER · LOUNGE');
+      const glass = new THREE.MeshStandardMaterial({ color: 0x9fd8e8, transparent: true, opacity: 0.35, roughness: 0.05, depthWrite: false });
+      const neon = (txt, col, w2, h2) => new THREE.MeshBasicMaterial({ map: canvasTex(512, 128, (c, W, H) => { c.clearRect(0, 0, W, H); c.font = `bold ${H * 0.62}px Arial`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.shadowColor = col; c.shadowBlur = 18; c.fillStyle = col; c.fillText(txt, W / 2, H / 2); c.fillText(txt, W / 2, H / 2); }), transparent: true, depthWrite: false });
+      const L = -w / 2; // (the bar's along the left)
+      // the bar: a long counter with a brass foot rail, stools, beer taps, and the back bar lit up
+      k.box(6, 1.1, 0.8, L + 3.6, 0, -1.8, M.wood); k.box(6.2, 0.07, 1.0, L + 3.6, 1.1, -1.8, M.dark, false);
+      k.box(6, 0.06, 0.06, L + 3.6, 0.22, -1.25, this.M.yellow, false);
+      for (let i = 0; i < 5; i++) { const x = L + 1.4 + i * 1.1; k.cyl(0.05, 0.75, x, 0, -0.95, M.steel, 6); k.cyl(0.24, 0.1, x, 0.75, -0.95, M.leather, 12); }
+      for (let i = 0; i < 4; i++) { const x = L + 2.4 + i * 0.5; k.cyl(0.04, 0.35, x, 1.17, -2.0, M.steel, 8); k.box(0.07, 0.12, 0.07, x, 1.5, -1.98, [M.red, M.yellow, M.cash, M.white][i], false); }
+      k.box(6.4, 2.4, 0.45, L + 3.6, 0.9, -d / 2 + 0.45, M.wood); // the back bar
+      k.plane(6, 1.0, L + 3.6, 2.15, -d / 2 + 0.69, 0, Object.assign(this.M.steel.clone(), { metalness: 0.95, roughness: 0.05 })); // (its mirror)
+      for (const y of [1.05, 1.45, 1.85]) { k.box(6.2, 0.04, 0.35, L + 3.6, y, -d / 2 + 0.8, M.dark, false); for (let i = 0; i < 22; i++) { const bc = [0x3a7a3a, 0x7a3a1a, 0xc8a050, 0x2a4a7a, 0xe8e0d0, 0x5a1a1a][(i * 7 + Math.round(y * 10)) % 6]; k.cyl(0.05, 0.28 + (i % 3) * 0.05, L + 0.8 + i * 0.27, y + 0.04, -d / 2 + 0.8, lit(bc, 0.35, { roughness: 0.15 }), 6); } }
+      k.plane(4.6, 1.1, L + 3.6, 3.45, -d / 2 + 0.31, 0, neon('THE CRATER', '#ff7a30'));
+      for (let i = 0; i < 3; i++) { const x = L + 1.8 + i * 1.8; k.cyl(0.01, 0.9, x, 3.3, -1.8, M.dark, 4); k.cyl(0.12, 0.25, x, 3.05, -1.8, lit(0xffb060, 0.9), 10, 0.25); }
+      // a fish tank along the left wall
+      k.box(0.6, 0.9, 2.6, L + 0.45, 0, 2.6, M.dark); const tank = k.box(0.55, 0.9, 2.5, L + 0.45, 0.9, 2.6, lit(0x2a7ac8, 0.6, { transparent: true, opacity: 0.75 }), false); void tank;
+      for (let i = 0; i < 6; i++) k.box(0.05, 0.09, 0.16, L + 0.45, 1.1 + (i % 3) * 0.22, 1.7 + i * 0.35, lit([0xffa020, 0xff4a4a, 0xffe060][i % 3], 0.6), false);
+      // the pool table, with its balls and cues, under a long lamp
+      { const px = 2.6, pz = -2.4;
+        for (const [dx, dz] of [[-1.1, -0.55], [1.1, -0.55], [-1.1, 0.55], [1.1, 0.55]]) k.box(0.16, 0.7, 0.16, px + dx, 0, pz + dz, M.wood);
+        k.box(2.7, 0.15, 1.5, px, 0.7, pz, M.wood); k.box(2.4, 0.04, 1.2, px, 0.85, pz, M.felt, false);
+        for (const s of [-1, 1]) { k.box(2.7, 0.1, 0.16, px, 0.85, pz + s * 0.67, M.wood, false); k.box(0.16, 0.1, 1.5, px + s * 1.27, 0.85, pz, M.wood, false); }
+        for (const [dx, dz] of [[-1.17, -0.57], [0, -0.6], [1.17, -0.57], [-1.17, 0.57], [0, 0.6], [1.17, 0.57]]) k.cyl(0.07, 0.02, px + dx, 0.95, pz + dz, M.dark, 8);
+        for (let i = 0; i < 10; i++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 8), lit([0xf2f2ee, 0xe8b830, 0x2a4ac8, 0xc8201e, 0x6a2a8a, 0xe86a20, 0x2a8a3a, 0x7a1a1a, 0x111111, 0xe8b830][i], 0.3, { roughness: 0.2 })); b.position.set(px + 0.4 + (i % 4) * 0.1, 0.92, pz - 0.15 + Math.floor(i / 4) * 0.1); k.root.add(b); }
+        const cue = k.box(0.03, 0.03, 1.45, px - 0.4, 0.93, pz + 0.2, M.wood, false); cue.rotation.y = 0.4;
+        k.box(2.2, 0.1, 0.4, px, 2.3, pz, M.dark, false); k.box(2.0, 0.03, 0.3, px, 2.27, pz, lit(0xfff0c0, 1.2), false);
+        k.box(0.08, 1.4, 1.2, w / 2 - 0.2, 0.6, -3.4, M.wood, false); for (let i = 0; i < 5; i++) k.box(0.03, 1.3, 0.03, w / 2 - 0.3, 0.65, -3.85 + i * 0.22, M.wood, false); // the cue rack
+      }
+      // the sofas round the big telly (right wall), a rug, a coffee table, an armchair, a lamp
+      k.plane(3.6, 3.2, w / 2 - 2.6, 0.02, 2.4, 0, M.felt).rotation.x = -Math.PI / 2;
+      k.box(0.9, 0.45, 2.8, w / 2 - 4.4, 0, 2.4, M.leather); k.box(0.25, 0.85, 2.8, w / 2 - 4.85, 0, 2.4, M.leather); for (const s of [-1, 1]) k.box(0.9, 0.62, 0.22, w / 2 - 4.4, 0, 2.4 + s * 1.3, M.leather, false);
+      k.box(2.2, 0.45, 0.9, w / 2 - 2.4, 0, 4.15, M.leather); k.box(2.2, 0.85, 0.22, w / 2 - 2.4, 0, 4.55, M.leather);
+      k.box(1.1, 0.4, 0.7, w / 2 - 2.6, 0, 2.3, M.wood); k.box(0.3, 0.05, 0.2, w / 2 - 2.5, 0.4, 2.2, M.red, false);
+      k.box(0.12, 1.5, 2.8, w / 2 - 0.2, 1.0, 2.0, M.dark, false); k.plane(2.6, 1.35, w / 2 - 0.27, 1.75, 2.0, -Math.PI / 2, M.screen);
+      k.cyl(0.04, 1.6, w / 2 - 4.6, 0, 4.4, M.dark, 6); k.cyl(0.18, 0.35, w / 2 - 4.6, 1.6, 4.4, lit(0xffe0b0, 0.9), 12, 0.25);
+      // the poker table: chips and cards out, five chairs
+      { const tx = -3.6, tz = 2.6;
+        k.cyl(0.95, 0.06, tx, 0.75, tz, M.felt, 24); k.cyl(1.0, 0.08, tx, 0.7, tz, M.wood, 24); k.cyl(0.12, 0.7, tx, 0, tz, M.dark, 8);
+        for (let i = 0; i < 5; i++) { const a2 = (i / 5) * Math.PI * 2, cx = tx + Math.sin(a2) * 1.45, cz = tz + Math.cos(a2) * 1.45; k.box(0.45, 0.45, 0.45, cx, 0, cz, M.leather, false); k.box(0.45, 0.5, 0.08, cx + Math.sin(a2) * 0.2, 0.45, cz + Math.cos(a2) * 0.2, M.leather, false).rotation.y = a2;
+          for (let j = 0; j < 3; j++) k.cyl(0.035, 0.02 * (3 + ((i + j) % 4)), tx + Math.sin(a2) * 0.65 + j * 0.08, 0.81, tz + Math.cos(a2) * 0.65, [M.red, M.white, M.cash][j], 10); }
+        for (let i = 0; i < 5; i++) { const card = k.box(0.09, 0.005, 0.13, tx - 0.25 + i * 0.12, 0.81, tz, M.white, false); card.rotation.y = 0.1 * i; }
+        k.cyl(0.01, 1.3, tx, 2.9, tz, M.dark, 4); k.cyl(0.25, 0.3, tx, 2.6, tz, lit(0x30a050, 0.9), 12, 0.45);
+      }
+      // a jukebox, an arcade machine, a dartboard, posters, and neon along the top
+      k.box(1.0, 1.6, 0.6, 0.6, 0, -d / 2 + 0.5, lit(0x8a2a6a, 0.5)); k.box(0.8, 0.5, 0.05, 0.6, 1.0, -d / 2 + 0.82, lit(0xffd060, 1.0), false);
+      k.box(0.8, 1.8, 0.7, 6.8, 0, -d / 2 + 0.6, M.dark); k.plane(0.6, 0.45, 6.8, 1.35, -d / 2 + 0.96, 0, lit(0x40e0ff, 1.2));
+      k.cyl(0.25, 0.05, w / 2 - 0.25, 1.75, -0.4, lit(0x2a2a2a, 0.2), 16).rotation.z = Math.PI / 2;
+      k.plane(1.0, 1.4, 4.4, 2.0, -d / 2 + 0.16, 0, new THREE.MeshBasicMaterial({ map: marcosLogo(256, 256) }));
+      for (const s of [-1, 1]) k.box(w - 1, 0.06, 0.06, 0, 3.9, s * (d / 2 - 0.4), lit(s < 0 ? 0xff3aa0 : 0x40c0ff, 1.5), false);
+      void glass;
+      this.bar = k.world(L + 3.6, 0, -0.9); this.barman = k.world(L + 3.6, 0, -2.9); this.barYaw = k.yaw;
+    }
+    // ---- MARCOS (not an official franchise): burgers, and a ball pit ----
+    { const a = 150 * D2R, w = 18, d = 10, k = this.room(a, w, d, 'MARCOS*');
+      const red = lit(0xc8102e, 0.3), yel = lit(0xffc72c, 0.35);
+      const logo = new THREE.MeshBasicMaterial({ map: marcosLogo(256, 256), transparent: true });
+      const lg = k.plane(2.2, 2.2, -2, 2.6, -d / 2 + 0.2, 0, logo); lg.rotation.z = 0.14; // (hung a bit crooked)
+      k.plane(3.2, 0.5, -2, 1.2, -d / 2 + 0.2, 0, new THREE.MeshBasicMaterial({ map: canvasTex(256, 40, (c, W, H) => { c.fillStyle = '#1a1414'; c.fillRect(0, 0, W, H); c.fillStyle = '#ffc72c'; c.font = 'bold 20px Arial'; c.textAlign = 'center'; c.fillText('*NOT AN OFFICIAL FRANCHISE', W / 2, 27); }) }));
+      k.box(8, 1.05, 0.9, -2, 0, -1.6, red); k.box(8.1, 0.06, 1.0, -2, 1.05, -1.6, yel, false);
+      k.box(0.45, 0.35, 0.35, -4.5, 1.1, -1.6, M.dark, false); k.box(0.45, 0.35, 0.35, 0.5, 1.1, -1.6, M.dark, false);
+      k.box(2.4, 0.95, 0.8, -4.5, 0, -d / 2 + 0.6, M.steel); k.box(2.4, 0.95, 0.8, -1.5, 0, -d / 2 + 0.6, M.dark); // fryer and grill
+      k.plane(3.6, 1.0, 2.6, 2.6, -d / 2 + 0.2, 0, new THREE.MeshBasicMaterial({ map: canvasTex(512, 140, (c, W, H) => { c.fillStyle = '#1a1414'; c.fillRect(0, 0, W, H); const it = [['MARCO BURGER', '$6'], ['BIG MARCO', '$9'], ['FRIES', '$3'], ['SHAKE', '$4']]; it.forEach(([n, p], i) => { const x = 12 + (i % 2) * 250, y = 18 + Math.floor(i / 2) * 60; c.fillStyle = '#c8102e'; c.fillRect(x, y, 236, 50); c.fillStyle = '#ffc72c'; c.font = 'bold 24px Arial'; c.fillText(n, x + 10, y + 33); c.fillStyle = '#fff'; c.fillText(p, x + 180, y + 33); }); }) }));
+      for (const x of [-6.5, -3.5]) { k.box(1.4, 0.75, 0.9, x, 0, 2.8, lit(0xe8e2d4, 0.2)); for (const s of [-1, 1]) { k.box(1.4, 0.45, 0.55, x, 0, 2.8 + s * 0.9, yel, false); k.box(1.4, 1.0, 0.15, x, 0, 2.8 + s * 1.2, red, false); } }
+      // the ball pit and its slide
+      { const bx = 5, bz = 1.5, S = 4.2;
+        for (const s of [-1, 1]) { k.box(S, 0.6, 0.2, bx, 0, bz + s * S / 2, lit(0x2f7fd8, 0.3)); k.box(0.2, 0.6, s > 0 ? S : S - 1.4, bx + s * S / 2, 0, bz + (s > 0 ? 0 : -0.7), lit(0x2f7fd8, 0.3)); }
+        const n = 320, geo = new THREE.SphereGeometry(0.11, 8, 6), mat = new THREE.MeshStandardMaterial({ roughness: 0.4 }), ib = new THREE.InstancedMesh(geo, mat, n), m4 = new THREE.Matrix4(), col = new THREE.Color();
+        for (let i = 0; i < n; i++) { const p = k.world(bx - S / 2 + 0.25 + Math.random() * (S - 0.5), 0.1 + Math.random() * 0.38, bz - S / 2 + 0.25 + Math.random() * (S - 0.5)); m4.makeTranslation(p.x, p.y, p.z); ib.setMatrixAt(i, m4); ib.setColorAt(i, col.setHex([0xc8102e, 0xffc72c, 0x2f7fd8, 0x3aa760, 0xff7ab0][i % 5])); }
+        ib.instanceMatrix.needsUpdate = true; this.group.add(ib);
+        const sl = k.box(0.9, 0.1, 3.2, bx + 1.2, 1.0, bz - 0.4, red, false); sl.rotation.x = -0.55;
+        k.box(1.0, 2.0, 1.0, bx + 1.2, 0, bz - 2.6, yel); // the steps up to it
+      }
+      for (let x = -w / 2 + 2; x < w / 2; x += 4) k.box(1.2, 0.05, 0.3, x, 3.95, 1, lit(0xfff2d8, 1.2), false);
+      this.mcCounter = k.world(-2, 0, -0.4); this.mcCook = k.world(-2, 0, -2.6); this.mcYaw = k.yaw;
     }
     // ---- the workshop: crates and a forklift ----
     { const a = -136 * D2R, w = 14, d = 10, k = this.room(a, w, d, 'WORKSHOP', { open: true, h: 5 });
@@ -375,19 +488,22 @@ export class VolcanoBase {
   // ---- the people who work here (off in multiplayer) ----
   staff() {
     const C = this.game.citizens, Y = this.Y;
-    const add = (p, yaw, look, sit = false) => { const n = C.spawnCitizen('hills', 'escort', new THREE.Vector3(p.x, Y + 0.95, p.z), { look }); if (n) { n.faceYaw = yaw; n.heading = yaw; n.sit = sit; n.indoors = true; n.hp = 120; this.people.push(n); } };
+    const add = (p, yaw, look, sit = false) => { const n = C.spawnCitizen('hills', 'escort', new THREE.Vector3(p.x, (p.y ?? Y) + 0.95, p.z), { look }); if (n) { n.faceYaw = yaw; n.heading = yaw; n.sit = sit; n.indoors = true; n.hp = 120; this.people.push(n); } };
     const crew = (shirt) => ({ shirt, pants: 0x1d1f22, hat: 'beanie', hatColor: 0x15161a, skin: [0xd9a47c, 0x7a4f35, 0xf1c9a5, 0xa8724f][this.people.length % 4] });
     add(this.armourer, this.armouryYaw + Math.PI, crew(0x4a5a3a));
     for (const c of this.counters) add(c, this.countingYaw + Math.PI, { ...crew(0xe8e8e2), glasses: 'black' }, true);
     add(this.barman, this.barYaw, crew(0x2a2a2a));
+    if (this.alcoveClerk) add(this.alcoveClerk, this.alcoveYaw, { shirt: 0x2a6ac8, pants: 0x2a2c30, hat: 'cap', hatColor: 0xf2f2ee, skin: 0xf1c9a5 });
+    if (this.mcCook) add(this.mcCook, this.mcYaw, { shirt: 0xc8102e, pants: 0x1d1f22, hat: 'cap', hatColor: 0xffc72c, skin: 0xa8724f });
     for (const s of [-1, 1]) { const p = this.at(this.R - 4, s * 0.22); add(p, this.inward(s * 0.22), { ...crew(0x15161a), glasses: 'black' }); }
   }
 
   // ---- E ----
   action(pos) {
     const g = this.game;
-    if (!this.inside(pos, 2)) return null;
     const near = (p, r = 2.2) => p && Math.hypot(pos.x - p.x, pos.z - p.z) < r && Math.abs(pos.y - 1 - p.y) < 2;
+    if (near(this.alcoveShop, 2.6)) return { label: 'Skyhigh Chutes & Gliders', run: () => g.airGear.open() };
+    if (!this.inside(pos, 2)) return null;
     const car = g.vehicles.active;
     if (car && this.inGarage(car.pos)) return { label: car.ownedUid ? 'Keep this car at the volcano garage' : 'Store this car in the volcano garage', run: () => this.store(car) };
     if (near(this.garageTerminal)) return { label: 'Garage', run: () => this.openGarage() };
@@ -396,6 +512,7 @@ export class VolcanoBase {
     if (near(this.bed, 2.4)) return { label: g.economy.homeSpawn === 'volcano' ? 'Sleep (your bunk)' : 'Make this your bunk (wake up here)', run: () => g.homes.sleep({ id: 'volcano', name: 'the volcano base' }) };
     if (near(this.bar, 2.4)) return { label: 'Have a drink', run: () => { g.health.heal(15); g.sfx.play('cash'); g.hud.toast(['"On the house."', '"Steady, now."', '"Rough day?"'][Math.floor(Math.random() * 3)] + ' +15 health', 0x7be08a); } };
     if (near(this.board, 2.6)) return { label: 'Heist board', run: () => this.openBoard() };
+    if (near(this.mcCounter, 2.4)) return { label: 'MARCOS* (order)', run: () => g.marcos.order() };
     return null;
   }
 
