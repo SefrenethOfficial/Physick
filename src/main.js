@@ -15,7 +15,8 @@ import { Viewmodel } from './viewmodel.js';
 import { PlayerRagdoll } from './ragdoll.js';
 import { ITEMS, ITEM_BY_ID, LOOT_COMMON, LOOT_RARE } from './items.js';
 import { Gunnery } from './guns.js';
-import { Port, GANGWAY_FOOT, LAND_Y } from './port.js';
+import { Port, GANGWAY_FOOT, LAND_Y, RUNWAY as NAS_RUNWAY } from './port.js';
+const RUNWAY_X = NAS_RUNWAY.x;
 import { Jets } from './jets.js';
 import { Blood } from './blood.js';
 import { loadSettings, bindSettingsPanel } from './settings.js';
@@ -45,6 +46,11 @@ import { Highway } from './highway.js';
 import { Homes } from './homes.js';
 import { Garage } from './garage.js';
 import { Dealership } from './dealership.js';
+import { Expressway } from './expressway.js';
+import { Loot } from './loot.js';
+import { VolcanoBase } from './volcano.js';
+import { Railway } from './railway.js';
+import { TrainHeist } from './trainheist.js';
 import { Marcos } from './marcos.js';
 import { DayNight } from './daynight.js';
 import { News } from './news.js';
@@ -182,9 +188,15 @@ class Game {
     mergeStatic(this.pelican.group);
     this.ridgeback = new Ridgeback(this, this.portSandbox);
     mergeStatic(this.ridgeback.group);
+    this.expressway = new Expressway(this, this.portSandbox, this.park.xway);
+    this.volcano = new VolcanoBase(this, this.portSandbox, this.ridgeback);
+    mergeStatic(this.expressway.group);
     await this.loadStep('Baking the Scorch…', 85);
     this.scorch = new Scorch(this, this.portSandbox);
     mergeStatic(this.scorch.group);
+    this.railway = new Railway(this, this.portSandbox, this.scorch.rail);
+    this.trainHeist = new TrainHeist(this);
+    mergeStatic(this.railway.group);
     mergeStatic(this.port.group);
     mergeStatic(this.city.group);
     mergeStatic(this.saltmarsh.group);
@@ -238,6 +250,7 @@ class Game {
     this.traffic.addNetwork('hood', this.hood.xs, this.hood.zs, 2.4, 4, 7);
     this.vehicles = new Vehicles(this);
     this.bank = new Bank(this);
+    this.loot = new Loot(this);
     this.placeATMs();
     for (const sp of [...this.city.parkedSpots, ...this.saltmarsh.parkedSpots, ...this.hood.parkedSpots]) {
       if (!clearSpot(this, sp.x, sp.z, sp.heading)) continue; // no room (a tree, a wall): leave the space empty
@@ -775,13 +788,19 @@ class Game {
       }
       this.scene.add(this.torch, this.torch.target);
     }
+    if (mode === 'cave') { // inside the volcano: lamplight and the lava's glow (the vent's sky still shows)
+      f.color.set(0x1c0f08); f.near = 45; f.far = 190;
+      this.hemi.intensity = 1.05;
+      this.hemi.color.set(0xffe2c4); this.hemi.groundColor.set(0x6a3418);
+      this.sky.visible = true;
+    }
     if (mode === 'home') {
       f.color.set(0x2a2420); f.near = 40; f.far = 90;
       this.hemi.intensity = 1.1;
       this.hemi.color.set(0xfff4e4); this.hemi.groundColor.set(0x8a7a6a);
     }
-    this.sfx.muffled = !!mode;
-    if (mode) this.sfx.setEngine(false);
+    this.sfx.muffled = !!mode && mode !== 'cave';
+    if (mode && mode !== 'cave') this.sfx.setEngine(false);
   }
 
   respawnPlayer() {
@@ -791,6 +810,7 @@ class Game {
     this.clearHand();
     this.police.clearWanted();
     if (this.homes?.wakeAtHome()) { this.hud.toast(`You come round at home: ${this.homes.inside.name}`, 0x7be08a); return; }
+    if (this.volcano?.wake()) return;
     if (this.insides?.wakeAtRental()) return;
     // the nearer hospital: Verian City's or Saltmarsh's
     const pt = this.shorePlayer.body.translation(), sh = this.saltmarsh.hospital;
@@ -1103,6 +1123,12 @@ class Game {
     if (dl) return dl;
     const mc = this.marcos?.action(pos);
     if (mc) return mc;
+    const vb = this.volcano?.action(pos);
+    if (vb) return vb;
+    const th = this.trainHeist?.action(pos);
+    if (th) return th;
+    const rw = this.railway?.action(pos);
+    if (rw) return rw;
     const amb = this.ambient?.action(pos);
     if (amb) return amb;
     const fl = this.fleet?.action(pos);
@@ -1233,7 +1259,7 @@ class Game {
       // on the title screen, only the Play button starts; anywhere else just turns the sound on
       if (!this.started && this.title?.active && !e.target.closest('.play')) return; // only the Play button starts
       if (this.title?.active) { this.title.stop(); document.getElementById('overlay').classList.remove('title'); }
-      if (!this.started && !this.homes?.wakeAtHome()) this.insides?.wakeAtRental();
+      if (!this.started && !this.homes?.wakeAtHome() && !this.volcano?.wake()) this.insides?.wakeAtRental();
       this.started = true;
       this.lock();
       if (!this.story.state.introSeen) setTimeout(() => this.story.showIntro(), 400);
@@ -1477,6 +1503,8 @@ class Game {
     P(c.hospital, '#ff6a6a', 'Hospital');
     if (this.dealer) P(this.dealer.desk, '#e8c547', 'Verian Motors (cars)', true, 5);
     if (this.marcos) P(this.marcos.door, '#ffc72c', 'MARCOS (food)', true, 5);
+    for (const st of this.railway?.stations || []) P(st.street, '#b3261e', `${st.name} station`, false, 3.5);
+    if (this.volcano) P(this.volcano.portal, '#ff6a20', this.loot?.carrying ? 'Volcano base: count the money!' : 'Volcano base', true, this.loot?.carrying ? 7 : 5);
     for (const m of this.business?.marks() || []) if (m.name) P(m, m.color, m.name, m.label === '!', m.label === '!' ? 6 : 4);
     for (const m of this.stunts?.marks() || []) P(m, m.color, m.name, false, 3.5);
     for (const m of this.net?.marks() || []) P(m, m.color, m.name, true, 5.5);
@@ -1498,7 +1526,7 @@ class Game {
     P({ x: -1220 + 280, z: 445 }, '#4a9fe0', 'Airport', true);
     const sp = this.ship.root.position;
     P(sp, '#c9ced4', 'Destroyer', true);
-    P({ x: 420, z: 0 }, '#c9ced4', 'Air base', true);
+    P({ x: RUNWAY_X, z: 0 }, '#c9ced4', 'Air base', true);
     const marks = [];
     for (const b of this.boats.list) if (b.alive && (b.owned || b.police)) marks.push({ x: b.pos.x, z: b.pos.z, color: b.police ? '#4a7dff' : '#7be08a', r: 3.5 });
     for (const v of this.vehicles.list) if (!v.wreck) marks.push({ x: v.pos.x, z: v.pos.z, color: '#7be08a', r: 3 });
@@ -1510,7 +1538,7 @@ class Game {
     }
     const bounds = { x0: Infinity, x1: -Infinity, z0: Infinity, z1: -Infinity };
     for (const i of ISLANDS) { bounds.x0 = Math.min(bounds.x0, i.x0 - 60); bounds.x1 = Math.max(bounds.x1, i.x1 + 60); bounds.z0 = Math.min(bounds.z0, i.z0 - 80); bounds.z1 = Math.max(bounds.z1, i.z1 + 60); }
-    const lines = [{ pts: this.park.roadLine, color: '#55585e', w: 10 }, { pts: this.bridge.mapLine, color: '#c0442c', w: 22 }];
+    const lines = [{ pts: this.park.roadLine, color: '#55585e', w: 10 }, { pts: this.bridge.mapLine, color: '#c0442c', w: 22 }, { pts: this.expressway.mapLine, color: '#6a6f76', w: 13 }, { pts: this.railway.mapLine, color: '#7a2a24', w: 7 }];
     for (const A of [this.pelican, this.ridgeback, this.scorch]) for (const r of A?.roads || []) lines.push({ pts: r.pts.filter((_, i) => i % 5 === 0).map((p) => [p.x, p.z]).concat(r.loop ? [[r.pts[0].x, r.pts[0].z]] : []), color: r.kind === 'dirt' ? '#8a6a3a' : '#55585e', w: r.width });
     lines.push({ pts: this.park.lanes[1].pts.filter((_, i) => i % 5 === 0).map((p) => [p.x, p.z]), color: '#55585e', w: 9 });
     this.hud.drawBigMap({ lines, bounds, x: pos.x, z: pos.z, yaw, islands: ISLANDS, piers: PIERS, roads: this.roadsCache || [], trails: this.park.trails, rects: this.airport.mapRects, pois, marks });
@@ -1538,6 +1566,7 @@ class Game {
     for (const ch of this.story.monstruo.choppers) if (!ch.falling) marks.push({ x: ch.pos.x, z: ch.pos.z, color: '#ff8a1a', r: 4 });
     if (this.story.active?.id === 'm4') for (const p of this.portSandbox.props) if (p.def.bombPart) { const t = p.body.translation(); marks.push({ x: t.x, z: t.z, color: '#ff3030', r: 3.5 }); }
     if (wp) marks.push({ x: wp.x, z: wp.z, color: '#ffd166', r: 5.5, label: '★' });
+    { const hw = this.trainHeist?.wp; if (hw) marks.push({ x: hw.x, z: hw.z, color: '#ffd166', r: 5.5, label: '★' }); }
     for (const m of this.activities?.marks() || []) marks.push(m);
     for (const m of this.business?.marks() || []) marks.push(m);
     for (const m of this.stunts?.marks() || []) marks.push(m);
@@ -1550,6 +1579,7 @@ class Game {
     const sp = this.ship.root.position;
     marks.push({ x: sp.x, z: sp.z, color: '#c9ced4', r: 4 });
     for (const car of this.traffic.cars) marks.push({ x: car.pos.x, z: car.pos.z, color: '#d8d8d8', r: 1.8 });
+    for (const m of this.railway?.marks() || []) marks.push({ x: m.x, z: m.z, color: m.color, r: 3.2 });
     if (!this.roadsCache) {
       this.roadsCache = [];
       for (const R of [this.city, this.saltmarsh, this.hood]) {
@@ -1559,7 +1589,7 @@ class Game {
       }
     }
     const far = this.boats.active || this.flying || (this.vehicles.active && Math.abs(this.vehicles.active.speed) > 12);
-    this.areaLines ||= [this.pelican, this.ridgeback, this.scorch].flatMap((A) => (A?.roads || []).map((r) => ({ pts: r.pts.filter((_, i) => i % 5 === 0).map((p) => [p.x, p.z]).concat(r.loop ? [[r.pts[0].x, r.pts[0].z]] : []), color: r.kind === 'dirt' ? '#8a6a3a' : '#55585e', w: r.width }))).concat([{ pts: this.park.lanes[1].pts.filter((_, i) => i % 5 === 0).map((p) => [p.x, p.z]), color: '#55585e', w: 9 }]);
+    this.areaLines ||= [this.pelican, this.ridgeback, this.scorch].flatMap((A) => (A?.roads || []).map((r) => ({ pts: r.pts.filter((_, i) => i % 5 === 0).map((p) => [p.x, p.z]).concat(r.loop ? [[r.pts[0].x, r.pts[0].z]] : []), color: r.kind === 'dirt' ? '#8a6a3a' : '#55585e', w: r.width }))).concat([{ pts: this.park.lanes[1].pts.filter((_, i) => i % 5 === 0).map((p) => [p.x, p.z]), color: '#55585e', w: 9 }, { pts: this.expressway.mapLine, color: '#6a6f76', w: 13 }, { pts: this.railway.mapLine, color: '#7a2a24', w: 7 }]);
     this.hud.drawMap({ lines: [{ pts: this.park.roadLine, color: '#55585e', w: 10 }, { pts: this.bridge.mapLine, color: '#c0442c', w: 22 }, ...this.areaLines], roads: this.roadsCache, x: c.x, z: c.z, yaw, scale: this.flying ? 12 : far ? 5 : 2.2, islands: ISLANDS, piers: PIERS, marks });
   }
 
@@ -1614,6 +1644,9 @@ class Game {
     this.garage?.update(dt);
     this.dealer?.update(dt);
     this.marcos?.update(dt);
+    this.volcano?.update(dt);
+    this.railway?.update(dt);
+    this.trainHeist?.update(dt);
     this.daynight?.update(dt);
     this.radio?.update(dt);
     this.ambient?.update(dt);
@@ -1629,6 +1662,7 @@ class Game {
     this.pragdoll.update(dt);
     this.underworld.update(dt);
     this.bank.update(dt);
+    this.loot.update(dt);
     this.stores.update(dt);
     this.story.update(dt);
     this.airport?.update(dt);
@@ -1640,7 +1674,7 @@ class Game {
     this.graphics.update(dt);
     const under = this.story.underground;
     this.music.update(dt, this.started && this.settings.music && !this.health.dead ? Math.max(this.police.wanted, this.gangs.war.active ? 1 : 0) : 0, this.started && under, this.started && this.settings.music && !this.health.dead ? this.story.musicTrack : null, this.started && this.settings.music && !this.health.dead && this.police.swatActive, this.started && this.settings.music && !this.health.dead && !!this.activities?.cur?.racers);
-    this.setUnderground(under ? 'lab' : this.homes?.inside ? 'home' : false);
+    this.setUnderground(under ? 'lab' : this.homes?.inside ? 'home' : this.volcano?.playerInside ? 'cave' : false);
     this.police.update(dt);
     this.updatePickpocket(dt);
     this.blood.update(dt);

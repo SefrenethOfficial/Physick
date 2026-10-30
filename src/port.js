@@ -4,13 +4,19 @@ import RAPIER from '@dimforge/rapier3d-compat';
 // Naval air station on the coast, in world coordinates (it does not move).
 // The quay runs along x = QUAY_X; land extends east from there.
 
-import { ISLANDS, LAND_Y as LY, onLand as onAnyLand, landHeight as anyLandHeight } from './world.js';
+import { ISLANDS, LAND_Y as LY, NAS_DX, onLand as onAnyLand, landHeight as anyLandHeight } from './world.js';
 
 export const LAND_Y = LY;
-export const QUAY_X = 10;
-export const LAND = ISLANDS.find((i) => i.id === 'naval');
-export const RUNWAY = { x: 420, z0: -650, z1: 650, w: 45 };
+// (the station is built in its own frame, quay at x = 10, and shifted east by NAS_DX)
+const LOCAL_QUAY = 10;
+export const QUAY_X = LOCAL_QUAY + NAS_DX;
+const NAVAL = ISLANDS.find((i) => i.id === 'naval');
+const LAND = { ...NAVAL, x0: NAVAL.x0 - NAS_DX, x1: NAVAL.x1 - NAS_DX }; // (local)
+const RUNWAY_L = { x: 420, z0: -650, z1: 650, w: 45 };
+export const RUNWAY = { ...RUNWAY_L, x: RUNWAY_L.x + NAS_DX };
+export const BERTH = { x: NAS_DX, z: 0 }; // where the destroyer ties up
 export const GANGWAY_FOOT = new THREE.Vector3(QUAY_X + 4.6, LAND_Y, 0);
+export { LAND as NAVAL_LOCAL };
 
 // Any island counts (ships run aground on all of them; jets can land on any flat ground).
 export const onLand = onAnyLand;
@@ -37,8 +43,11 @@ const speckle = (g, w, h, n, a = 0.08) => {
 export class Port {
   constructor(game, sandbox) {
     this.game = game;
-    this.sb = sandbox; // physics for the shore (world frame)
+    // physics for the shore (world frame): everything here is built in the station's own frame,
+    // so colliders are shifted east on the way in, and so is the group
+    this.sb = { world: sandbox.world, addStaticCollider: (d) => { d.setTranslation(d.translation.x + NAS_DX, d.translation.y, d.translation.z); return sandbox.addStaticCollider(d); } };
     this.group = new THREE.Group();
+    this.group.position.x = NAS_DX;
     game.scene.add(this.group);
     this.build();
     this.group.traverse((o) => { if (o.isMesh) { o.receiveShadow = true; if (!o.userData.noShadow) o.castShadow = true; } });
@@ -118,21 +127,21 @@ export class Port {
       g.fillStyle = '#ecece6';
       g.fillRect(6, 0, 6, h); g.fillRect(w - 12, 0, 6, h);
       g.fillRect(w / 2 - 3, 40, 6, 200);
-    }, [1, (RUNWAY.z1 - RUNWAY.z0) / 60]);
-    this.flat(RUNWAY.w, RUNWAY.z1 - RUNWAY.z0, RUNWAY.x, (RUNWAY.z0 + RUNWAY.z1) / 2, std({ map: rwTex, roughness: 0.9 }), Y + 0.04);
+    }, [1, (RUNWAY_L.z1 - RUNWAY_L.z0) / 60]);
+    this.flat(RUNWAY_L.w, RUNWAY_L.z1 - RUNWAY_L.z0, RUNWAY_L.x, (RUNWAY_L.z0 + RUNWAY_L.z1) / 2, std({ map: rwTex, roughness: 0.9 }), Y + 0.04);
     // threshold bars + runway numbers
     const markM = std({ color: 0xecece6, roughness: 0.7 });
-    for (const [z, num, flip] of [[RUNWAY.z1 - 12, '36', false], [RUNWAY.z0 + 12, '18', true]]) {
+    for (const [z, num, flip] of [[RUNWAY_L.z1 - 12, '36', false], [RUNWAY_L.z0 + 12, '18', true]]) {
       for (let k = -7; k <= 7; k++) {
         if (k === 0) continue;
-        this.flat(1.8, 30, RUNWAY.x + k * 2.8, z - (flip ? -15 : 15), markM, Y + 0.05);
+        this.flat(1.8, 30, RUNWAY_L.x + k * 2.8, z - (flip ? -15 : 15), markM, Y + 0.05);
       }
       const t = canvasTex(256, 256, (g, w, h) => {
         g.clearRect(0, 0, w, h); g.fillStyle = '#ecece6';
         g.font = 'bold 200px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle';
         g.fillText(num, w / 2, h / 2);
       });
-      const n = this.flat(16, 22, RUNWAY.x, z - (flip ? -48 : 48), std({ map: t, transparent: true }), Y + 0.05);
+      const n = this.flat(16, 22, RUNWAY_L.x, z - (flip ? -48 : 48), std({ map: t, transparent: true }), Y + 0.05);
       n.rotation.z = flip ? Math.PI : 0;
     }
     // taxiway (parallel) + stubs to the runway and the apron
@@ -227,7 +236,7 @@ export class Port {
     for (let i = 0; i < 90; i++) {
       const x = 40 + Math.random() * 1400, z = -950 + Math.random() * 1900;
       if (x < 330 && z > -230 && z < 340) continue; // apron, hangars, containers
-      if (Math.abs(x - RUNWAY.x) < 70 || Math.abs(x - 335) < 30) continue; // runway + taxiway
+      if (Math.abs(x - RUNWAY_L.x) < 70 || Math.abs(x - 335) < 30) continue; // runway + taxiway
       if (Math.abs(x - 300) < 20 && Math.abs(z + 170) < 20) continue;
       const s = 0.9 + Math.random() * 0.8;
       const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.25 * s, 0.35 * s, 3 * s, 6), trunkM);
@@ -249,7 +258,7 @@ export class Port {
     }
     this.gangway = gw;
     gw.userData.noMerge = true;
-    this.group.add(gw);
+    this.game.scene.add(gw); // (in world coordinates: it follows the ship)
     // walkable: a kinematic ramp in the shore physics world that follows the gangway
     const w = this.sb.world;
     this.gwBody = w.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased());

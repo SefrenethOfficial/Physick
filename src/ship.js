@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { SHIP_LEN, halfBeam } from './ocean.js';
-import { onLand } from './port.js';
+import { onLand, BERTH } from './port.js';
 
 // A guided-missile-destroyer-style warship, built procedurally.
 // Ship frame: forward is -Z, starboard is +X, the waterline is y = 0.
@@ -152,7 +152,7 @@ export class Ship {
     this.mesh.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
 
     // --- motion state ---
-    this.pos = new THREE.Vector3(0, 0, 0);
+    this.pos = new THREE.Vector3(BERTH.x, 0, BERTH.z);
     this.heading = 0; // radians, 0 = sailing toward -Z
     this.speed = 0; // m/s along heading
     this.telegraph = 1; // index into SPEEDS (STOP: we start alongside the quay)
@@ -816,20 +816,20 @@ export class Ship {
 
     // coming alongside: slow, engines stopped, near the berth and roughly parallel -> warp in and moor
     if (!this.moored && this.telegraph === 1) {
-      const d = Math.hypot(this.pos.x, this.pos.z);
+      const d = Math.hypot(this.pos.x - BERTH.x, this.pos.z - BERTH.z);
       const hd = Math.atan2(Math.sin(this.heading), Math.cos(this.heading));
       const flip = Math.abs(hd) > Math.PI / 2; // either way round
       const err = flip ? Math.atan2(Math.sin(hd - Math.PI), Math.cos(hd - Math.PI)) : hd;
       if (d < 40 && Math.abs(this.speed) < 2.5 && Math.abs(err) < 0.35) {
         this.mooring = true;
         const k = Math.min(dt * 0.6, 1);
-        this.pos.x -= this.pos.x * k;
-        this.pos.z -= this.pos.z * k;
+        this.pos.x -= (this.pos.x - BERTH.x) * k;
+        this.pos.z -= (this.pos.z - BERTH.z) * k;
         this.heading -= err * k;
         this.speed *= 1 - k;
         if (d < 0.4 && Math.abs(err) < 0.01) {
           this.moored = true; this.mooring = false;
-          this.pos.set(0, 0, 0);
+          this.pos.set(BERTH.x, 0, BERTH.z);
           this.heading = flip ? Math.PI : 0;
           this.side = flip ? -1 : 1; // which side of the ship faces the quay
           this.game.hud.toast('Moored alongside', 0x7be08a);

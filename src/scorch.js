@@ -4,6 +4,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ISLANDS, LAND_Y, addPier } from './world.js';
 import { std, sign, solidBox, canvasTex, speckle } from './buildkit.js';
 import { fbm, smooth, rng, makeRoad, RoadIndex, buildTerrain, ribbon, scatter, besideRoad } from './terrain.js';
+import { planRail } from './railway.js';
 import { gasStation } from './gasstation.js';
 
 // The Scorch: a huge desert south of the city, out past the airport. Sand dunes in the west,
@@ -27,6 +28,7 @@ export class Scorch {
     this.salt = { x: -820, z: 2400, r: 300 };
     this.town = { x: -2255, z: 2470, r: 80 };
     this.plan();
+    this.rail = planRail((x, z) => this.natural(x, z));
     this.build();
   }
 
@@ -79,7 +81,7 @@ export class Scorch {
     for (const f of this.flats) { const b = f.blend || 30, d = Math.hypot(x - f.x, z - f.z); if (d < f.r + b) h = f.y + (h - f.y) * smooth(f.r, f.r + b, d); }
     const n = this.index.nearest(x, z, 36);
     if (n) { const w = n.r.width / 2; h = n.p.y - 0.05 + (h - n.p.y + 0.05) * smooth(w + 1, w + 22, n.d); }
-    return h;
+    return this.rail ? this.rail.carve(x, z, h) : h;
   }
 
   free(x, z, m = 3) {
@@ -88,10 +90,11 @@ export class Scorch {
     if (this.index.nearest(x, z, 10 + m)) return false;
     if (this.flats.some((f) => Math.hypot(x - f.x, z - f.z) < f.r + 8 + m)) return false;
     if (Math.hypot(x - this.salt.x, z - this.salt.z) < this.salt.r + 10) return false;
+    { const q = this.rail?.near(x, z); if (q && q.d < 14 + m) return false; } // the railway
     return true;
   }
 
-  get open() { return !!this.game.story?.act2; }
+  get open() { return true; } // (open from the start now: the railway runs through it)
 
   build() {
     const g = this.group, sb = this.sb, isl = this.isl, R = this.R;

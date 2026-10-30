@@ -87,7 +87,7 @@ export class RoadIndex {
 // ---------------------------------------------------------------- the ground
 // The island's bank (a slab down into the sea) plus a sculpted top that follows heightAt(), with
 // a trimesh collider. colorAt(x, y, z, ny) returns [r, g, b] multipliers on the texture.
-export function buildTerrain(group, sb, isl, { heightAt, step = 6, map, sideColor = 0x8a8478, colorAt = null, roughness = 1 }) {
+export function buildTerrain(group, sb, isl, { heightAt, step = 6, map, sideColor = 0x8a8478, colorAt = null, roughness = 1, hole = null, castShadow = false }) {
   const w = isl.x1 - isl.x0, d = isl.z1 - isl.z0, cx = (isl.x0 + isl.x1) / 2, cz = (isl.z0 + isl.z1) / 2;
   const bank = std({ color: sideColor, roughness: 1 });
   const slab = new THREE.Mesh(new THREE.BoxGeometry(w, 14, d), bank);
@@ -108,9 +108,18 @@ export function buildTerrain(group, sb, isl, { heightAt, step = 6, map, sideColo
     }
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   }
+  if (hole) { // cut a hole (no triangles where hole(x, z) says so)
+    const ix = geo.index.array, keep = [];
+    for (let t = 0; t < ix.length; t += 3) {
+      let mx = 0, mz = 0; for (let k = 0; k < 3; k++) { mx += pos.getX(ix[t + k]); mz += pos.getZ(ix[t + k]); }
+      if (!hole(mx / 3 + cx, mz / 3 + cz)) keep.push(ix[t], ix[t + 1], ix[t + 2]);
+    }
+    geo.setIndex(keep);
+  }
   const mesh = new THREE.Mesh(geo, std({ map, vertexColors: !!colorAt, roughness }));
   mesh.position.set(cx, 0, cz);
   mesh.receiveShadow = true;
+  mesh.castShadow = castShadow;
   mesh.userData.noMerge = true;
   group.add(mesh);
   const verts = new Float32Array(pos.count * 3);

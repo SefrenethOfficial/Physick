@@ -74,7 +74,7 @@ export class Player {
     const onPlat = !!pv && this.vel.y <= 0.5;
 
     if (sprint && this.crouch) this.crouch = false; // (running stands you up)
-    const speed = (this.crouch ? 2.6 : sprint ? 10 : 6) * (this.game.hostage && this === this.game.shorePlayer ? 0.55 : 1); // slow with a hostage; slower crouched
+    const speed = (this.crouch ? 2.6 : sprint ? 10 : 6) * (this.game.hostage && this === this.game.shorePlayer ? 0.55 : 1) * (this === this.game.shorePlayer ? this.game.loot?.slow ?? 1 : 1); // slow with a hostage (or the money bags); slower crouched
     this.crouchK = (this.crouchK || 0) + ((this.crouch ? 1 : 0) - (this.crouchK || 0)) * Math.min(1, dt * 10);
     this.running = sprint && wish.lengthSq() > 0;
     const target = wish.multiplyScalar(speed);

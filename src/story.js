@@ -898,7 +898,7 @@ export class Story {
       <h1>ACT ${['', 'I', 'II', 'III'][n]}</h1><h2>complete</h2>
       ${n === 2 ? this.fallout.completeText() : `<p>Verian Central Square is still standing. The bomb is at the bottom of the harbour, the Courier is dead in a truck that's now a metal pancake, and the Ashen Hand have lost their first man.</p>
       <p>They know someone is coming for them now. They don't know it's you. Not yet.</p>`}
-      ${n === 1 ? '<p><b>New area open:</b> the barricade\'s off the causeway south of the city. Route 9 runs out into <b>the Scorch</b>.</p>' : ''}
+      ${n === 1 ? '<p><b>Next:</b> Route 9 runs out into <b>the Scorch</b>, where Act II begins.</p>' : ''}
       <div class="btns"><button data-a="ok">Continue</button></div></div>`;
     e.open('The Ashen Hand', html, (body) => body.addEventListener('click', (ev) => { if (ev.target.closest('button[data-a]')) e.close(); }));
   }

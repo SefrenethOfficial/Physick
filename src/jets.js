@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { landHeight, LAND_Y, RUNWAY } from './port.js';
+import { landHeight, LAND_Y, RUNWAY, BERTH } from './port.js';
 import { GLOW } from './effects.js';
 
 // Fighter jets: a procedural twin-tail navy fighter and an arcade-but-physical flight model
@@ -468,9 +468,9 @@ export class Jets {
     const homes = [
       { x: rx - 9, z: RUNWAY.z1 - 40, yaw: 0 }, // lined up on the runway, ready to go
       { x: rx + 9, z: RUNWAY.z1 - 70, yaw: 0 },
-      { x: 120, z: -110, yaw: Math.PI }, // on the apron in front of the hangars
-      { x: 180, z: -110, yaw: Math.PI },
-      { x: 240, z: -110, yaw: Math.PI },
+      { x: BERTH.x + 120, z: -110, yaw: Math.PI }, // on the apron in front of the hangars
+      { x: BERTH.x + 180, z: -110, yaw: Math.PI },
+      { x: BERTH.x + 240, z: -110, yaw: Math.PI },
     ];
     this.list = homes.map((h, i) => new Jet(game, h, String(201 + i)));
     this.active = null;

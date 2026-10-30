@@ -208,7 +208,8 @@ export class Dealership {
     const home = rec.home && g.homes?.owns(rec.home) ? g.homes.list.find((h) => h.id === rec.home) : null;
     const spot = home ? g.homes.parking(home).find((p) => free(p, p.y)) : null;
     if (home && !spot && !quiet) g.hud.toast(`No room outside ${home.name}: it's on the lot at Verian Motors instead`, 0xffd166);
-    const bay = spot || this.bays.find((p) => free(p, Y)) || this.bays[0];
+    const vb = rec.home === 'volcano' && g.volcano ? g.volcano.freeBay() : null;
+    const bay = vb || spot || this.bays.find((p) => free(p, Y)) || this.bays[0];
     const opts = { color: rec.color, x: bay.x, z: bay.z, heading: bay.heading, hp: m.hp, maxSpeed: m.maxSpeed };
     const car = m.vehicle === 'bike' ? g.fleet.makeBike({ ...opts, sport: m.sport })
       : m.vehicle === 'tow' ? g.fleet.makeTow(opts)
@@ -223,7 +224,8 @@ export class Dealership {
     g.vehicles.list.push(car);
     this.cars.set(rec.uid, car);
     this.respawnT.delete(rec.uid);
-    if (!quiet) g.hud.toast(spot ? `Your ${m.name} is parked outside ${home.name}` : `Your ${m.name} is waiting in the customer bays at Verian Motors`, 0x7be08a);
+    if (vb) car.body.setTranslation({ x: vb.x, y: vb.y + 1.2, z: vb.z }, true);
+    if (!quiet) g.hud.toast(vb ? `Your ${m.name} is in the volcano garage` : spot ? `Your ${m.name} is parked outside ${home.name}` : `Your ${m.name} is waiting in the customer bays at Verian Motors`, 0x7be08a);
     return car;
   }
 

@@ -3,6 +3,7 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ISLANDS, LAND_Y } from './world.js';
 import { std, sign, solidBox, canvasTex, speckle } from './buildkit.js';
+import { planExpressway } from './expressway.js';
 
 // Cherry Estate National Park: a big stretch of pine forest behind Verian City, with dirt
 // trails, a ranger station at the trailhead, campsites, fallen logs, boulders and a lookout.
@@ -47,6 +48,7 @@ export class Park {
     game.scene.add(this.group);
     this.lootSpots = [];
     this.planRoad();
+    this.xway = planExpressway((x, z) => this.natural(x, z));
     this.build();
   }
 
@@ -124,7 +126,7 @@ export class Park {
     // the lanes run on their own graded bed (heights fixed once, below)
     const ln = this.lanesReady && this.nearestLane(x, z);
     if (ln && ln.d < ln.l.width + 12) h = ln.p.y + (h - ln.p.y) * smooth(ln.l.width * 0.6, ln.l.width + 12, ln.d);
-    return h;
+    return this.xway ? this.xway.carve(x, z, h) : h;
   }
 
   build() {
@@ -388,6 +390,7 @@ export class Park {
       const z = isl.z0 + 6 + Math.random() * (isl.z1 - isl.z0 - 12);
       if (this.clearings.some((c) => Math.hypot(x - c.x, z - c.z) < c.r + margin)) continue;
       if (this.nearestRoad(x, z).d < 14 + margin) continue;
+      { const xn = this.xway?.near(x, z); if (xn && xn.d < 14 + margin) continue; }
       if (this.garage && Math.hypot(x - this.garage.pos.x - 10, z - this.garage.pos.z) < 20 + margin) continue; // the garage's yard
       const ln = this.nearestLane(x, z);
       if (ln && ln.d < ln.l.width + 3 + margin) continue;

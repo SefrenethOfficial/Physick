@@ -66,10 +66,10 @@ Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **
     | **Saltmarsh Guns & Ammo** | The gun store |
 
     The fire engine, ambulance, school bus and patrol car can all be stolen.
-- **NAS Halyard** (east): the naval air station with the destroyer moored alongside and fighter jets on the apron.
+- **NAS Halyard** (well out to the east, on its own): the naval air station with the destroyer moored alongside and fighter jets on the apron. The railway doesn't go there: fly, sail or take a boat.
 - **Pelican Point** (a long headland running south off the corner of Saltmarsh Key, pointing straight at Verian): drive off the end of Saltmarsh's town row and on down it, or come over the causeway from the Hollows. A fishing village on the headland: cottages round a village green, the Pelican Point Seafood shack, a jetty with fishing boats bobbing at it, a beach with umbrellas, and the red-and-white lighthouse up on the rocky tip facing the city (a dirt track runs up to it, and its beam sweeps the sea at night). The road loops right round it, and from the tip the causeway carries on to the Hollows: the land route from Saltmarsh into Verian.
-- **Ridgeback Hills** (medium, north-west of Cherry Estate): take the coast road west from under the Saltmarsh Gate Bridge. Ridgeback Gas & Grocery at the foot (a proper modern station: canopy with lights, pump islands, a shop with a glass front, a price pylon), log cabins round a campfire in the meadow, a gravel quarry with terraced benches, heaps, a crusher and a dump truck, and the Ridgeback Pass climbing through crash-barriered hairpins to the observatory on the 120 m summit, with a viewpoint back over the city. Thick pine forest below the treeline.
-- **The Scorch** (huge, south of the city, **Act II**): a desert as big as everything else put together, reached by the long causeway off the south end of Verian City. Until you finish Act I it's barricaded (ROAD CLOSED, and anyone who sneaks in by boat or air is turned back). Inside: sand dunes in the west, red mesas, the bone-white Bone Dry Salt Flat, Route 9 running the length of it, the Last Chance gas station (an old sun-bleached stop with round-topped pumps), the ghost town of Copper Gulch (saloon, sheriff, bank, hotel, water tower and windmill), an old airliner wreck, cacti, scrub and tumbleweeds.
+- **Ridgeback Hills** (medium, north-west of Cherry Estate): take the **Ridgeback Expressway** from the west end of 105th Street in Verian City. It climbs onto a viaduct over the Cherry Estate valleys, cuts through the ridge in the middle of the park, swings out over the sea along the park's west coast and comes down at the foot of the Ridgeback Pass, by the gas station (the old coast road from under the Saltmarsh Gate Bridge still works too). Ridgeback Gas & Grocery at the foot (a proper modern station: canopy with lights, pump islands, a shop with a glass front, a price pylon), log cabins round a campfire in the meadow, a gravel quarry with terraced benches, heaps, a crusher and a dump truck, and the Ridgeback Pass climbing through crash-barriered hairpins to the top of **Mount Ridgeback**, a steep black volcano with a wisp of a vent at the very top. At the summit car park a tunnel goes into the mountain behind a blast door: that's the **volcano base** (see below). Thick pine forest below the treeline; bare black rock on the volcano.
+- **The Scorch** (huge, south of the city): a desert as big as everything else put together, reached by the long causeway off the south end of Verian City or by train. It's open from the start now. Inside: sand dunes in the west, red mesas, the bone-white Bone Dry Salt Flat, Route 9 running the length of it, the Last Chance gas station (an old sun-bleached stop with round-topped pumps), the ghost town of Copper Gulch (saloon, sheriff, bank, hotel, water tower and windmill), an old airliner wreck, cacti, scrub and tumbleweeds.
 
 ## Things to do
 
@@ -223,7 +223,38 @@ Your cars from Verian Motors can live at your homes. Get out of one of your own 
 
 - **Verian National Bank** faces the plaza from the south. Talk to a teller (`E`) to deposit or withdraw. Money in the bank is safe; money in your pocket is what you lose when you die (10%) or get busted (25%).
 - **ATMs** stand on pavements around the city, outside the bank, at the marina, in Saltmarsh market and at the park's ranger station ($5 per withdrawal). Shoot or smash one open and it spills cash bundles (bag them with `B`).
-- **Robbing the bank:** hold a gun at the counter and press `R`. The silent alarm goes off at once (three stars). Get round the end of the counter into the vault and stay there to fill the bag (around $14,000), then get out — that's four stars. The vault needs about ten minutes to refill.
+- **Robbing the bank:** hold a gun at the counter and press `R`. The silent alarm goes off at once (three stars). Get round the end of the counter into the vault and stay there to fill the money bags (around $14,000), then get out — that's four stars. The vault needs about ten minutes to refill.
+- **Hot money:** a bank job (or the train heist) doesn't put cash in your pocket. It goes into canvas money bags on your back (shown top right): they slow you down on foot (more bags, slower), they aren't saved (close the game and they're gone), and if you're killed or busted the police take them back. Get them to the **counting room in the volcano base**: they're counted, cleaned (the counters keep 10%) and paid into your bank account.
+
+## The volcano base
+
+Inside Mount Ridgeback. Drive up the Ridgeback Pass to the summit car park and through the blast door (it opens as you come up): the tunnel comes out in a huge cone-shaped cavern hollowed out of the volcano, with a concrete floor and a ring road painted on it, lit by hanging lamps and the lava glowing up through the steel grating that cages the pit in the middle. The only daylight is a little vent right at the top. Round the walls:
+
+| Room | What it's for |
+|---|---|
+| **Garage** | Drive any car in under the canopy and press `E` to store it (up to eight, and the police forget about it). Take them out again at the terminal. Cars you bought at Verian Motors can live here too. |
+| **Armoury** | Every gun, grenades and armour, no questions asked (even with the police after you), and a free ammo restock once a day. |
+| **Counting room** | Bring money bags here: `E` to count them into your account. |
+| **Quarters** | Bunks: `E` at the red one to sleep and make the base home (you wake up here). |
+| **Control room** | The heist board: set up the train heist. |
+| **Lounge** | A bar (`E` for a drink, +15 health), sofas round a big telly, a pool table. |
+| **Workshop** | Crates, a workbench and a forklift. |
+
+In the middle of the grating is the **disposal chute**, a steel funnel straight down into the lava (the railing round it is open on one side). Anything that goes down it (a car, a body, you) lands in the lava, which throws up a huge spout of it. The spout's just for show; the lava isn't.
+
+## Verian Rail
+
+A double-track railway down the length of the map: **Saltmarsh Key → Pelican Point → The Hollows → Verian Central → Verian International → Copper Gulch** (in the Scorch). It runs on a viaduct round the outside of the islands, then comes down to the desert floor and crosses the Scorch to Copper Gulch. A train runs each way, end to end, stopping at every station for a few seconds. To ride: take the lift up from the red **VERIAN RAIL** kiosk by each station (`E`), walk onto the train when it stops, and walk off at the stop you want (you can walk about inside while it's moving). Don't stand on the line: the trains don't stop for you. Trains show on the map as red dots.
+
+### The train heist
+
+From the heist board in the volcano's control room ($2,500 for the charges, then about 20 minutes between jobs): Verian National's mail train carries cash from the airport to Copper Gulch.
+
+1. Go out to the marker on the Scorch line (a yellow beam) and hold `E` to plant a charge on the southbound track.
+2. Get clear. The mail train leaves Verian International; when it reaches the charge the line goes up and the train stops dead (three stars).
+3. The armed escort piles out of the back. Deal with them (or don't), then hold `E` at the side of the middle car, the armoured one, to set a charge on its door, and back off.
+4. The door's gone: grab the five money bags inside (around $70,000–$95,000 in all).
+5. Get the bags back to the volcano base and count them.
 
 ## Businesses
 
@@ -405,7 +436,7 @@ src/
   terrain.js   shared terrain kit: noise, graded roads, terrain mesh + collider, road ribbons
   pelican.js   Pelican Point (the headland off Saltmarsh: fishing village, harbour, lighthouse, Lighthouse Loop race)
   ridgeback.js Ridgeback Hills (the pass, quarry, cabins, observatory, Hillclimb race)
-  scorch.js    the Scorch desert (Act II) and its barricaded causeway
+  scorch.js    the Scorch desert and its causeway
   act2.js      Act II: its missions, stealth guards and cameras, the lock-ups, the Airport Authority's staff wing, Hangar 3
   planes.js    the airliner and the Chemist's jet
   skydive.js   ejecting, freefall and the parachute
@@ -436,6 +467,11 @@ src/
   marcos.js    MARCOS: the burger restaurant, its logo, menu and drive-thru
   insides.js   on-demand building interiors: stairs, lifts, corridors, rentals, roofs
   flats.js     the fit-out of a flat (kitchen, living room, bedroom, bathroom) and the lobbies
+  expressway.js the Ridgeback Expressway (route, height profile, viaduct)
+  volcano.js   the hollow volcano and the crime base inside it, the lava and the disposal chute
+  loot.js      hot money: the money bags from a job, and counting them
+  railway.js   Verian Rail: the line, the stations, the trains (and riding them)
+  trainheist.js the Scorch Line mail train heist
   swat.js      20-star police: choppers, SWAT, roadblocks, spikes, bounty hunters
   daynight.js  time of day and weather
   radio.js     the car radio and Talk Verian

@@ -7,10 +7,12 @@ import { fbm, smooth, rng, makeRoad, RoadIndex, buildTerrain, ribbon, scatter, b
 import { gasStation } from './gasstation.js';
 import { photoTex } from './park.js';
 
-// Ridgeback Hills: the mountains north-west of Cherry Estate. Drive west along the coast road
-// from under the Saltmarsh Gate Bridge and you're in: a gas station at the foot, log cabins in a
-// meadow, a gravel quarry cut into the hillside, and the Ridgeback Pass climbing through
-// switchbacks to the observatory on the summit, 150 m up. The pass is the Hillclimb street race.
+// Ridgeback Hills: the mountains north-west of Cherry Estate. Take the Ridgeback Expressway out
+// of Verian City (or the coast road from under the Saltmarsh Gate Bridge) and you're in: a gas
+// station at the foot, log cabins in a meadow, a gravel quarry cut into the hillside, and the
+// Ridgeback Pass climbing through switchbacks to the top of Mount Ridgeback: a volcano. A tunnel
+// from the summit car park leads into the crater, and the crime base built round its lava pit
+// (see volcano.js). The pass is the Hillclimb street race.
 
 const Y = LAND_Y;
 
@@ -23,7 +25,10 @@ export class Ridgeback {
     game.scene.add(this.group);
     this.lootSpots = [];
     this.R = rng(7);
-    this.peak = { x: -2060, z: -965 };
+    this.peak = { x: -2075, z: -1075 }; // the volcano (its crater)
+    // the volcano's hollow: a cone-shaped cavern (radius cave at the floor, the base's level), its roof 7 m
+    // under the mountainside, open to the sky through a little hole at the very top
+    this.crater = { cave: 46, slope: 0.75, top: 58, thick: 7, oculus: 4.5 };
     this.quarry = { x: -1735, z: -985, r: 62 };
     this.plan();
     this.build();
@@ -34,7 +39,7 @@ export class Ridgeback {
     const e = Math.min(x - isl.x0, isl.x1 - x, z - isl.z0, isl.z1 - z);
     const mask = smooth(6, 90, e);
     const dP = Math.hypot(x - this.peak.x, z - this.peak.z);
-    const mount = 150 * Math.pow(smooth(470, 40, dP), 1.3) * (0.78 + 0.44 * fbm(x / 80 + 1.7, z / 80 - 4.2));
+    const mount = 175 * Math.pow(Math.max(0, 1 - dP / 310), 1.25) * (0.92 + 0.16 * fbm(x / 80 + 1.7, z / 80 - 4.2)); // a steep cone
     const ridge = 1 - Math.abs(fbm(x / 210, z / 210) * 2 - 1);
     const hills = 34 * (Math.pow(fbm(x / 150 + 9, z / 150 - 3), 1.5) * 0.7 + ridge * ridge * 0.4);
     return Y + mask * (mount + hills * (0.5 + 0.5 * smooth(-1560, -1900, x)));
@@ -57,8 +62,18 @@ export class Ridgeback {
     this.flats = [
       { ...gas, r: 30, blend: 26 }, // the gas station, level with the road
       { x: -1880, z: -640, r: 34, y: passY(-1880, -640), blend: 45 }, // the meadow with the cabins (at road level, sloping gently up to the hills)
-      { x: P.x + 8, z: P.z - 12, r: 30, y: P.y }, // the summit car park and observatory
+      { x: P.x, z: P.z - 6, r: 22, y: P.y }, // the summit car park, at the mouth of the tunnel into the crater
     ];
+    // the tunnel: from the car park, straight in to the cavern (its portal is where the ground is high enough)
+    const V = this.peak, dx = V.x - P.x, dz = V.z - P.z, dl = Math.hypot(dx, dz);
+    this.tunnel = { a: { x: P.x, z: P.z }, u: { x: dx / dl, z: dz / dl }, len: dl - this.crater.cave + 1, y: P.y, portal: null };
+    const T = this.tunnel;
+    this.tunnelRoad = makeRoad([[P.x, P.z], [P.x + T.u.x * T.len * 0.5, P.z + T.u.z * T.len * 0.5], [P.x + T.u.x * T.len, P.z + T.u.z * T.len]], { width: 10, yOf: () => P.y + 0.1, smoothN: 2, name: 'tunnel' });
+    this.tunnelRoad.underground = true;
+    this.index = new RoadIndex(this.roads); // (the tunnel isn't a surface road: the hill stays over it)
+    for (let t = 6; t < T.len; t += 1) { const x = P.x + T.u.x * t, z = P.z + T.u.z * t; if (this.heightAt(x, z) - P.y > 9.5) { T.portal = t; break; } }
+    T.portal ??= T.len * 0.4;
+    this.roads.push(this.tunnelRoad);
     for (const f of this.flats) if (f.y == null) f.y = this.natural(f.x, f.z);
   }
 
@@ -73,12 +88,27 @@ export class Ridgeback {
       const want = f + (h - f) * t;
       h = dq < q.r ? f : Math.min(h, f + Math.floor((want - f) / 6) * 6 + (want - f) % 6 * 0.15);
     }
-    // the summit is the top: nothing round the observatory rises much above it
-    const sm = this.flats[2], dsm = Math.hypot(x - sm.x, z - sm.z);
-    if (dsm < 260) h = Math.min(h, sm.y + Math.max(0, dsm - sm.r) * 0.32);
     for (const fl of this.flats) { const b = fl.blend || 20, d = Math.hypot(x - fl.x, z - fl.z); if (d < fl.r + b) h = fl.y + (h - fl.y) * smooth(fl.r, fl.r + b, d); }
     const n = this.index.nearest(x, z, 40);
     if (n) { const w = n.r.width / 2; h = n.p.y - 0.05 + (h - n.p.y + 0.05) * smooth(w + 3.5, w + 28, n.d); } // (a flat verge, then the bank)
+    return this.volcanoAt(x, z, h);
+  }
+
+  // The volcano's summit: a clean cone (its slope parallel to the cavern's roof inside), with the
+  // tunnel cut into its side from the car park to the portal (beyond that it runs underground).
+  coneAt(r) { const K = this.crater; return this.summitY + K.top - K.slope * r; }
+  volcanoAt(x, z, h) {
+    const V = this.peak, r = Math.hypot(x - V.x, z - V.z);
+    if (r > 200) return h;
+    const cone = this.coneAt(r);
+    h = r < 40 ? cone : cone + (Math.max(h, cone) - cone) * smooth(40, 75, r);
+    const T = this.tunnel;
+    if (T.portal != null) {
+      const ax = x - T.a.x, az = z - T.a.z, t = ax * T.u.x + az * T.u.z, lat = Math.abs(ax * T.u.z - az * T.u.x);
+      if (t > -4 && t < T.portal + 1) h = Math.min(h, T.y - 0.05 + Math.max(0, lat - 6.5) * 2.2);
+    }
+    const sm = this.flats[2], dsm = Math.hypot(x - sm.x, z - sm.z);
+    if (dsm < sm.r + 22) h = sm.y + (h - sm.y) * smooth(sm.r, sm.r + 22, dsm);
     return h;
   }
 
@@ -88,6 +118,7 @@ export class Ridgeback {
     if (this.index.nearest(x, z, 9 + m)) return false;
     if (this.flats.some((f) => Math.hypot(x - f.x, z - f.z) < f.r + m)) return false;
     if (Math.hypot(x - this.quarry.x, z - this.quarry.z) < this.quarry.r + 30) return false;
+    if (Math.hypot(x - this.peak.x, z - this.peak.z) < 130) return false; // the crater
     return true;
   }
 
@@ -97,7 +128,8 @@ export class Ridgeback {
     const W = isl.x1 - isl.x0, D = isl.z1 - isl.z0;
     const q = this.quarry;
     buildTerrain(g, sb, isl, {
-      heightAt: (x, z) => this.heightAt(x, z), step: 5, sideColor: 0x6a604e,
+      heightAt: (x, z) => this.heightAt(x, z), step: 5, sideColor: 0x6a604e, castShadow: true,
+      hole: (x, z) => Math.hypot(x - this.peak.x, z - this.peak.z) < this.crater.oculus + 0.5, // the vent at the top
       map: photoTex(`${base}assets/textures/grass.jpg`, W / 9, D / 9),
       colorAt: (x, y, z, ny) => {
         const steep = smooth(0.9, 0.66, ny), high = smooth(Y + 90, Y + 145, y);
@@ -105,7 +137,12 @@ export class Ridgeback {
         const k = Math.max(steep, high * 0.9);
         const c = [1 - k * 0.12, 1 - k * 0.42, 1 - k * 0.2 + k * 0.08]; // grey-brown rock up high and on the crags
         if (gravel > 0) { c[0] += gravel * 0.85; c[1] += gravel * 0.55; c[2] += gravel * 0.45; }
-        const snow = smooth(Y + 128, Y + 150, y) * smooth(0.7, 0.85, ny);
+        const vr = Math.hypot(x - this.peak.x, z - this.peak.z), basalt = smooth(300, 170, vr);
+        if (basalt > 0) { // dark grey-brown rock (the texture's green, so the tint undoes it)
+          const t = [0.5, 0.33, 0.78].map((v) => v * (0.85 - 0.25 * steep));
+          for (let k3 = 0; k3 < 3; k3++) c[k3] += (t[k3] - c[k3]) * basalt;
+        }
+        const snow = smooth(Y + 128, Y + 150, y) * smooth(0.7, 0.85, ny) * (1 - basalt);
         if (snow > 0) { c[0] += snow * 2.2; c[1] += snow * 1.9; c[2] += snow * 2.2; }
         return c;
       },
@@ -117,6 +154,7 @@ export class Ridgeback {
       c.fillStyle = '#e8e8e2'; c.fillRect(3, 0, 1.5, ch); c.fillRect(cw - 4.5, 0, 1.5, ch);
     });
     ribbon(g, this.pass.pts, 12, std({ map: roadTex, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -2 }));
+    ribbon(g, this.tunnelRoad.pts, 10, std({ map: roadTex, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -2 }));
     ribbon(g, this.quarryRoad.pts, 7, std({ map: photoTex(`${base}assets/textures/dirt.jpg`, 1, 1), roughness: 1, polygonOffset: true, polygonOffsetFactor: -1 }), { uScale: 6, yOf: (p, x, z) => this.heightAt(x, z) });
     // crash barriers on the outside of the hairpins (where the drop is)
     const barM = std({ color: 0xc8ccd0, metalness: 0.6, roughness: 0.4 });
@@ -186,26 +224,11 @@ export class Ridgeback {
     sign(g, 'RIDGEBACK AGGREGATES · HARD HATS', q.x - 30, yQ + 2.2, q.z - 40, 0.4, { w: 7, h: 0.9, bg: '#e0b42b', fg: '#1b1b1b', post: yQ });
     this.lootSpots.push(new THREE.Vector3(q.x + 13, yQ + 0.4, q.z + 10));
 
-    // ---- the observatory on the summit ----
+    // ---- the summit car park, at the tunnel mouth ----
     const sm = this.flats[2], yS = sm.y;
     const asph = std({ color: 0x3c3f43, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -1 });
-    const lot = new THREE.Mesh(new THREE.CircleGeometry(sm.r - 2, 32), asph); lot.rotation.x = -Math.PI / 2; lot.position.set(sm.x, yS + 0.06, sm.z); g.add(lot);
-    const ox = sm.x - 12, oz = sm.z - 10;
-    const white = std({ color: 0xf2f0ea, roughness: 0.5 });
-    const drum = new THREE.Mesh(new THREE.CylinderGeometry(7, 7, 8, 28), white); drum.position.set(ox, yS + 4, oz); drum.castShadow = drum.receiveShadow = true; g.add(drum);
-    const dome = new THREE.Mesh(new THREE.SphereGeometry(7.2, 28, 14, 0, Math.PI * 2, 0, Math.PI / 2), std({ color: 0xdfe3e8, metalness: 0.7, roughness: 0.3 }));
-    dome.position.set(ox, yS + 8, oz); dome.castShadow = true; g.add(dome);
-    const slit = new THREE.Mesh(new THREE.BoxGeometry(1.6, 7.4, 7.4), std({ color: 0x14161c }));
-    slit.position.set(ox, yS + 9.5, oz - 3); slit.rotation.x = -0.6; g.add(slit);
-    sb.addStaticCollider(RAPIER.ColliderDesc.cylinder(6, 7.2).setTranslation(ox, yS + 6, oz));
-    sign(g, 'RIDGEBACK OBSERVATORY', ox + 7.4, yS + 3, oz, Math.PI / 2, { w: 6, h: 0.9, bg: '#14161c', fg: '#f2efe6' });
-    // a viewpoint rail and a coin telescope looking back at the city
-    for (let k = 0; k < 9; k++) { const a = -0.4 + k * 0.18; solidBox(g, sb, 0.12, 1, 0.12, sm.x + Math.cos(a) * (sm.r - 1), yS, sm.z + Math.sin(a) * (sm.r - 1), steel); }
-    const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.2, 0.9, 10), std({ color: 0x2a6a3a, metalness: 0.4 }));
-    scope.rotation.z = 1.2; scope.position.set(sm.x + sm.r - 4, yS + 1.4, sm.z + 2); g.add(scope);
-    solidBox(g, sb, 0.15, 1.1, 0.15, sm.x + sm.r - 4, yS, sm.z + 2, steel);
-    sign(g, 'SUMMIT · 150 M', sm.x + 10, yS + 2.2, sm.z + 14, 2.4, { w: 4, h: 0.8, bg: '#1f5a2a', fg: '#ffffff', post: yS });
-    this.lootSpots.push(new THREE.Vector3(ox + 8, yS + 0.4, oz + 4));
+    const lot = new THREE.Mesh(new THREE.CircleGeometry(sm.r - 1, 32), asph); lot.rotation.x = -Math.PI / 2; lot.position.set(sm.x, yS + 0.06, sm.z); g.add(lot);
+    sign(g, 'MT RIDGEBACK · SUMMIT', sm.x - 14, yS + 2.2, sm.z + 10, -2.2, { w: 4.4, h: 0.8, bg: '#1f5a2a', fg: '#ffffff', post: yS });
     this.summit = new THREE.Vector3(sm.x, yS, sm.z);
 
     // ---- pines, firs higher up, boulders ----
@@ -218,6 +241,7 @@ export class Ridgeback {
       if (!this.free(x, z, 3)) continue;
       const y = this.heightAt(x, z);
       if (y > Y + 132) continue; // the treeline
+      if (Math.hypot(x - this.peak.x, z - this.peak.z) < 230) continue; // bare volcanic rock up top
       spots.push({ x, y: y - 0.2, z, s: 0.7 + R() * 0.9, yaw: R() * 6.28 });
     }
     scatter(g, trunkGeo, std({ color: 0x5a3e2a, roughness: 1 }), spots.length, (i) => spots[i]);

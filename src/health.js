@@ -47,6 +47,8 @@ export class Health {
     g.gunnery?.leave();
     const msg = {
       fall: 'You fell too far',
+      lava: 'Into the lava',
+      train: 'Hit by a train',
       prop: 'Flattened',
       overboard: 'Lost at sea',
       jet: 'Your jet went down',

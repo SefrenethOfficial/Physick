@@ -8,7 +8,7 @@ import { HEAT, MAX_STARS } from './swat.js';
 import { UPGRADES } from './garage.js';
 import { MISSIONS, KEY_ITEMS } from './story.js';
 import { WEATHER } from './daynight.js';
-import { islandAt, LAND_Y } from './world.js';
+import { islandAt, LAND_Y, NAS_DX } from './world.js';
 
 // The admin panel: for testing. It's hidden until you unlock it: on the title screen, hold Alt
 // (Option on a Mac) and click the very top-left corner. After that, F8 (or `) opens it any time.
@@ -96,9 +96,9 @@ export class Admin {
       ['Cargo ship ladder', g.cargo?.ladderFoot?.clone().add(v(0, 1.2, 0))], ['The Hollows', H.entrance.clone().add(v(10, 1.2, 0))],
       ['Trailhead', P.entrance?.clone().add(v(0, 1.2, 0))], ['Underpass Customs', P.garage?.bay.clone().add(v(4, 1.2, 0))], ['Bunker (lab)', P.bunker?.out.clone().add(v(0, 1.2, 0))],
       ['Bridge (middle)', (() => { const b = g.bridge, p = b.at(b.length / 2, 6); return v(p.x, b.deckAt(b.length / 2) + 1.2, p.z); })()],
-      ['Airport terminal', v(-1220 + 280, LAND_Y + 1.2, 445)], ['Airport runway', v(-1600 + 280, LAND_Y + 1.2, 640)], ['Naval air station', v(400, LAND_Y + 1.2, 0)],
+      ['Airport terminal', v(-1220 + 280, LAND_Y + 1.2, 445)], ['Airport runway', v(-1600 + 280, LAND_Y + 1.2, 640)], ['Naval air station', v(400 + NAS_DX, LAND_Y + 1.2, 0)],
       ['Pelican Point', g.pelican?.entrance.clone().add(v(10, 1.4, 0))], ['Lighthouse', g.pelican && v(g.pelican.hill.x - 6, g.pelican.flats[1].y + 1.4, g.pelican.hill.z - 8)],
-      ['Ridgeback Hills (gas)', g.ridgeback && v(g.ridgeback.flats[0].x, g.ridgeback.flats[0].y + 1.4, g.ridgeback.flats[0].z + 14)], ['Ridgeback summit', g.ridgeback?.summit.clone().add(v(6, 1.4, 6))],
+      ['Ridgeback Hills (gas)', g.ridgeback && v(g.ridgeback.flats[0].x, g.ridgeback.flats[0].y + 1.4, g.ridgeback.flats[0].z + 14)], ['Ridgeback summit', g.ridgeback?.summit.clone().add(v(6, 1.4, 6))], ['Volcano base (inside)', g.volcano && g.volcano.at(30, 0.3).add(v(0, 1.4, 0))],
       ['Scorch gate', g.scorch?.gate.clone().add(v(0, 1.4, -10))], ['Scorch: Copper Gulch', g.scorch && v(g.scorch.town.x + 25, g.scorch.flats[1].y + 1.6, g.scorch.town.z)],
     ];
     for (const h of g.homes?.list || []) list.push([`Home: ${h.name}`, h.door.clone().add(v(0, 1.1, 0))]);

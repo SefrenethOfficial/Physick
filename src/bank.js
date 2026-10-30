@@ -5,6 +5,7 @@ import { ITEM_BY_ID } from './items.js';
 
 // Verian National Bank: keep your money safe (cash in your pocket is what you lose when you
 // die or get busted), ATMs dotted around the map, and — if you're holding a gun — a bank job.
+// (The vault's cash goes into money bags on your back: see loot.js.)
 
 const ROB_TIME = 18; // seconds in the vault to empty it
 const ROB_RATE = [600, 950]; // $ per second while you fill the bag
@@ -164,7 +165,7 @@ export class Bank {
     if (this.alarmT <= 0) { this.alarmT = 0.7; g.sfx.play('alarm'); }
     const v = g.city.bank.vault;
     if (g.health.dead || Math.hypot(p.x - v.x, p.z - v.z) > 60) { // you left (or didn't make it)
-      if (h.take) g.hud.toast(`Got away with $${h.take.toLocaleString()} from the bank`, 0x7be08a);
+      if (h.take && !g.health.dead) g.hud.toast(`Out of the bank with $${h.take.toLocaleString()} in bags. Lose the police and get it to the volcano base!`, 0xffd166);
       this.heist = null;
       if (h.t > 0) this.robbedAt = g.time;
       return;
@@ -176,13 +177,12 @@ export class Bank {
         h.tick = 1;
         const n = Math.round(ROB_RATE[0] + Math.random() * (ROB_RATE[1] - ROB_RATE[0]));
         h.take += n;
-        g.economy.addMoney(n);
-        g.sfx.play('cash');
+        g.loot.add(n, 'bank');
       }
       if (h.t >= ROB_TIME) {
         this.robbedAt = g.time;
         g.police.report(3, v.clone(), true, 'bank');
-        g.hud.toast(`Vault's empty — $${h.take.toLocaleString()}. Now get out!`, 0xffd166);
+        g.hud.toast(`Vault's empty: $${h.take.toLocaleString()} in money bags. Get out, and get them to the volcano base!`, 0xffd166);
       }
     }
   }
@@ -191,7 +191,7 @@ export class Bank {
     const h = this.heist;
     if (!h) return null;
     if (h.t >= ROB_TIME) return 'Vault cleaned out — get away from the bank!';
-    if (this.inVault(pos)) return `Filling the bag… $${h.take.toLocaleString()} (${Math.round((h.t / ROB_TIME) * 100)}%)`;
+    if (this.inVault(pos)) return `Filling money bags… $${h.take.toLocaleString()} (${Math.round((h.t / ROB_TIME) * 100)}%)`;
     return 'Get into the vault behind the counter!';
   }
 }
