@@ -64,6 +64,7 @@ import { Admin } from './admin.js';
 import { Gamepads } from './gamepad.js';
 import { Pelican } from './pelican.js';
 import { Ridgeback } from './ridgeback.js';
+import { Woods, Wildlife } from './woods.js';
 import { Scorch } from './scorch.js';
 import { HomeLife } from './homelife.js';
 import { Stocks } from './stocks.js';
@@ -195,6 +196,13 @@ class Game {
     await this.loadStep('Baking the Scorch…', 85);
     this.scorch = new Scorch(this, this.portSandbox);
     mergeStatic(this.scorch.group);
+    // the woods: fires, chimney smoke, lit windows, and the deer
+    this.woods = new Woods(this);
+    for (const A of [this.park, this.ridgeback]) { this.woods.fires.push(...A.fires); this.woods.chimneys.push(...A.chimneys); }
+    this.woods.nightMats = this.ridgeback.nightMats;
+    this.wildlife = new Wildlife(this);
+    this.wildlife.addHerd({ n: 14, ...this.park.deerArea() });
+    this.wildlife.addHerd({ n: 14, ...this.ridgeback.deerArea() });
     this.railway = new Railway(this, this.portSandbox, this.scorch.rail);
     this.trainHeist = new TrainHeist(this);
     mergeStatic(this.railway.group);
@@ -426,6 +434,8 @@ class Game {
       // a police chopper in the way?
       const airT = this.onShore ? this.police.esc.shootAir(eye, dir, hit ? eye.distanceTo(hit.point) : G.range, G.dmg) : null;
       if (airT != null) { if (k < 3) this.police.tracer(toWorld(muzzle), eye.clone().addScaledVector(dir, airT)); continue; }
+      const deerT = this.onShore ? this.wildlife?.shoot(eye, dir, hit ? eye.distanceTo(hit.point) : G.range, G.dmg) : null; // a deer
+      if (deerT != null) { const p = eye.clone().addScaledVector(dir, deerT); if (k < 3) this.police.tracer(muzzle, p); for (let i = 0; i < 4; i++) this.fx.emit(p, dir.clone().multiplyScalar(2).add(new THREE.Vector3(Math.random() - 0.5, Math.random(), Math.random() - 0.5)), 0x8a0a0a, 0.4, 1, 0); continue; }
       const end = hit ? hit.point : eye.clone().addScaledVector(dir, G.range);
       if (k < 3) this.police.tracer(toWorld(muzzle), toWorld(end));
       if (k === 0 && this.onShore) this.net?.shot(toWorld(muzzle), toWorld(end), G.sound);
@@ -456,6 +466,7 @@ class Game {
     if (this.onShore) {
       const p = this.player.body.translation();
       this.citizens.alarm(p, 45);
+      this.wildlife?.alarm(p, 110);
       if (!crookHit && this.time - (this.lastShotCrime || -9) > 0.6) { this.lastShotCrime = this.time; this.police.crime('shooting', 1, new THREE.Vector3(p.x, p.y, p.z)); }
     }
     this.refreshHolding();
@@ -1133,6 +1144,8 @@ class Game {
     if (rw) return rw;
     const amb = this.ambient?.action(pos);
     if (amb) return amb;
+    const wl = this.wildlife?.action(pos);
+    if (wl) return wl;
     const fl = this.fleet?.action(pos);
     if (fl) return fl;
     const jet = this.jets.nearby(pos);
@@ -1527,6 +1540,9 @@ class Game {
     P({ x: -1165, z: -80 }, '#c9a26a', 'Ranger station');
     for (const [x, z] of [[-1380, -262], [-1420, 240], [-1605, -62]]) P({ x, z }, '#ff9a3a', 'Campsite', false, 3.5);
     P({ x: -1650, z: 330 }, '#c9a26a', 'Lookout');
+    if (this.park.pond) P(this.park.pond, '#5ab0d0', 'Fishing pond', false, 3.5);
+    if (this.ridgeback.meadow) P(this.ridgeback.meadow, '#c9a26a', 'Ridgeback Cabins', false, 4);
+    P(this.ridgeback.quarry, '#e0b42b', 'Quarry', false, 4);
     { const m = this.bridge.at(this.bridge.length / 2); P(m, '#c0442c', 'Saltmarsh Gate Bridge', true); }
     P({ x: -1220 + 280, z: 445 }, '#4a9fe0', 'Airport', true);
     const sp = this.ship.root.position;
@@ -1650,6 +1666,8 @@ class Game {
     this.dealer?.update(dt);
     this.marcos?.update(dt);
     this.volcano?.update(dt);
+    this.woods?.update(dt);
+    this.wildlife?.update(dt);
     this.railway?.update(dt);
     this.trainHeist?.update(dt);
     this.daynight?.update(dt);

@@ -255,6 +255,9 @@ export function cityBuilding(group, sb, lot, opts) {
   const wallBox = (bw, bh, bd, x, y, z, outer, outerM, innerM = innerG, uv = [4, FLOOR], o = {}) => {
     const mats = [innerM, innerM, M.plaster(0xd8d4cc), M.plaster(0xd8d4cc), innerM, innerM];
     mats[outer] = outerM;
+    // the front and back walls run the full width, so their ends are the building's corners: those
+    // are outside too (in the plain finish, not the inside plaster)
+    if (outer === 4 || outer === 5) mats[0] = mats[1] = plainM;
     return k.box(bw, bh, bd, x, y, z, mats, { uv, ...o });
   };
   const FRONT = 4, BACK = 5, RIGHT = 0, LEFT = 1;

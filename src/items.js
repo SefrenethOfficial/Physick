@@ -39,6 +39,26 @@ function boxItem(w, h, d, faceMat, sideMat) {
 
 export const ITEMS = [
   {
+    id: 'venison', name: 'Venison', radius: 0.25, weight: 4,
+    build: () => { // a joint wrapped in butcher's paper, tied with string
+      const it = boxItem(0.42, 0.2, 0.3, null, std({ color: 0xd8c8a8, roughness: 1 }));
+      const tie = new THREE.Mesh(new THREE.BoxGeometry(0.43, 0.21, 0.02), std({ color: 0x7a2a20 }));
+      it.mesh.add(tie);
+      return { ...it, density: 500 };
+    },
+  },
+  {
+    id: 'antlers', name: 'Antlers', radius: 0.35, weight: 1.5,
+    build: () => {
+      const g = new THREE.Group(), m = std({ color: 0xe0d4bc, roughness: 0.8 });
+      for (const s of [-1, 1]) {
+        const a = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.035, 0.55, 5), m); a.position.set(s * 0.14, 0.2, 0); a.rotation.z = s * -0.55; g.add(a);
+        for (const k of [0.25, 0.45]) { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.02, 0.2, 4), m); t.position.set(s * (0.12 + k * 0.3), 0.1 + k * 0.4, 0.06); t.rotation.x = 0.6; g.add(t); }
+      }
+      return { mesh: g, colliders: [RAPIER.ColliderDesc.cuboid(0.3, 0.25, 0.08).setTranslation(0, 0.2, 0)], density: 150 };
+    },
+  },
+  {
     id: 'ammo', name: 'Ammo Box', radius: 0.3, weight: 3,
     build: () => {
       const face = std({ map: tex('ammo', () => labelTex('#4f5a32', '#e8c547', '7.62 MM')) });
@@ -582,6 +602,7 @@ ITEMS.push(
 );
 
 export const VALUES = {
+  venison: 140, antlers: 260,
   ammo: 40, toolbox: 60, rations: 25, medkit: 50, extinguisher: 35, jerrycan: 30, mug: 5, lifejacket: 20,
   wrench: 25, rope: 15, shell: 150, flashlight: 20, mop: 8,
   wallet: 45, phone: 120, watch: 220, necklace: 380, laptop: 450, tv: 300, painting: 650, goldbar: 1200,

@@ -4,6 +4,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ISLANDS, LAND_Y } from './world.js';
 import { std, sign, solidBox, canvasTex, speckle } from './buildkit.js';
 import { planExpressway } from './expressway.js';
+import { logCabin, campfire, undergrowth, huntingStand, treehouse, caravan, jetty } from './woods.js';
 
 // Cherry Estate National Park: a big stretch of pine forest behind Verian City, with dirt
 // trails, a ranger station at the trailhead, campsites, fallen logs, boulders and a lookout.
@@ -47,6 +48,7 @@ export class Park {
     this.group = new THREE.Group();
     game.scene.add(this.group);
     this.lootSpots = [];
+    this.fires = []; this.chimneys = [];
     this.planRoad();
     this.xway = planExpressway((x, z) => this.natural(x, z));
     this.build();
@@ -121,6 +123,7 @@ export class Park {
       const d = Math.hypot(x - c.x, z - c.z);
       if (d < c.r + 18) h = c.y + (h - c.y) * smooth(c.r, c.r + 18, d);
     }
+    for (const pd of this.ponds || []) { const d = Math.hypot(x - pd.x, z - pd.z); if (d < pd.r) h = Math.min(h, pd.y - pd.depth * smooth(pd.r, pd.r * 0.45, d)); }
     const { r, d } = this.nearestRoad(x, z);
     if (d < 34) h = r.y - 0.05 + (h - r.y + 0.05) * smooth(13, 34, d);
     // the lanes run on their own graded bed (heights fixed once, below)
@@ -145,6 +148,11 @@ export class Park {
     const yLook = flatSpot(-1650, 330, 12);
     const yBunker = flatSpot(-1392, 92, 11);
     const yGarage = flatSpot(this.underBridge.x + 8, this.underBridge.z + 4, 12, LAND_Y + 0.2);
+    // off the trails: a fishing pond, a treehouse, an old caravan, a hunter's cabin, two deer stands
+    const POI = { pond: [-1439, -118], tree: [-1348, -47], van: [-1243, 197], hunt: [-1450, -242], standA: [-1588, -125], standB: [-1586, 176] };
+    this.poi = POI;
+    this.ponds = [{ x: POI.pond[0], z: POI.pond[1], r: 14, depth: 2.2, y: flatSpot(...POI.pond, 23) }];
+    const yTree = flatSpot(...POI.tree, 9), yVan = flatSpot(...POI.van, 11), yHunt = flatSpot(...POI.hunt, 11), yStA = flatSpot(...POI.standA, 4), yStB = flatSpot(...POI.standB, 4);
     // grade the lanes: follow the ground, smoothed, with no lumps
     for (const l of this.lanes) {
       const raw = l.pts.map((p) => this.heightAt(p.x, p.z));
@@ -330,6 +338,25 @@ export class Park {
       this.bunker = { door: new THREE.Vector3(bx + 2.6, Yb, bz), out: new THREE.Vector3(bx + 4.5, Yb, bz), yaw: -Math.PI / 2 };
     }
 
+    // ---- the fishing pond (a jetty and a rowing boat), the treehouse, the caravan, the hunter's cabin, deer stands ----
+    {
+      const pd = this.ponds[0];
+      const water = new THREE.Mesh(new THREE.CircleGeometry(pd.r - 1.1, 36), new THREE.MeshStandardMaterial({ color: 0x3a5a62, roughness: 0.08, metalness: 0.2, transparent: true, opacity: 0.9 }));
+      water.rotation.x = -Math.PI / 2; water.position.set(pd.x, pd.y - 0.35, pd.z); water.userData.noMerge = true; g.add(water);
+      const pad = std({ color: 0x4a7a3a, roughness: 0.8, side: THREE.DoubleSide });
+      for (let i = 0; i < 16; i++) { const a = Math.random() * 6.3, r = 3 + Math.random() * 8, lp = new THREE.Mesh(new THREE.CircleGeometry(0.35 + Math.random() * 0.25, 10, 0.3, 5.9), pad); lp.rotation.x = -Math.PI / 2; lp.rotation.z = Math.random() * 6; lp.position.set(pd.x + Math.sin(a) * r, pd.y - 0.33, pd.z + Math.cos(a) * r); g.add(lp); }
+      const reed = std({ color: 0x6a7a3a, roughness: 1 });
+      for (let i = 0; i < 60; i++) { const a = Math.random() * 6.3; if (Math.abs(Math.atan2(Math.sin(a - 0.9), Math.cos(a - 0.9))) < 0.25) continue; const r = pd.r - 2.2 + Math.random() * 1.6, h = 1 + Math.random() * 0.8; const rd = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.03, h, 4), reed); rd.position.set(pd.x + Math.sin(a) * r, this.heightAt(pd.x + Math.sin(a) * r, pd.z + Math.cos(a) * r) + h / 2 - 0.1, pd.z + Math.cos(a) * r); rd.rotation.set((Math.random() - 0.5) * 0.3, 0, (Math.random() - 0.5) * 0.3); g.add(rd); }
+      const ja = 0.9, jt = jetty(g, sb, pd.x + Math.sin(ja) * (pd.r + 1.5), pd.y, pd.z + Math.cos(ja) * (pd.r + 1.5), ja + Math.PI, 9.5);
+      this.lootSpots.push(...jt.loot); this.pond = new THREE.Vector3(pd.x, pd.y, pd.z); this.pondEnd = jt.end;
+      const th = treehouse(g, sb, ...[POI.tree[0], yTree, POI.tree[1]], 0.5); this.lootSpots.push(...th.loot);
+      const cv = caravan(g, sb, POI.van[0], yVan, POI.van[1], 2.0); this.lootSpots.push(...cv.loot);
+      const hc = logCabin(g, sb, POI.hunt[0], yHunt, POI.hunt[1], 1.2, { W: 6.4, D: 5.2 }); this.lootSpots.push(...hc.loot); this.chimneys.push(hc.chimney);
+      { const f = new THREE.Vector3(Math.sin(1.2), 0, Math.cos(1.2)), p = hc.door.clone().addScaledVector(f, 3.5); this.fires.push(campfire(g, sb, p.x, this.heightAt(p.x, p.z), p.z, { benches: 2, r: 2.6 })); }
+      this.huntCabin = hc.door;
+      for (const [p, y] of [[POI.standA, yStA], [POI.standB, yStB]]) { const st = huntingStand(g, sb, p[0], y, p[1], Math.random() * 6.3); this.lootSpots.push(...st.loot); }
+    }
+
     // ---- Underpass Customs: a mechanics' shed in the shadow of the bridge ----
     {
       const u = this.underBridge, gx = u.x + 8, gz = u.z + 4, Yg = this.heightAt(gx, gz);
@@ -366,6 +393,8 @@ export class Park {
       g.add(rock);
       sb.addStaticCollider(RAPIER.ColliderDesc.ball(r * 0.75).setTranslation(p.x, yy + r * 0.2, p.z));
     }
+    // the undergrowth: bushes, ferns, mushrooms, birches, stumps, wildflowers
+    undergrowth(g, sb, { spot: (m) => this.freeSpot(m, 6), heightAt: (x, z) => this.heightAt(x, z), counts: { bush: 1500, fern: 1700, shroom: 260, stump: 140, birch: 340, flower: 450, log: 0 } });
     const barkM = std({ color: 0x5a4030, roughness: 1 });
     for (let i = 0; i < 40; i++) {
       const p = this.freeSpot(5);
@@ -447,5 +476,13 @@ export class Park {
     trunks.computeBoundingSphere(); leaves.computeBoundingSphere();
     g.add(trunks, leaves);
     this.pines = n;
+  }
+
+  // where the deer live: the woods (not the roads, lanes or the expressway, not by the city)
+  deerArea() {
+    const isl = this.isl;
+    const ok = (x, z) => x > isl.x0 + 15 && x < isl.x1 - 90 && z > isl.z0 + 15 && z < isl.z1 - 15 && this.nearestRoad(x, z).d > 12 && !(this.xway?.near(x, z)?.d < 14) && !(this.nearestLane(x, z)?.d < 8);
+    const spot = () => { const p = this.freeSpot(10, 30); return p && ok(p.x, p.z) ? p : null; };
+    return { spot, ok, heightAt: (x, z) => this.heightAt(x, z) };
   }
 }
