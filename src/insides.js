@@ -6,7 +6,7 @@ import { islandAt, LAND_Y } from './world.js';
 import { seeded } from './netseed.js';
 import { randomLook } from './figure.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { flatPlan, fitFlat, fitLobby, flatMats, KNOCK } from './flats.js';
+import { flatPlan, fitFlat, fitLobby, fitStore, flatMats, KNOCK } from './flats.js';
 
 // Inside every building. The outside walls, the floors and the roof are always there (see
 // cityBuilding); whatever you're standing in gets fitted out as you go in, a floor or two either
@@ -157,7 +157,7 @@ export class Insides {
     }
     // a lift in the tall ones: a call panel by the stairs on every floor
     if (C && B.floors >= 5) {
-      const lz = this.liftZ(B);
+      const lz = this.liftZ(B, f);
       box(0.1, 2.3, 1.6, C.x1 - 0.05, y, lz, M.lift);
       box(0.12, 0.05, 1.8, C.x1 - 0.05, y + 2.3, lz, M.dark);
       box(0.02, 2.25, 0.02, C.x1 - 0.11, y, lz, M.dark);
@@ -168,7 +168,9 @@ export class Insides {
     return F;
   }
 
-  liftZ(B) { return (B.core.hole + this.corridor(B).z0) / 2; }
+  // how far the stairwell's side wall runs (to the corridor; on the ground floor, only up to a shop or diner at the front)
+  stairEnd(B, f) { const z = Math.min(B.d / 2 - T, Math.max(B.core.hole, this.corridor(B).z0)); return f === 0 && B.room ? Math.min(z, B.room.z0 - 0.15) : z; }
+  liftZ(B, f = 1) { return (B.core.hole + this.stairEnd(B, f)) / 2; }
 
   // bake the floor's furniture into one mesh per material (hundreds of boxes -> a few dozen draws)
   merge(F) {
@@ -215,7 +217,7 @@ export class Insides {
     ramp(xb0, xb1, zl, y + half, zt, y + rise);
     box(0.12, rise + 0.9, run, (xa1 + xb0) / 2, y, (zl + zt) / 2, M.wall); // the wall between the flights
     // the stairwell's side wall, between it and the rooms
-    const zEnd = Math.min(B.d / 2 - T, Math.max(C.hole, this.corridor(B).z0));
+    const zEnd = this.stairEnd(B, f);
     box(T, h - 0.3, zEnd - (-B.d / 2 + T), C.x1 + T / 2, y, (zEnd - B.d / 2 + T) / 2, M.wall, true);
     // a sign by the bottom step
     const label = f + 1 > B.floors ? 'ROOF' : `FLOOR ${f + 1}`;
@@ -407,7 +409,7 @@ export class Insides {
     const WH0 = () => GROUND - 0.3;
     const flats = C && !B.room && B.ground !== 'store';
     const cor = C ? this.corridor(B) : null;
-    for (let x = xL + 3; x < xR; x += 6) for (let z = zB + 3; z < zF; z += 6) if (!flats || z > cor.z0 + 1) lightAt(x, z, 1.4, 0.6);
+    if (B.ground !== 'store') for (let x = xL + 3; x < xR; x += 6) for (let z = zB + 3; z < zF; z += 6) if (!flats || z > cor.z0 + 1) lightAt(x, z, 1.4, 0.6);
     if (flats) {
       // a block's ground floor: the lobby across the front, flats (or offices) behind it
       const doorX = B.door ? this.local(B, B.door).x : 0;
@@ -426,20 +428,10 @@ export class Insides {
       return;
     }
     if (B.ground === 'store') {
-      // a corner shop: aisles of shelves, a till by the door, somebody behind it
+      // a corner shop
       const door = B.door ? this.local(B, B.door) : V3(0, 0, B.d / 2);
-      const cx = Math.min(xR - 1.2, door.x + 3.2);
-      box(2.6, 1.05, 0.8, cx, y, zF - 3.2, M.counter, true);
-      box(2.7, 0.06, 0.9, cx, y + 1.05, zF - 3.2, M.stone);
-      F.spots.push({ kind: 'till', at: B.k.world(cx, y, zF - 2.2) });
-      this.person(F, B, B.k.world(cx, y, zF - 4.1), B.yaw, { shirt: 0x2f6f4a, pants: 0x1d1f22 });
-      for (let z = zB + 3; z < zF - 6; z += 3.2) for (let x = x0 + 1.8; x < xR - 2; x += 7) {
-        const len = Math.min(5.5, xR - 1 - x);
-        if (len < 1.5) continue;
-        box(len, 1.7, 0.7, x + len / 2, y, z, M.shelf, true);
-        for (let k = 0; k < Math.floor(len / 0.5); k++) for (const sh of [0.35, 0.95]) if (rng() < 0.8) box(0.32, 0.3, 0.3, x + 0.3 + k * 0.5, y + sh, z + (rng() < 0.5 ? -0.25 : 0.25), this.items[Math.floor(rng() * this.items.length)]);
-      }
-      if (rng() < 0.6) this.person(F, B, B.k.world(x0 + 3 + rng() * (xR - x0 - 6), y, zB + 4.5 + rng() * 4), B.yaw + rng() * 6);
+      fitStore(this, ctx, { x0: xL, x1: xR, z0: zB, z1: zF, sx0: C ? C.x1 + T : xL }, door);
+      if (rng() < 0.6) this.person(F, B, B.k.world(door.x + (rng() - 0.5) * 2, y, zF - 6 - rng() * 3), B.yaw + rng() * 6);
     } else {
       // a lobby: mailboxes, a bench, plants, a doormat
       const zm = B.room ? B.room.z0 - 1 : zF - 2;
@@ -577,7 +569,7 @@ export class Insides {
       const f = +b.dataset.f, C = B.core;
       g.story.fade(() => {
         if (f > B.floors) g.placeOnShore(B.roofDoor.clone().add(V3(0, 1.1, 0)), B.yaw);
-        else g.placeOnShore(B.k.world(C.x1 - 0.9, this.levelY(f) + 1.1, this.liftZ(B)), B.yaw - Math.PI / 2);
+        else g.placeOnShore(B.k.world(C.x1 - 0.9, this.levelY(f) + 1.1, this.liftZ(B, f)), B.yaw - Math.PI / 2);
         void C;
         g.sfx.play('select');
       });

@@ -359,3 +359,74 @@ export function fitLobby(I, ctx, x0, x1, z0, z1, doorX) {
 export const KNOCK = {
   home: ['"Oh! Hi. Can I help you?"', '"If you\'re selling something, no thanks."', '"Are you the plumber? You\'re late."', '"Shh, the baby\'s asleep."', '"Wrong flat, mate."', '"Hello? …Do I know you?"'],
 };
+
+// ---------------------------------------------------------------- the corner shop
+// Fridges of drinks along the back wall, shelving round the side wall, aisles of double-sided
+// shelves down the middle, a freezer and a magazine rack by the stairs, and the counter by the
+// door with the till, the sweets and the cigarettes behind.
+export function fitStore(I, ctx, area, door) {
+  const { B, y, box, F, rng } = ctx, M = flatMats();
+  const { x0, x1, z0, z1, sx0 } = area; // the shop floor (x0..x1, z0 back .. z1 front); sx0: where the stairs end on the left
+  const prod = once('prod', () => [0xc8201e, 0x2a6ac8, 0xe8b830, 0x3aa760, 0xf2f2ee, 0x8a4ad8, 0xe86a2a, 0x2ab8c8, 0x5a3a24, 0xe84a8a].map((c) => Object.assign(std({ color: c, roughness: 0.5 }), { emissive: new THREE.Color(c), emissiveIntensity: 0.25 })));
+  const shelfM = once('shelfM', () => Object.assign(std({ color: 0xe8e8e4, roughness: 0.5 }), { emissive: new THREE.Color(0xe8e8e4), emissiveIntensity: 0.25 }));
+  const baseM = once('baseM', () => Object.assign(std({ color: 0x2a5a8a, roughness: 0.6 }), { emissive: new THREE.Color(0x2a5a8a), emissiveIntensity: 0.2 }));
+  const fridgeIn = once('fridgeIn', () => new THREE.MeshBasicMaterial({ color: 0xe8f4ff }));
+  const P = () => prod[Math.floor(rng() * prod.length)];
+  // a row of goods on a shelf from (ax, az) to (bx, bz), facing outwards along n
+  const goods = (xa, xb, z, by, along = 'x', depth = 0.3) => {
+    const len = Math.abs(xb - xa); let t = 0.05;
+    while (t < len - 0.12) { const w = 0.12 + rng() * 0.16, hh = 0.14 + rng() * 0.2; if (rng() < 0.9) { const c = Math.min(xa, xb) + t + w / 2; if (along === 'x') box(w, hh, depth, c, y + by, z, P()); else box(depth, hh, w, z, y + by, c, P()); } t += w + 0.02; }
+  };
+  // a double-sided aisle shelf running front to back
+  const gondola = (x, za, zb) => {
+    const L = zb - za, zc = (za + zb) / 2;
+    box(1.0, 0.12, L, x, y, zc, baseM, true);
+    box(0.06, 1.75, L, x, y + 0.12, zc, shelfM, true);
+    for (const h of [0.12, 0.55, 0.95, 1.35]) { box(1.0, 0.03, L, x, y + h, zc, shelfM); for (const sd of [-1, 1]) goods(za, zb, x + sd * 0.27, h + 0.03, 'z', 0.38); }
+    for (const zz of [za, zb]) box(1.04, 1.9, 0.04, x, y, zz, baseM); // end panels
+    box(1.04, 0.3, 0.04, x, y + 1.95, zb + 0.02, prod[Math.floor(rng() * 4)]); // an aisle header
+  };
+  // the side-wall shelving (against x1)
+  const wallShelf = (za, zb) => {
+    const L = zb - za, zc = (za + zb) / 2, xw = x1 - 0.25;
+    box(0.5, 0.12, L, xw, y, zc, baseM, true); box(0.04, 2.0, L, x1 - 0.03, y, zc, shelfM, true);
+    for (const h of [0.12, 0.55, 0.95, 1.35, 1.75]) { box(0.5, 0.03, L, xw, y + h, zc, shelfM); goods(za, zb, xw, h + 0.03, 'z', 0.36); }
+  };
+  // the fridges along the back wall
+  const fx0 = sx0 + 0.6, fx1 = x1 - 1.2;
+  for (let x = fx0; x + 1.2 <= fx1; x += 1.25) {
+    box(1.2, 2.1, 0.75, x + 0.6, y, z0 + 0.38, M.steel, true);
+    box(1.05, 1.75, 0.02, x + 0.6, y + 0.2, z0 + 0.74, fridgeIn);
+    for (const h of [0.3, 0.7, 1.1, 1.5]) for (let k = 0; k < 6; k++) box(0.1, 0.24, 0.1, x + 0.18 + k * 0.17, y + h, z0 + 0.6, P());
+    box(1.12, 1.85, 0.03, x + 0.6, y + 0.16, z0 + 0.77, M.glass).userData.keep = true;
+    box(0.04, 0.8, 0.04, x + 1.1, y + 0.7, z0 + 0.8, M.steel);
+    box(1.2, 0.25, 0.04, x + 0.6, y + 2.1, z0 + 0.76, M.red);
+  }
+  // shelving down the side wall, aisles in the middle
+  const counterZ = z1 - 3.4;
+  wallShelf(z0 + 1.6, counterZ - 1.0);
+  const ax0 = sx0 + 2.2, ax1 = x1 - 2.2;
+  const n = Math.max(1, Math.floor((ax1 - ax0) / 2.6));
+  for (let i = 0; i < n; i++) { const x = ax0 + ((ax1 - ax0) * (i + 0.5)) / n; if (Math.abs(x - door.x) < 1.6 && n > 1) continue; gondola(x, z0 + 2.4, counterZ - 2.0); }
+  // the counter: a run from the door towards the side wall, the till on it, cigarettes behind
+  const cx0 = door.x + 1.6, cx1 = Math.min(x1 - 0.6, door.x + 5.6);
+  if (cx1 - cx0 > 1.5) {
+    const cc = (cx0 + cx1) / 2;
+    box(cx1 - cx0, 1.0, 0.7, cc, y, counterZ, M.walnut, true); box(cx1 - cx0 + 0.06, 0.05, 0.8, cc, y + 1.0, counterZ, M.stoneLight);
+    box(0.4, 0.25, 0.35, cx0 + 0.6, y + 1.05, counterZ, M.black); box(0.3, 0.2, 0.04, cx0 + 0.6, y + 1.3, counterZ + 0.1, M.screenOn); // the till
+    box(0.5, 0.35, 0.3, cx0 + 1.4, y + 1.05, counterZ + 0.15, P()); // a sweets rack
+    box(cx1 - cx0, 1.4, 0.35, cc, y + 1.0, counterZ - 1.5, M.walnut, true); // the cigarettes behind
+    goods(cx0 + 0.1, cx1 - 0.1, counterZ - 1.38, 1.1, 'x', 0.1); goods(cx0 + 0.1, cx1 - 0.1, counterZ - 1.38, 1.55, 'x', 0.1);
+    F.spots.push({ kind: 'till', at: B.k.world(cx0 + 0.6, y, counterZ + 1.0) });
+    I.person(F, B, B.k.world(cx0 + 0.6, y, counterZ - 0.75), B.yaw, { shirt: 0x2f6f4a, pants: 0x1d1f22 });
+  }
+  // by the stairs: an ice-cream freezer and a newspaper rack; a mat at the door, a sign over it
+  if (door.x - sx0 > 3) {
+    box(1.6, 0.85, 0.8, sx0 + 1.2, y, z1 - 2.2, M.white, true); box(1.5, 0.02, 0.7, sx0 + 1.2, y + 0.86, z1 - 2.2, M.glass).userData.keep = true;
+    for (let k = 0; k < 8; k++) box(0.15, 0.08, 0.2, sx0 + 0.6 + (k % 4) * 0.36, y + 0.78, z1 - 2.4 + Math.floor(k / 4) * 0.35, P());
+    box(1.0, 1.2, 0.4, sx0 + 1.0, y, z1 - 4.0, M.walnut, true);
+    for (const h of [0.4, 0.8]) goods(sx0 + 0.55, sx0 + 1.45, z1 - 3.85, h, 'x', 0.05);
+  }
+  // ceiling lights in rows over the aisles
+  for (let x = sx0 + 2; x < x1 - 1; x += 3) for (let z = z0 + 2; z < z1 - 1; z += 3.2) { const l = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.04, 0.3), M.bulb); l.position.set(x, y + 4.15, z); F.group.add(l); }
+}

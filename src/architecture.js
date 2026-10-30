@@ -298,11 +298,19 @@ export function cityBuilding(group, sb, lot, opts) {
     wallBox(T, h, d - 2 * T, w / 2 - T / 2, y, 0, RIGHT, outerM, innerM);
     wallBox(T, h, d - 2 * T, -w / 2 + T / 2, y, 0, LEFT, outerM, innerM);
   };
+  // a moulding round the outside of the walls (a ring, so it doesn't cut across the inside)
+  const band = (out, bh, by, m) => {
+    const t = out + 0.02;
+    k.box(w + 2 * out, bh, t, 0, by, d / 2 + out - t / 2, m, { collide: false });
+    k.box(w + 2 * out, bh, t, 0, by, -d / 2 - out + t / 2, m, { collide: false });
+    k.box(t, bh, d, w / 2 + out - t / 2, by, 0, m, { collide: false });
+    k.box(t, bh, d, -w / 2 - out + t / 2, by, 0, m, { collide: false });
+  };
   if (floors > 0) {
     if (type === 'office') {
       // a stone podium for the lowest floors, then glass all the way up
       const podium = Math.min(2, floors);
-      k.box(w + 0.4, 0.5, d + 0.4, 0, GROUND, 0, plainM, { collide: false });
+      band(0.2, 0.5, GROUND, plainM);
       ring(GROUND, podium * FLOOR, plainM);
       if (floors > podium) ring(GROUND + podium * FLOOR, (floors - podium) * FLOOR, wallM, M.innerWin(true));
     } else ring(GROUND, floors * FLOOR, wallM);
@@ -322,13 +330,13 @@ export function cityBuilding(group, sb, lot, opts) {
   slab(H, roofM);
   // the roof: a parapet all round, and a little hut over the top of the stairs with a door out
   if (floors > 0 || core) {
-    k.box(w + 0.7, 0.55, d + 0.7, 0, top - 0.2, 0, type === 'brick' ? M.plaster(0xe8e0d0) : plainM, { collide: false });
+    band(0.35, 0.55, top - 0.2, type === 'brick' ? M.plaster(0xe8e0d0) : plainM);
     k.box(w - 0.4, 1.0, 0.25, 0, top, d / 2 - 0.2, plainM);
     k.box(w - 0.4, 1.0, 0.25, 0, top, -d / 2 + 0.2, plainM);
     k.box(0.25, 1.0, d - 0.4, w / 2 - 0.2, top, 0, plainM);
     k.box(0.25, 1.0, d - 0.4, -w / 2 + 0.2, top, 0, plainM);
   }
-  k.box(w + 0.3, 0.35, d + 0.3, 0, GROUND - 0.1, 0, plainM, { collide: false }); // belt course over the shops
+  band(0.15, 0.35, GROUND - 0.1, plainM); // belt course over the shops
   if (core) {
     const hutM = M.plaster(0xcfc9bd), hx0 = -w / 2 + T, hx1 = core.x1 + 0.3, hz0 = -d / 2 + T, hz1 = core.z1 + 0.3, HH = 3;
     k.box(T, HH, hz1 - hz0, hx1 - T / 2, top, (hz0 + hz1) / 2, hutM);
@@ -434,9 +442,12 @@ function interior(k, w, d, kind, wallM, opts) {
   k.box(T, GROUND, d, -w / 2 + T / 2, 0, 0, wallM, { uv: [4, FLOOR] });
   k.box(T, GROUND, d, w / 2 - T / 2, 0, 0, wallM, { uv: [4, FLOOR] });
   if (opts.backDoor) { // a door at the back, through to the rest of the building (and its stairs)
-    const bx = opts.backDoor.x ?? 0, seg = (a, b) => { if (b - a > 0.05) { k.box(b - a, GROUND, T, (a + b) / 2, 0, -d / 2 + T / 2, wallM, { uv: [4, FLOOR] }); k.box(b - a, GROUND - 0.3, 0.05, (a + b) / 2, 0, -d / 2 + T + 0.03, inner, { collide: false, cast: false }); } };
+    // (lined with plaster on both faces: the lobby's behind it)
+    const bx = opts.backDoor.x ?? 0, seg = (a, b) => { if (b - a > 0.05) { k.box(b - a, GROUND, T, (a + b) / 2, 0, -d / 2 + T / 2, inner, { uv: [4, FLOOR] }); k.box(b - a, GROUND - 0.3, 0.05, (a + b) / 2, 0, -d / 2 + T + 0.03, inner, { collide: false, cast: false }); } };
     seg(-w / 2, bx - 0.9); seg(bx + 0.9, w / 2);
-    k.box(1.8, GROUND - 2.6, T, bx, 2.6, -d / 2 + T / 2, wallM);
+    k.box(1.8, GROUND - 2.6, T, bx, 2.6, -d / 2 + T / 2, inner);
+    for (const sx of [-1, 1]) k.box(0.12, 2.6, T + 0.1, bx + sx * 0.96, 0, -d / 2 + T / 2, W.dark, { collide: false });
+    k.box(2.04, 0.12, T + 0.1, bx, 2.6, -d / 2 + T / 2, W.dark, { collide: false });
     out.backDoor = k.world(bx, 0, -d / 2 - 1);
   } else {
     k.box(w, GROUND, T, 0, 0, -d / 2 + T / 2, wallM, { uv: [4, FLOOR] });
