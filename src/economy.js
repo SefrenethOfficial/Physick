@@ -11,6 +11,8 @@ export class Economy {
     this.money = 150;
     this.bank = 0; // safe in Verian National
     this.bag = []; // item ids
+    this.hotbar = Array(9).fill(null); // the nine hotbar slots (item ids); sel: the one in your hand
+    this.sel = 0;
     this.ownedBoats = ['dinghy'];
     this.ammo = { pistolAmmo: 0, smgAmmo: 0, shells: 0, magnumAmmo: 0, rifleAmmo: 0, sniperAmmo: 0 };
     this.perks = {};
@@ -38,13 +40,15 @@ export class Economy {
         this.ownedHomes = s.ownedHomes || [];
         this.ownedCars = (s.ownedCars || []).filter((r) => r && r.uid && r.model);
         this.homeSpawn = s.homeSpawn || null;
+        if (Array.isArray(s.hotbar)) this.hotbar = Array.from({ length: 9 }, (_, i) => (ITEM_BY_ID[s.hotbar[i]] ? s.hotbar[i] : null));
+        this.sel = s.sel | 0;
       }
     } catch { /* no saved game */ }
   }
 
   save() {
     this.game.hud?.setBank?.(this.bank);
-    try { localStorage.setItem(KEY, JSON.stringify({ bank: this.bank, money: this.money, bag: this.bag, ownedBoats: this.ownedBoats, ammo: this.ammo, perks: this.perks, ownedHomes: this.ownedHomes, homeSpawn: this.homeSpawn, ownedCars: this.ownedCars })); } catch { /* storage unavailable */ }
+    try { localStorage.setItem(KEY, JSON.stringify({ bank: this.bank, money: this.money, bag: this.bag, ownedBoats: this.ownedBoats, ammo: this.ammo, perks: this.perks, ownedHomes: this.ownedHomes, homeSpawn: this.homeSpawn, ownedCars: this.ownedCars, hotbar: this.hotbar, sel: this.sel })); } catch { /* storage unavailable */ }
   }
 
   get weight() { return this.bag.reduce((w, id) => w + (ITEM_BY_ID[id].weight ?? 1), 0); }
@@ -85,9 +89,16 @@ export class Economy {
     return ITEM_BY_ID[id];
   }
 
+  // everything you're carrying, bag and hotbar
+  get carried() { return [...this.bag, ...this.hotbar.filter(Boolean)]; }
+  has(id) { return this.bag.includes(id) || this.hotbar.includes(id); }
+
+  // (busted: the bag and the hotbar both get taken)
   loseBag() {
-    const n = this.bag.length;
+    const n = this.bag.length + this.hotbar.filter(Boolean).length;
     this.bag = [];
+    this.hotbar = Array(9).fill(null);
+    this.game.inv?.syncHand?.();
     this.game.hud.setBag(0, BAG_CAPACITY);
     this.save();
     return n;
@@ -98,6 +109,7 @@ export class Economy {
 
   open(title, html, bind) {
     this.panel.querySelector('h2').textContent = title;
+    this.panel.querySelector('.panel')?.classList.remove('inv');
     // fresh element each time so old click handlers don't pile up
     const old = this.panel.querySelector('.body');
     const body = old.cloneNode(false);
@@ -119,7 +131,9 @@ export class Economy {
     return `<div class="econ-head"><span>Cash <b>$${this.money}</b></span><span>Bank <b>$${this.bank.toLocaleString()}</b></span><span>Bag <b>${this.weight.toFixed(1)} / ${BAG_CAPACITY}</b></span></div>`;
   }
 
-  openBag() {
+  openBag() { this.game.inv?.open(); }
+
+  oldBag() {
     const render = () => {
       const rows = this.bag.map((id, i) => {
         const d = ITEM_BY_ID[id];

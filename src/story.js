@@ -342,7 +342,7 @@ export class Story {
     const m = MISSIONS.find((x) => x.id === id);
     if (!m || !this.unlocked(m)) return;
     const a = (this.active = { id, m, t: 0 });
-    const hasGun = g.held?.gun || g.economy.bag.some((x) => ITEM_BY_ID[x]?.gun);
+    const hasGun = g.held?.gun || g.economy.carried.some((x) => ITEM_BY_ID[x]?.gun);
     if (id === 'm1') {
       const st = this.store;
       st.robbedAt = -1e9;
@@ -380,7 +380,7 @@ export class Story {
       if (!hasGun) { g.giveItem(ITEM_BY_ID.pistol); g.hud.toast(`${FIXER} left you a pistol`, 0xffd166); }
       if ((g.economy.ammo.pistolAmmo || 0) < 60) g.economy.addAmmo('pistolAmmo', 60);
       if ((g.economy.ammo.smgAmmo || 0) < 90) g.economy.addAmmo('smgAmmo', 90);
-      if (!g.held?.gun && !g.economy.bag.includes('smg')) { g.economy.stash(ITEM_BY_ID.smg, true); g.hud.toast(`${FIXER} put an SMG in your bag`, 0xffd166); }
+      if (!g.held?.gun && !g.economy.has('smg')) { g.economy.stash(ITEM_BY_ID.smg, true); g.hud.toast(`${FIXER} put an SMG in your bag`, 0xffd166); }
       this.setupShip(a);
     }
     g.hud.flashBanner(m.title.toUpperCase(), '#ffd166');

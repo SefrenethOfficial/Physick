@@ -36,7 +36,7 @@ Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **
 - **11 · Last Flight** (the last mission of Act II): the Chemist is taking off now. Climb aboard the empty **Verian Air airliner** at the east end of the runway, take off (it's heavy: full throttle and pull back past ~200 km/h), and catch his dark jet with the red hand on the tail (a red bracket on screen, or an arrow at the edge when he's off it). You can't shoot it down: Vic calls and tells you to ram it. Point the airliner straight at him until the bracket turns gold (**EJECT · F**) and **eject** (`F`). If you were lined up and close enough, the empty plane flies itself into him: slow motion, a fireball, and the agent burning off green. Open your parachute (`Space`; `A`/`D` steer, `W` dive, `S` flare) and land. **Act II complete.**
 - **Checkpoints:** fail missions 8–11 and retry from the phone straight away, and you start back at the mission's checkpoint (across from Pike's office, by the staff door in the terminal, just airside, or by the airliner) instead of having to travel there again.
 - **Stealth:** `C` crouches (slower, lower and much harder to see; running stands you up). Guards and cameras show their view as a cone on the floor that turns red as they notice you.
-- **Key items** (the key, the documents, and Act II's phone, keycard, schedule, photos, pass, plans and flight plan) are listed on the phone and at the bottom of the bag (`Tab`). They can't be sold, dropped or confiscated.
+- **Key items** (the key, the documents, and Act II's phone, keycard, schedule, photos, pass, plans and flight plan) are listed on the phone and at the bottom of the inventory (`Tab`). They can't be sold, dropped or confiscated.
 - Dying or getting busted fails a mission. You can retry or replay it from the phone.
 
 ## The world
@@ -93,7 +93,9 @@ Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **
 
 ## Money, the bag and boats
 
-- Look at an item and press `B` to drop it straight in your **bag** (or press `B` while holding something). `Tab` opens the bag: take things out to hold, or drop them. The bag holds 40 kg.
+- **The hotbar:** nine slots along the bottom of the screen, each showing the item's own little 3D picture (and a gun's ammo). Press `1`–`9` or roll the **scroll wheel** to pick a slot: whatever's in it is in your hand. Pick something up with an empty slot selected and it goes in that slot; throw it, drop it, use it up or sell it and the slot empties. Things you're given or buy go in your hand if the slot's free, else the next empty slot, else the bag. Get in a car or a boat and your hand empties, but the item stays in its slot and is back in your hand when you get out.
+- **The bag:** look at an item and press `B` to drop it straight in your bag (or press `B` while holding something). The bag holds 40 kg (the hotbar doesn't count).
+- **Inventory** (`Tab`): the hotbar and the bag as a grid. Drag things between them (drop one on a full slot to swap), `Shift`-click or double-click to send one straight across, and drag onto the bin (or off the panel) to drop it on the ground. Everything's saved, hotbar included. Get busted and the police take the bag and the hotbar.
 - Sell at the **pawn shop**; cash bundles go straight into your pocket.
 - Buy boats at **Boat sales** on the marina: Fishing Skiff, Speedboat, Patrol RIB, Cabin Cruiser and the Super Yacht. Bought boats wait at the marina berths; a sunk boat is back at the marina after a while.
 - Boats: walk up to yours and press `E`; `W` / `S` throttle, `A` / `D` steer, `E` to get off at a pier or the coast. Ramming does damage both ways (tougher boats come off better).
@@ -363,7 +365,7 @@ Shelf stock in the shops is only drawn when you're at the shop. Distant scenery 
 - `LMB` pick up the item you're looking at (it's held in your robot-arm hand), `LMB` again to put it down; empty-handed, `LMB` punches
 - `RMB` throw the held item; empty-handed, `RMB` grabs a person (knocking them out) and drags them
 - `F` use the held item (medkits heal, coffee perks you up)
-- `B` bag it, `Tab` open the bag
+- `1`–`9` / scroll wheel pick a hotbar slot, `B` bag it, `Tab` inventory
 - `E` interact: shops, the bank and ATMs, boats, cars, searching bodies, picking pockets, jets, the ship's helm and guns
 - `M` full map · `R` rob the bank or a shop's till (holding a gun, at the counter) · `G` take or release a hostage · `J` phone (jobs, messages, key items, calls)
 - Look at a body and `LMB` to drag it; `LMB` lets go, `RMB` heaves it
@@ -450,6 +452,7 @@ src/
   terrain.js   shared terrain kit: noise, graded roads, terrain mesh + collider, road ribbons
   pelican.js   Pelican Point (the headland off Saltmarsh: fishing village, harbour, lighthouse, Lighthouse Loop race)
   ridgeback.js Ridgeback Hills (the pass, the quarry pit, cabins, the mine, plane wreck, Hillclimb race)
+  inventory.js the hotbar (1-9, scroll) and the drag-and-drop inventory, item icons
   military.js  31–50 stars: soldiers, Humvees, gunships, air strikes, the Navy; NAS Halyard trespass
   quarry.js    Ridgeback Aggregates: the crusher, conveyors, machines, site office and fence
   woods.js     log cabins, campfires, undergrowth, treehouse, caravan, deer stands, plane wreck, mine, deer

@@ -255,7 +255,7 @@ export class Act2 {
 
   ensureCamera() {
     const g = this.game;
-    if (g.held?.id === 'camera' || g.economy.bag.includes('camera')) return;
+    if (g.held?.id === 'camera' || g.economy.has('camera')) return;
     g.economy.stash(ITEM_BY_ID.camera, true);
     g.hud.toast(`${FIXER} put a camera in your bag (Tab to take it out)`, 0xffd166);
   }
@@ -371,7 +371,7 @@ export class Act2 {
     const g = this.game;
     this.a = a;
     a.goons = []; a.guards = []; a.cams = [];
-    const gun = () => { if (!(g.held?.gun || g.economy.bag.some((x) => ITEM_BY_ID[x]?.gun))) { g.giveItem(ITEM_BY_ID.pistol); g.hud.toast(`${FIXER} left you a pistol`, 0xffd166); } if ((g.economy.ammo.pistolAmmo || 0) < 48) g.economy.addAmmo('pistolAmmo', 48); };
+    const gun = () => { if (!(g.held?.gun || g.economy.carried.some((x) => ITEM_BY_ID[x]?.gun))) { g.giveItem(ITEM_BY_ID.pistol); g.hud.toast(`${FIXER} left you a pistol`, 0xffd166); } if ((g.economy.ammo.pistolAmmo || 0) < 48) g.economy.addAmmo('pistolAmmo', 48); };
     if (a.id === 'm6') { gun(); a.stage = 'forger'; this.spawnForger(a); this.setLockupOpen(false); this.deskPapers.visible = true; }
     if (a.id === 'm7') { gun(); a.stage = 'call'; a.callT = 2; }
     if (a.id === 'm8') { this.ensureCamera(); a.stage = 'office'; this.setupPike(a); }

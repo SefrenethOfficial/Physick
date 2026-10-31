@@ -255,7 +255,7 @@ export class Stores {
   // Their keys, if you've got them (in your hand or your bag).
   keyFor(st) {
     const g = this.game, id = `key_${st.theme}`;
-    if (g.held?.id === id || g.economy.bag.includes(id)) return ITEM_BY_ID[id];
+    if (g.held?.id === id || g.economy.has(id)) return ITEM_BY_ID[id];
     return null;
   }
 

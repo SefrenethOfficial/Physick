@@ -65,6 +65,7 @@ import { Gamepads } from './gamepad.js';
 import { Pelican } from './pelican.js';
 import { Ridgeback } from './ridgeback.js';
 import { Woods, Wildlife } from './woods.js';
+import { Inventory } from './inventory.js';
 import { Scorch } from './scorch.js';
 import { HomeLife } from './homelife.js';
 import { Stocks } from './stocks.js';
@@ -242,6 +243,7 @@ class Game {
     this.airGear = new AirGear(this); // (parachutes and the hang glider)
     this.stockStores();
     this.economy = new Economy(this);
+    this.inv = new Inventory(this); // the hotbar (1-9) and the TAB inventory
     this.style = new Style(this); // what you're wearing
     this.hud.setMoney(this.economy.money);
     this.hud.setBag(this.economy.weight, BAG_CAPACITY);
@@ -389,6 +391,10 @@ class Game {
     this.health.damage(1000, 'boat');
   }
 
+  // what's in your hand: it's whatever's in the selected hotbar slot (inventory.js keeps the two in step)
+  get held() { return this._held ?? null; }
+  set held(d) { const prev = this._held ?? null; this._held = d || null; this.inv?.handChanged(prev, this._held); }
+
   holdItem(def) {
     this.held = def;
     this.viewmodel.setHeld(def.build().mesh, def.heldSize, def.heldRot, def.heldPush);
@@ -403,10 +409,7 @@ class Game {
   }
 
   // Something bought: into your hand if it's free, else the bag, else at your feet.
-  giveItem(def) {
-    if (!this.held) { this.holdItem(def); return; }
-    if (!this.economy.stash(def)) this.dropFromBag(def);
-  }
+  giveItem(def) { this.inv.give(def); }
 
   // ---------- guns ----------
   fire() {
@@ -1245,13 +1248,9 @@ class Game {
     if (a) a.run();
   }
 
-  // Can't steer a boat with your hands full: what you're holding goes in the bag (or at your feet).
-  clearDropHeld() {
-    if (!this.held) return;
-    const def = this.held;
-    if (!this.economy.stash(def, true)) this.release(false);
-    else { this.clearHand(); this.hud.toast(`${def.name} → bag`); }
-  }
+  // Can't steer with your hands full: what you're holding goes back on your hotbar (it's back in
+  // your hand when you get out).
+  clearDropHeld() { this.inv.holster(); }
 
   // LMB on a body drags it (living people need RMB, which knocks them out first).
   tryDragBody() {
@@ -1277,6 +1276,7 @@ class Game {
       if (this.title?.active) { this.title.stop(); document.getElementById('overlay').classList.remove('title'); }
       if (!this.started && !this.homes?.wakeAtHome() && !this.volcano?.wake()) this.insides?.wakeAtRental();
       this.started = true;
+      this.inv.syncHand(); // (what you had in your hand last time)
       this.lock();
       if (!this.story.state.introSeen) setTimeout(() => this.story.showIntro(), 400);
     });
@@ -1339,7 +1339,10 @@ class Game {
     });
     addEventListener('contextmenu', (e) => e.preventDefault());
     addEventListener('wheel', (e) => {
-      if (!this.hud.bigMapOpen) return;
+      if (!this.hud.bigMapOpen) { // the hotbar
+        if (this.locked && !this.panelOpen && !this.scoped && !this.story.phone.isOpen && !this.vehicles.active && !this.boats.active && !this.flying && !this.atHelm && !this.gunnery.active && Math.abs(e.deltaY) > 0) this.inv.scroll(e.deltaY > 0 ? 1 : -1);
+        return;
+      }
       const Z = [1, 2, 4, 8];
       const i = Z.indexOf(this.hud.bigZoom || 1);
       this.hud.bigZoom = Z[Math.max(0, Math.min(Z.length - 1, i + (e.deltaY < 0 ? 1 : -1)))];
@@ -1356,6 +1359,7 @@ class Game {
       this.keys.add(e.code);
       if (this.health.dead) return;
       if (this.pragdoll.active) { if ((e.code === 'Space' || e.code === 'KeyX') && this.pragdoll.canGetUp()) this.pragdoll.getUp(); return; }
+      if (/^Digit[1-9]$/.test(e.code) && !this.vehicles.active && !this.boats.active && !this.flying && !this.atHelm && !this.gunnery.active) { this.inv.select(+e.code.slice(5) - 1); return; } // the hotbar
       if (e.code === 'KeyX' && this.goLimp()) return; // the ragdoll button
       if (e.code === 'Space' && this.airGear.chuteReady()) { this.airGear.openChute(); return; }
       if (e.code === 'KeyH' && !this.vehicles.active && !this.boats.active && !this.flying && this.airGear.canLaunch()) { this.airGear.launch(); return; }
@@ -1393,7 +1397,7 @@ class Game {
       if (e.code === 'KeyR' && this.onShore && this.held?.gun && this.bank.nearCounter(this.shorePlayer.body.translation())) { this.bank.startHeist(); return; }
       if (e.code === 'KeyR' && this.onShore && this.held?.gun) { const st = this.stores.nearCounter(this.shorePlayer.body.translation()); if (st) { this.stores.rob(st); return; } }
       if (e.code === 'KeyG' && this.onShore) { this.toggleHostage(); return; }
-      if (e.code === 'Tab') { this.endDrag(false); this.economy.openBag(); return; }
+      if (e.code === 'Tab') { this.endDrag(false); this.inv.open(); return; }
       if (this.atHelm) {
         if (e.code === 'KeyW' || e.code === 'ArrowUp') { this.ship.telegraphUp(); this.sfx.play('telegraph'); }
         if (e.code === 'KeyS' || e.code === 'ArrowDown') { this.ship.telegraphDown(); this.sfx.play('telegraph'); }
@@ -1667,6 +1671,7 @@ class Game {
     this.dealer?.update(dt);
     this.marcos?.update(dt);
     this.volcano?.update(dt);
+    this.inv?.update(dt);
     this.woods?.update(dt);
     this.wildlife?.update(dt);
     this.railway?.update(dt);

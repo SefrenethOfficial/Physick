@@ -63,11 +63,13 @@ export class HomeLife {
     const render = () => {
       const held = g.held && isWeapon(g.held) ? g.held : null;
       const bagged = e.bag.map((id, i) => ({ d: ITEM_BY_ID[id], i })).filter((x) => isWeapon(x.d));
+      const onBar = e.hotbar.map((id, k) => ({ d: id && ITEM_BY_ID[id], k })).filter((x) => isWeapon(x.d) && !(x.k === e.sel && held));
       const counts = {};
       for (const id of this.locker) counts[id] = (counts[id] || 0) + 1;
       const inside = Object.entries(counts).map(([id, n]) => `<div class="erow"><div><b>${ITEM_BY_ID[id].name}</b><small>${n} in the locker</small></div><div class="btns"><button data-a="take" data-id="${id}">Take one</button></div></div>`).join('')
         || '<p class="empty">The locker is empty.</p>';
       const put = (held ? `<div class="erow hl"><div><b>${held.name}</b><small>in your hand</small></div><div class="btns"><button data-a="putHeld">Put away</button></div></div>` : '')
+        + onBar.map(({ d, k }) => `<div class="erow"><div><b>${d.name}</b><small>hotbar slot ${k + 1}</small></div><div class="btns"><button data-a="putHot" data-i="${k}">Put away</button></div></div>`).join('')
         + bagged.map(({ d, i }) => `<div class="erow"><div><b>${d.name}</b><small>in your bag</small></div><div class="btns"><button data-a="putBag" data-i="${i}">Put away</button></div></div>`).join('');
       const ammo = Object.keys(AMMO_NAMES).map((k) => `<div class="erow"><div><b>${AMMO_NAMES[k]}</b><small>On you: ${e.ammo[k] || 0} · in the locker: ${this.lockerAmmo[k] || 0}</small></div>
         <div class="btns"><button data-a="ammoIn" data-k="${k}" ${e.ammo[k] ? '' : 'disabled'}>Store</button><button data-a="ammoOut" data-k="${k}" ${this.lockerAmmo[k] ? '' : 'disabled'}>Take</button></div></div>`).join('');
@@ -81,12 +83,14 @@ export class HomeLife {
         if (a === 'take') { const i = this.locker.indexOf(b.dataset.id); if (i >= 0) { this.locker.splice(i, 1); g.giveItem(ITEM_BY_ID[b.dataset.id]); } }
         if (a === 'putHeld' && g.held) { this.locker.push(g.held.id); g.clearHand(); }
         if (a === 'putBag') { const d = e.takeOut(+b.dataset.i); if (d) this.locker.push(d.id); }
+        if (a === 'putHot') { const k = +b.dataset.i, id = e.hotbar[k]; if (id) { this.locker.push(id); e.hotbar[k] = null; e.save(); g.inv.syncHand(); g.inv.refresh(true); } }
         if (a === 'ammoIn') { const k = b.dataset.k; this.lockerAmmo[k] = (this.lockerAmmo[k] || 0) + (e.ammo[k] || 0); e.ammo[k] = 0; e.save(); g.refreshHolding?.(); }
         if (a === 'ammoOut') { const k = b.dataset.k; e.addAmmo(k, this.lockerAmmo[k] || 0); this.lockerAmmo[k] = 0; }
         if (a === 'gearUp') {
           for (const k of Object.keys(this.lockerAmmo)) { if (this.lockerAmmo[k]) e.addAmmo(k, this.lockerAmmo[k]); this.lockerAmmo[k] = 0; }
           const left = [];
-          for (const id of this.locker) { const d = ITEM_BY_ID[id]; if (!g.held) g.holdItem(d); else if (!e.stash(d, true)) left.push(id); }
+          for (const id of this.locker) { const d = ITEM_BY_ID[id], k = e.hotbar.findIndex((x) => !x); if (!g.held && !e.hotbar[e.sel]) g.holdItem(d); else if (k >= 0) e.hotbar[k] = id; else if (!e.stash(d, true)) left.push(id); }
+          e.save(); g.inv.refresh(true);
           this.locker = left;
           if (left.length) g.hud.toast('Your bag is full: the rest stays in the locker', 0xffd166);
         }
