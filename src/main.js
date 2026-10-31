@@ -1697,7 +1697,7 @@ class Game {
     this.gangs.update(dt);
     this.graphics.update(dt);
     const under = this.story.underground;
-    this.music.update(dt, this.started && this.settings.music && !this.health.dead ? Math.max(this.police.wanted, this.gangs.war.active ? 1 : 0) : 0, this.started && under, this.started && this.settings.music && !this.health.dead ? this.story.musicTrack : null, this.started && this.settings.music && !this.health.dead && this.police.swatActive, this.started && this.settings.music && !this.health.dead && !!this.activities?.cur?.racers);
+    this.music.update(dt, this.started && this.settings.music && !this.health.dead ? Math.max(this.police.wanted, this.gangs.war.active ? 1 : 0) : 0, this.started && under, this.started && this.settings.music && !this.health.dead ? this.story.musicTrack : null, this.started && this.settings.music && !this.health.dead && this.police.swatActive, this.started && this.settings.music && !this.health.dead && !!this.activities?.cur?.racers, this.started && this.settings.music && !this.health.dead && !!this.volcano?.playerInside);
     this.setUnderground(under ? 'lab' : this.homes?.inside ? 'home' : this.volcano?.playerInside && !this.volcano?.cine ? 'cave' : false);
     this.police.update(dt);
     this.updatePickpocket(dt);

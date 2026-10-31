@@ -1,5 +1,5 @@
 // Chase music: one track for a low wanted level (1-2 stars), another when they're really
-// after you (3+), *Oversized* once the SWAT teams are out (10+ stars), *Studiopolis Zone* at 20+ stars, and *Time Trial* in a street race. Tracks crossfade as the level changes and fade out when you lose the police.
+// after you (3+), *Oversized* once the SWAT teams are out (10+ stars), *Studiopolis Zone* at 20+ stars, *Sparkler* at 35+ (the military), *Bounty Hunter B* inside the volcano base, and *Time Trial* in a street race. Tracks crossfade as the level changes and fade out when you lose the police.
 export class Track {
   constructor(url, max) {
     this.el = new Audio(url);
@@ -31,6 +31,8 @@ export class ChaseMusic {
     this.swat = new Track(`${base}assets/music/oversized.mp3`, 0.6);
     this.race = new Track(`${base}assets/music/time-trial.mp3`, 0.55);
     this.top = new Track(`${base}assets/music/studiopolis.mp3`, 0.6); // 20+ stars: Studiopolis Zone
+    this.mil = new Track(`${base}assets/music/sparkler.mp3`, 0.6); // 35+ stars: Sparkler
+    this.base = new Track(`${base}assets/music/bounty-hunter-b.mp3`, 0.55); // inside the volcano base: Bounty Hunter B
   }
 
   // stars: current wanted level (0 = no music)
@@ -38,12 +40,18 @@ export class ChaseMusic {
   // force: a mission's own track ('low' = Chase on Foot, 'high' = Pursuer), whatever the stars
   // swat: SWAT teams are on you (Oversized takes over from everything else)
   // race: you're in a street race (Time Trial plays over the chase themes; only the SWAT beat it)
-  update(dt, stars, lab = false, force = null, swat = false, race = false) {
-    const top = stars >= 20; // (20 stars and up: Studiopolis over everything but the lab)
-    if (top) swat = false;
+  // volcano: you're inside the volcano base (its own music: it's a safe haven, so the chase dies away)
+  update(dt, stars, lab = false, force = null, swat = false, race = false, volcano = false) {
+    if (volcano && !lab) { stars = 0; force = null; swat = false; race = false; }
+    const mil = stars >= 35; // (35 stars and up: Sparkler over everything but the lab)
+    const top = stars >= 20 && !mil; // (20 stars and up: Studiopolis over everything but the lab)
+    if (top || mil) swat = false;
+    if (mil) race = false;
     const racing = race && !swat && !force && !top;
     const low = !swat && !racing && !top && (force ? force === 'low' : stars >= 1 && stars <= 2);
     const high = !swat && !racing && !top && (force ? force === 'high' : stars >= 3);
+    this.base.update(dt, !lab && volcano);
+    this.mil.update(dt, !lab && mil);
     this.top.update(dt, !lab && top);
     this.race.update(dt, !lab && racing);
     this.low.update(dt, !lab && low);
@@ -52,5 +60,5 @@ export class ChaseMusic {
     this.lab.update(dt, lab);
   }
 
-  get vol() { return Math.max(this.low.vol, this.high.vol, this.lab.vol, this.swat.vol, this.race.vol, this.top.vol); }
+  get vol() { return Math.max(this.low.vol, this.high.vol, this.lab.vol, this.swat.vol, this.race.vol, this.top.vol, this.mil.vol, this.base.vol); }
 }
