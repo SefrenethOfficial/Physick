@@ -43,7 +43,9 @@ Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **
 
 - **13 · Following the Money:** the lieutenant's phone banks with Verian National, and the director keeps his own books. Go after closing (the clock jumps to night if it's day) into the bank downtown, through the door at the back of the banking hall and up the stairs to the **executive floor** (the top floor, now fitted out properly: the director's office, Private Clients and the boardroom across the front, open-plan desks behind low partitions in the middle). Two guards walk it and two cameras sweep it: crouch (`C`) behind the partitions, stay out of the cones, and take guards down from behind (`E`). In **R. HALVERSON · DIRECTOR**, hold `E` at his computer for six seconds to copy the books (key item: the Meridian ledger), then get out of the building unseen. Firing a shot inside sets off the alarms and fails it. Look at the white model by his window, too.
 
-- **Key items** (the key, the documents, Act II's phone, keycard, schedule, photos, pass, plans and flight plan, and Act III's raid phone and ledger) are listed on the phone and at the bottom of the inventory (`Tab`). They can't be sold, dropped or confiscated.
+- **14 · Dead Man's Switch:** Elias Varga, Pratt Developments' bookkeeper, wants out, and he's hiding at **Ridgeback Cabins, cabin 3**: only Vic knows. Knock (`E`), then walk him through the woods to the volcano's summit car park, where Dutch can take him out by sea. He follows the path you take (don't get more than ~90 m ahead, and he can't ride in a car), and the Ashen Hand ambush you twice in the trees; they shoot at him too, so his health shows in the objective. At the car park he stops to get his breath and tells you what he knows, and doesn't get to finish. Find the sniper on the rise across the car park (he glints) and take him out under fire, then take his phone (key item).
+
+- **Key items** (the key, the documents, Act II's phone, keycard, schedule, photos, pass, plans and flight plan, and Act III's raid phone, ledger and the sniper's phone) are listed on the phone and at the bottom of the inventory (`Tab`). They can't be sold, dropped or confiscated.
 - Dying or getting busted fails a mission. You can retry or replay it from the phone.
 
 ## The world
@@ -470,7 +472,7 @@ src/
   woods.js     log cabins, campfires, undergrowth, treehouse, caravan, deer stands, plane wreck, mine, deer
   scorch.js    the Scorch desert and its causeway
   act2.js      Act II: its missions, stealth guards and cameras, the lock-ups, the Airport Authority's staff wing, Hangar 3
-  act3.js      Act III: its missions (so far: the raid on the volcano base; Verian National's executive floor)
+  act3.js      Act III: its missions (so far: the raid on the volcano base; Verian National's executive floor; the escort from cabin 3)
   planes.js    the airliner and the Chemist's jet
   skydive.js   ejecting, freefall and the parachute
   gasstation.js gas stations and the Saltmarsh general store

@@ -22,6 +22,7 @@ const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 
 export const ACT3_KEY_ITEMS = {
   ledger: { name: 'The Meridian ledger', desc: 'Copied off the director\'s computer at Verian National. Ashen Hand front companies pay Pratt Developments; Pratt Developments pays out to an account offshore called MERIDIAN. Every month. Since before the bombing.' },
+  sniperphone: { name: "The sniper's phone", desc: 'One message, from a withheld number, an hour before you got to the cabins: "Cabin 3. He\'s alone tonight."' },
   raidphone: { name: "The lieutenant's phone", desc: 'One photo in it: your tunnel entrance, taken from the summit car park. Sent from a withheld number, the day before the raid.' },
 };
 
@@ -37,6 +38,12 @@ export const ACT3_MISSIONS = [
     brief: `${FIXER}: "The lieutenant's phone. There's a banking app on it, and every payment goes through Verian National. Downtown. The director keeps his own books on his own computer, up on the executive floor. Go tonight, after the place shuts. Quiet, kid. No guns. A shot in there and every alarm in the city goes off."`,
     reward: 7500,
     passText: `${FIXER}: "Sorry, kid, other line. Wrong number. … Pratt Developments? Gideon Pratt's rebuilding the square. He's untouchable, kid. Send me a copy." He doesn't ask what MERIDIAN is.`,
+  },
+  {
+    id: 'm14', title: "Dead Man's Switch", requires: 'm13',
+    brief: `${FIXER}: "Somebody saw your ledger and wants out. Elias Varga, Pratt Developments' bookkeeper. Twenty years cooking Pratt's books, and now he's scared. He's hiding up at Ridgeback Cabins, cabin 3. Nobody knows he's there but me. Walk him through the woods to the volcano. Dutch will take him out by sea, and then he talks."`,
+    reward: 8000,
+    passText: `${FIXER}: "Cabin 3? … No. No, I didn't tell anyone, kid. Who would I tell? … Look, we'll talk later. I've got a call."`,
   },
 ];
 
@@ -148,8 +155,8 @@ export class Act3 {
   get vb() { return this.game.volcano; }
 
   // an Ashen Hand gunman, anywhere (inside the volcano: the hills)
-  spawnGoon(a, at, kind) {
-    const g = this.game, n = g.citizens.spawnCitizen('hills', 'goon', at.clone(), { look: LOOKS[kind] });
+  spawnGoon(a, at, kind, island = 'hills') {
+    const g = this.game, n = g.citizens.spawnCitizen(island, 'goon', at.clone(), { look: LOOKS[kind] });
     if (!n) return null;
     Object.assign(n, { kind, weapon: WEAPONS[kind], nadeT: 3 + Math.random() * 3, hp: kind === 'heavy' ? 240 : 100, cash: 30 + Math.floor(Math.random() * 90), items: Math.random() < 0.3 ? ['pistol'] : [], heading: Math.random() * Math.PI * 2, mission: a, alerted: true });
     const p = g.shorePlayer.body.translation(); n.lastSeen = V3(p.x, p.y, p.z);
@@ -162,6 +169,7 @@ export class Act3 {
     const g = this.game;
     Object.assign(a, { goons: [], stage: 'go', fx: [] });
     if (a.id === 'm13') { this.startM13(a); return; }
+    if (a.id === 'm14') { this.startM14(a); return; }
     const hasGun = g.held?.gun || g.economy.carried.some((x) => ITEM_BY_ID[x]?.gun);
     if (!hasGun) { g.giveItem(ITEM_BY_ID.smg); g.hud.toast(`${FIXER} left an SMG for you`, 0xffd166); }
     for (const [k, n] of [['smgAmmo', 150], ['pistolAmmo', 60], ['rifleAmmo', 90]]) if ((g.economy.ammo[k] || 0) < n) g.economy.addAmmo(k, n - (g.economy.ammo[k] || 0));
@@ -180,6 +188,7 @@ export class Act3 {
     for (const n of a.goons || []) if (g.citizens.list.includes(n)) g.citizens.despawn(n);
     for (const o of a.fx || []) o.removeFromParent();
     if (a.phoneMesh) a.phoneMesh.removeFromParent();
+    if (a.elias && g.citizens.list.includes(a.elias)) g.citizens.despawn(a.elias);
     this.alarm(false);
     if (a.id === 'm13') this.stealth.clearStealth(a);
     if (!pass) this.retry = { id: a.id, t: performance.now() };
@@ -187,6 +196,7 @@ export class Act3 {
 
   checkpoint(a) {
     const g = this.game, v = this.vb;
+    if (a.id === 'm14') { const c = this.rb.cabins[2], d = c.door; this.story.fade(() => { g.placeOnShore(V3(d.x, d.y + 1.2, d.z).add(V3(Math.sin(c.yaw + Math.PI) * -6, 0, Math.cos(c.yaw + Math.PI) * -6)), c.yaw + Math.PI); g.hud.toast('Checkpoint: Ridgeback Cabins', 0x9ec5ff); }); return; }
     if (a.id === 'm13') { const d = this.game.city.bank.door, B = this.bankB, o = V3(d.x - B.x, 0, d.z - B.z).normalize(); this.story.fade(() => { g.placeOnShore(V3(d.x + o.x * 14, d.y + 1.2, d.z + o.z * 14), Math.atan2(-o.x, -o.z)); g.hud.toast('Checkpoint: across the street from the bank', 0x9ec5ff); }); return; }
     if (a.id === 'm12' && v) this.story.fade(() => { g.placeOnShore(v.portal.clone().add(V3(0, 1.2, 0)), Math.atan2(v.T.u.x, v.T.u.z)); g.hud.toast('Checkpoint: the summit car park', 0x9ec5ff); });
   }
@@ -194,6 +204,23 @@ export class Act3 {
   action(pos, a) {
     if (!a || !this.owns(a.id)) return null;
     const g = this.game;
+    if (a.id === 'm14') {
+      if (a.stage === 'meet' && Math.hypot(pos.x - a.cabin.door.x, pos.z - a.cabin.door.z) < 3.5) return { label: 'Knock on cabin 3', run: () => {
+        g.sfx.play('punch');
+        a.stage = 'escort'; a.d0 = Math.hypot(a.elias.body.translation().x - this.vb.portal.x, a.elias.body.translation().z - this.vb.portal.z);
+        const t = a.elias.body.translation(); a.trail = [V3(t.x, t.y, t.z), a.cabin.door.clone()];
+        g.hud.toast(`Elias: "Who— You're Vic's? Thank God. He's the only one who knows I'm here."`, 0xe8e2d4);
+        setTimeout(() => { if (this.story.active === a) g.hud.toast('Elias: "Lead the way. I\'m right behind you. Not too fast, I\'m an accountant."', 0xe8e2d4); }, 3500);
+      } };
+      if (a.stage === 'phone' && a.phoneAt && Math.hypot(pos.x - a.phoneAt.x, pos.z - a.phoneAt.z) < 2.6) return { label: "Take the sniper's phone", run: () => {
+        this.story.giveKeyItem('sniperphone');
+        g.hud.toast(ACT3_KEY_ITEMS.sniperphone.desc, 0xe8e2d4);
+        setTimeout(() => g.hud.toast("Only one person knew which cabin.", 0xff8a6a), 3200);
+        a.stage = 'done';
+        setTimeout(() => this.story.end(true), 6500);
+      } };
+      return null;
+    }
     if (a.id === 'm13') {
       const td = this.inBank(pos) && this.stealth.takedownTarget(a, pos);
       if (td) return { label: 'Silent takedown', run: () => this.stealth.takedown(a, td) };
@@ -227,6 +254,142 @@ export class Act3 {
   update(a, p, dt) {
     if (a.id === 'm12') this.updM12(a, p, dt);
     if (a.id === 'm13') this.updM13(a, p, dt);
+    if (a.id === 'm14') this.updM14(a, p, dt);
+  }
+
+  // ---------------------------------------------------------------- m14: Dead Man's Switch
+  get rb() { return this.game.ridgeback; }
+  startM14(a) {
+    const g = this.game, rb = this.rb, c = rb.cabins[2];
+    Object.assign(a, { stage: 'go', cabin: c, trail: [], ambushed: 0, hitT: 0 });
+    const hasGun = g.held?.gun || g.economy.carried.some((x) => ITEM_BY_ID[x]?.gun);
+    if (!hasGun) { g.giveItem(ITEM_BY_ID.smg); g.hud.toast(`${FIXER} left an SMG for you`, 0xffd166); }
+    for (const [k, n] of [['smgAmmo', 150], ['pistolAmmo', 60], ['rifleAmmo', 60]]) if ((g.economy.ammo[k] || 0) < n) g.economy.addAmmo(k, n - (g.economy.ammo[k] || 0));
+    const e = g.citizens.spawnCitizen('hills', 'escort', c.inside.clone(), { look: { shirt: 0x7a6a52, pants: 0x3a3a40, skin: 0xf1c9a5, glasses: true } });
+    if (e) { e.faceYaw = c.yaw; e.heading = c.yaw; e.hp = 150; e.name = 'Elias Varga'; e.walkSpeed = 3.4; a.elias = e; }
+    this.maybeCheckpoint(a);
+  }
+
+  eliasAlive(a) { const n = a.elias; return n && this.game.citizens.list.includes(n); }
+
+  updM14(a, p, dt) {
+    const g = this.game, rb = this.rb, v = this.vb, C = g.citizens, E = a.elias;
+    a.goons = (a.goons || []).filter((n) => C.list.includes(n));
+    const ePos = this.eliasAlive(a) ? E.body.translation() : null;
+    if (['go', 'meet', 'escort'].includes(a.stage) && !ePos) { this.story.end(false, 'Elias is dead'); return; }
+    if (a.stage === 'go') {
+      a.text = 'Get to Ridgeback Cabins, up in the hills: Elias is hiding in cabin 3';
+      a.wp = a.cabin.door.clone();
+      if (Math.hypot(p.x - a.cabin.door.x, p.z - a.cabin.door.z) < 9) a.stage = 'meet';
+      return;
+    }
+    if (a.stage === 'meet') {
+      a.text = 'Knock on cabin 3';
+      a.wp = a.cabin.door.clone();
+      return;
+    }
+    if (a.stage === 'escort') {
+      const goal = v.portal, dGoal = Math.hypot(ePos.x - goal.x, ePos.z - goal.z), dP = Math.hypot(p.x - ePos.x, p.z - ePos.z);
+      a.prog = 1 - dGoal / a.d0;
+      // he follows the way you went (a trail of breadcrumbs), keeping a few metres back
+      const last = a.trail.at(-1);
+      if (!g.vehicles.active && (!last || Math.hypot(p.x - last.x, p.z - last.z) > 2)) { a.trail.push(V3(p.x, p.y, p.z)); if (a.trail.length > 400) a.trail.shift(); }
+      while (a.trail.length && Math.hypot(a.trail[0].x - ePos.x, a.trail[0].z - ePos.z) < 2.2) a.trail.shift();
+      const cower = a.goons.length && a.cowerT > 0;
+      a.cowerT = (a.cowerT || 0) - dt;
+      if (dP > 3.5 && a.trail.length && !cower) {
+        E.walkTo = a.trail[0]; E.walkSpeed = dP > 12 ? 4.6 : 3.2;
+        /* (stuck on a tree or a fence: after a couple of seconds he scrambles past it) */
+        a.stuckT = (a.stuckT || 0) + dt;
+        if (a.stuckT > 2.5) { if (a.lastE && Math.hypot(ePos.x - a.lastE.x, ePos.z - a.lastE.z) < 1) { const q = a.trail.shift(); if (q) E.body.setTranslation({ x: q.x, y: q.y + 0.1, z: q.z }, true); } a.stuckT = 0; a.lastE = V3(ePos.x, ePos.y, ePos.z); }
+      }
+      else { E.walkTo = null; E.faceYaw = Math.atan2(p.x - ePos.x, p.z - ePos.z); }
+      if (dP > 90) { this.story.end(false, 'You left Elias behind'); return; }
+      // the Ashen Hand are in the woods: two ambushes on the way
+      for (const [k, at] of [[1, 0.25], [2, 0.6]]) if (a.ambushed < k && a.prog > at && !a.goons.length) { a.ambushed = k; this.ambush14(a, ePos, goal); break; }
+      // they're shooting at him too
+      if (a.goons.length) {
+        a.hitT -= dt;
+        if (a.hitT <= 0) {
+          a.hitT = 1.2 + Math.random();
+          const sh = a.goons.find((n) => { const t = n.body.translation(); return Math.hypot(t.x - ePos.x, t.z - ePos.z) < 40 && C.canSee(n, V3(ePos.x, ePos.y + 0.5, ePos.z), 40); });
+          if (sh && Math.random() < 0.5) { const t = sh.body.translation(); g.police.tracer(V3(t.x, t.y + 0.6, t.z), V3(ePos.x, ePos.y + 0.4, ePos.z)); E.hp -= 8 + Math.random() * 8; g.sfx.play('impact'); if (E.hp <= 0) { C.knockOver(E, V3(0, 1, 0), 1, { killed: true }); return; } }
+        }
+      }
+      const hp = Math.max(0, Math.round((E.hp / 150) * 100));
+      a.text = a.goons.length ? `Ambush! Keep Elias alive: ${a.goons.length} of them in the trees · <b>Elias ${hp}%</b>` : `Walk Elias through the woods to the volcano tunnel (he follows your path; don't get too far ahead) · Elias ${hp}%`;
+      if (g.vehicles.active) a.text = "Elias is on foot. So are you: get out and walk him there";
+      a.wp = goal.clone();
+      if (!a.goons.length && dGoal < 45) this.lastWords(a, ePos);
+      return;
+    }
+    if (a.stage === 'talk') { a.text = 'Elias needs a second. Listen'; a.wp = null; if (this.eliasAlive(a)) { E.walkTo = null; E.faceYaw = Math.atan2(p.x - ePos.x, p.z - ePos.z); } return; }
+    if (a.stage === 'sniper') {
+      const sn = a.sniper, alive = sn && C.list.includes(sn);
+      if (!alive) {
+        a.stage = 'phone'; a.glint?.removeFromParent();
+        a.phoneAt = a.sniperAt.clone();
+        g.hud.toast("He's down. He had a phone, and it's still buzzing", 0x7be08a);
+        return;
+      }
+      const t = sn.body.translation(); a.sniperAt = V3(t.x, t.y - 0.9, t.z);
+      a.text = 'SNIPER on the ridge! Get to cover and take him out';
+      a.wp = a.sniperAt.clone();
+      if (a.glint) { a.glint.position.set(t.x, t.y + 0.7, t.z); a.glint.material.opacity = 0.5 + Math.sin(g.time * 9) * 0.5; }
+      a.snipeT -= dt;
+      if (a.snipeT <= 0) {
+        a.snipeT = 3.2;
+        if (C.canSee(sn, V3(p.x, p.y + 0.5, p.z), 400)) {
+          g.sfx.play('sniper'); g.police.tracer(V3(t.x, t.y + 0.6, t.z), V3(p.x + (Math.random() - 0.5) * 2, p.y + 0.5, p.z + (Math.random() - 0.5) * 2));
+          if (Math.random() < 0.45) g.health.damage(22, 'goon');
+        }
+      }
+      return;
+    }
+    if (a.stage === 'phone') { a.text = "Take the sniper's phone"; a.wp = a.phoneAt.clone(); }
+  }
+
+  ambush14(a, ePos, goal) {
+    const g = this.game, rb = this.rb, f = V3(goal.x - ePos.x, 0, goal.z - ePos.z).normalize(), s = V3(f.z, 0, -f.x);
+    g.hud.flashBanner('AMBUSH', '#ff3a2a');
+    g.hud.toast(a.ambushed === 1 ? 'Elias: "They found me! How did they find me?"' : 'Elias: "More of them! Get me out of here!"', 0xff8a6a);
+    a.cowerT = 4;
+    const kinds = a.ambushed === 1 ? ['rifle', 'smg', 'rifle', 'smg'] : ['rifle', 'heavy', 'smg', 'grenadier', 'rifle'];
+    kinds.forEach((kind, i) => {
+      const side = i % 2 ? 1 : -1, x = ePos.x + f.x * (24 + i * 4) + s.x * side * (12 + i * 3), z = ePos.z + f.z * (24 + i * 4) + s.z * side * (12 + i * 3);
+      this.spawnGoon(a, V3(x, rb.heightAt(x, z) + 0.2, z), kind, 'hills');
+    });
+  }
+
+  // he stops at the car park to get his breath, tells you what he knows, and doesn't finish
+  lastWords(a, ePos) {
+    const g = this.game, C = g.citizens, E = a.elias, rb = this.rb;
+    a.stage = 'talk';
+    const lines = [
+      'Elias: "Wait. Wait. I need… a second."',
+      'Elias: "It\'s Pratt. All of it. The Ashen Hand blow it up, Pratt Developments buys the ground for nothing, and the city pays him to rebuild."',
+      'Elias: "Verian Central was the biggest one. Eleven people. He had the plans drawn up a year before the bomb."',
+      'Elias: "And the money goes out to Meridian. Meridian sent—"',
+    ];
+    lines.forEach((l, i) => setTimeout(() => { if (this.story.active === a) g.hud.toast(l, 0xe8e2d4); }, i * 3600));
+    setTimeout(() => {
+      if (this.story.active !== a) return;
+      // the shot: from the ridge across the car park
+      const v = this.vb, P = v.portal, out = V3(-v.T.u.x, 0, -v.T.u.z).normalize(), side = V3(out.z, 0, -out.x);
+      let best = null;
+      for (let k = 0; k < 48; k++) { const ang = ((k % 24) / 24) * Math.PI - Math.PI / 2, d = k < 24 ? 75 : 55, dir = out.clone().multiplyScalar(Math.cos(ang)).addScaledVector(side, Math.sin(ang)), x = P.x + dir.x * d, z = P.z + dir.z * d, y = rb.heightAt(x, z), sc = y - P.y < 22 ? y : -1e9 - y; if (!best || sc > best.sc) best = { x, y, z, sc }; } /* (up on a rise across the car park: high, but not halfway up the volcano) */
+      const t = E && C.list.includes(E) ? E.body.translation() : ePos;
+      g.sfx.play('sniper'); g.police.tracer(V3(best.x, best.y + 1.4, best.z), V3(t.x, t.y + 0.6, t.z));
+      if (E && C.list.includes(E)) { const dir = V3(t.x - best.x, 0, t.z - best.z).normalize(); C.knockOver(E, dir.multiplyScalar(4).setY(1), 2, { killed: true, dir }); }
+      g.shake = 0.6;
+      g.hud.flashBanner('SNIPER', '#ff3a2a');
+      const sn = this.spawnGoon(a, V3(best.x, best.y + 0.2, best.z), 'rifle', 'hills');
+      if (sn) { sn.guard = { watch: true }; sn.alerted = false; sn.hp = 140; sn.lastSeen = null; a.sniper = sn; }
+      const gl = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xfff4c0, transparent: true, depthTest: false }));
+      gl.scale.setScalar(1.6); g.scene.add(gl); a.glint = gl; a.fx.push(gl);
+      a.stage = 'sniper'; a.snipeT = 2.5; a.sniperAt = V3(best.x, best.y, best.z);
+      g.hud.toast('Elias is dead. The shot came from the ridge: there, a glint!', 0xff6a5a);
+    }, lines.length * 3600 - 800);
   }
 
   // ---------------------------------------------------------------- m13: Following the Money
