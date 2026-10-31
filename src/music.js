@@ -48,8 +48,8 @@ export class ChaseMusic {
     if (top || mil) swat = false;
     if (mil) race = false;
     const racing = race && !swat && !force && !top;
-    const low = !swat && !racing && !top && (force ? force === 'low' : stars >= 1 && stars <= 2);
-    const high = !swat && !racing && !top && (force ? force === 'high' : stars >= 3);
+    const low = !swat && !racing && !top && !mil && (force ? force === 'low' : stars >= 1 && stars <= 2);
+    const high = !swat && !racing && !top && !mil && (force ? force === 'high' : stars >= 3);
     this.base.update(dt, !lab && volcano);
     this.mil.update(dt, !lab && mil);
     this.top.update(dt, !lab && top);
