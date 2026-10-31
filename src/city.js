@@ -243,7 +243,7 @@ export class City {
 
     // the bank (block 2,3), across the street from the plaza
     const bank = place(whole(2, 3), 'n', { type: 'civic', floors: 4, interior: 'bank', name: 'VERIAN NATIONAL BANK', signBg: '#1f3b2e', signFg: '#f2e6c0', color: '#d8d0bc' });
-    this.bank = { counter: bank.counter, vault: bank.vault, door: bank.door, inside: bank.inside };
+    this.bank = { counter: bank.counter, vault: bank.vault, door: bank.door, inside: bank.inside, B: bank.building };
     {
       // columns across the front
       const bb = this.block(2, 3), fz = bb.z0 + WALK - 0.8;

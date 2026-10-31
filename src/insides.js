@@ -151,6 +151,7 @@ export class Insides {
     if (C) { ceil(C.x1, xR, zB, zF); ceil(xL, C.x1, C.hole, zF); } else ceil(xL, xR, zB, zF);
     if (C) this.stairs(ctx);
     if (f === 0) this.groundFloor(ctx);
+    else if (B.fit?.[f]) B.fit[f](ctx, this); /* (a floor the story fits out itself) */
     else if (C) {
       const use = B.upper === 'offices' ? 'offices' : B.upper === 'shops+apartments' && f === 1 ? 'shops' : 'apartments';
       if (use === 'offices') this.offices(ctx); else this.corridorFloor(ctx, use);

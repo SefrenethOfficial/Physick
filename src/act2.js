@@ -267,7 +267,7 @@ export class Act2 {
   spawnGuard(a, at, opts = {}) {
     const g = this.game;
     const look = opts.look || { shirt: 0x1d1f22, pants: 0x2a2c30, skin: [0xd9a47c, 0x7a4f35, 0xf1c9a5][Math.floor(Math.random() * 3)], hat: 'cap', hatColor: 0x111111 };
-    const n = g.citizens.spawnCitizen(islandAt(at.x, at.z, 6)?.id || 'city', 'escort', V3(at.x, this.ground(at.x, at.z, at.y + 6), at.z), { look });
+    const n = g.citizens.spawnCitizen(islandAt(at.x, at.z, 6)?.id || 'city', 'escort', V3(at.x, opts.y ?? this.ground(at.x, at.z, at.y + 6), at.z), { look });
     if (!n) return null;
     n.guard = { route: opts.route || null, pauseAt: opts.pauseAt || null, i: 0, wait: 0, alert: 0, fov: opts.fov ?? 0.62, range: opts.range ?? 15, base: opts.facing ?? 0, sweep: opts.sweep ?? 0.9, phase: Math.random() * 6 };
     n.faceYaw = opts.facing ?? 0; n.heading = n.faceYaw;
@@ -351,7 +351,7 @@ export class Act2 {
       const s = this.sees(c.pos, c.heading, c.range, c.fov, p);
       c.alert = s ? Math.min(1.2, c.alert + dt * (0.5 + s * 1.2)) : Math.max(0, c.alert - dt * 0.4);
       if (c.alert > worst) { worst = c.alert; who = c; }
-      c.cone.position.set(c.pos.x, Y + 0.13, c.pos.z);
+      c.cone.position.set(c.pos.x, (c.floorY ?? Y) + 0.13, c.pos.z);
       c.cone.rotation.y = c.heading;
       c.cone.material.color.setRGB(1, 0.9 - c.alert * 0.7, 0.4 - c.alert * 0.35);
     }

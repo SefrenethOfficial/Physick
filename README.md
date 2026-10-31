@@ -41,7 +41,9 @@ Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **
 
 - **12 · Ash on the Wind:** Vic hears the Ashen Hand are sending a crew to the volcano base, and they know exactly where it is. Get there through the summit car park tunnel (you get an SMG, ammo and a vest if you need them). As you walk in, the alarm goes and red lights flash round the cavern. Six gunmen come up the tunnel behind you; then ropes drop from the vent and six more come down them; then it was a distraction all along, and four are in the **counting room** cutting into the safe: stop them inside **50 seconds**. The heavy in the middle is the lieutenant: take the phone he drops (key item). Leave the base mid-raid and you fail; fail and retry and you start back at the car park.
 
-- **Key items** (the key, the documents, Act II's phone, keycard, schedule, photos, pass, plans and flight plan, and Act III's raid phone) are listed on the phone and at the bottom of the inventory (`Tab`). They can't be sold, dropped or confiscated.
+- **13 · Following the Money:** the lieutenant's phone banks with Verian National, and the director keeps his own books. Go after closing (the clock jumps to night if it's day) into the bank downtown, through the door at the back of the banking hall and up the stairs to the **executive floor** (the top floor, now fitted out properly: the director's office, Private Clients and the boardroom across the front, open-plan desks behind low partitions in the middle). Two guards walk it and two cameras sweep it: crouch (`C`) behind the partitions, stay out of the cones, and take guards down from behind (`E`). In **R. HALVERSON · DIRECTOR**, hold `E` at his computer for six seconds to copy the books (key item: the Meridian ledger), then get out of the building unseen. Firing a shot inside sets off the alarms and fails it. Look at the white model by his window, too.
+
+- **Key items** (the key, the documents, Act II's phone, keycard, schedule, photos, pass, plans and flight plan, and Act III's raid phone and ledger) are listed on the phone and at the bottom of the inventory (`Tab`). They can't be sold, dropped or confiscated.
 - Dying or getting busted fails a mission. You can retry or replay it from the phone.
 
 ## The world
@@ -468,7 +470,7 @@ src/
   woods.js     log cabins, campfires, undergrowth, treehouse, caravan, deer stands, plane wreck, mine, deer
   scorch.js    the Scorch desert and its causeway
   act2.js      Act II: its missions, stealth guards and cameras, the lock-ups, the Airport Authority's staff wing, Hangar 3
-  act3.js      Act III: its missions (so far: the raid on the volcano base)
+  act3.js      Act III: its missions (so far: the raid on the volcano base; Verian National's executive floor)
   planes.js    the airliner and the Chemist's jet
   skydive.js   ejecting, freefall and the parachute
   gasstation.js gas stations and the Saltmarsh general store
