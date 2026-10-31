@@ -157,6 +157,7 @@ export class Citizens extends Npcs {
     rd.what = npc.hunter ? 'bounty hunter' : npc.role === 'goon' ? 'Ashen Hand thug' : npc.role === 'gang' ? 'gang member' : npc.role === 'cop' ? 'officer' : npc.busker ? 'sax player' : npc.role === 'clerk' && npc.store ? `${npc.store.label.toLowerCase()} clerk` : 'person';
     rd.hp = Math.min(Math.max(npc.hp, 25), 50); // out cold, they don't take much finishing off
     rd.island = npc.island;
+    if (npc.hitId) rd.hitId = npc.hitId; // (a contract target)
     rd.id = Math.random();
     rd.bornAt = this.game.time * 1000;
     return rd;
@@ -544,6 +545,8 @@ export class Citizens extends Npcs {
     npc.atkT = (npc.atkT || 0) - dt;
     if (g.health.dead) return { want: null, speed: 0 };
     if (seen) npc.lastSeen = pp.clone();
+    // a bodyguard (contracts): stands his post until there's trouble, or you walk right up to him with a gun out
+    if (npc.guard && !npc.alerted) { if (seen && distP < (g.held?.gun ? 9 : 2.2)) npc.alerted = true; else return { want: null, speed: 0 }; }
     if (!npc.alerted && !seen) return { want: null, speed: 0 }; // on watch
     const tgt = seen ? pp : npc.lastSeen || pp;
     const to = new THREE.Vector3(tgt.x - t.x, 0, tgt.z - t.z);

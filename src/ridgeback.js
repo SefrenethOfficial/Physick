@@ -30,7 +30,9 @@ export class Ridgeback {
     this.peak = { x: -2075, z: -1075 }; // the volcano (its crater)
     // the volcano's hollow: a cone-shaped cavern (radius cave at the floor, the base's level), its roof 7 m
     // under the mountainside, open to the sky through a little hole at the very top
-    this.crater = { cave: 46, top: 300, R0: 118, p: 1.5, thick: 7, oculus: 4.5 }; // (a spire: top m above the base's floor, coming down to it R0 m out)
+    // (a stratovolcano: a steep summit cone with a crater, flaring out into broad lower slopes. R0 is how far
+    // out the cone reaches: less on the car park's side, more round the back; rim: the crater's edge)
+    this.crater = { cave: 46, top: 300, R0: 160, p: 1.7, R1: 330, p1: 2.2, rim: 30, dip: 30, thick: 7, oculus: 4.5 }; // (R0/p: the breached side, where the car park is; R1/p1: everywhere else)
     this.quarry = { x: -1735, z: -985, r: PIT.rim };
     // out in the woods: a crashed plane, an old mine, deer stands (kept clear of trees)
     this.spots = { plane: { x: -2100, z: -736, r: 14 }, mine: { x: -2075, z: -900, r: 11 }, standA: { x: -2227, z: -688, r: 5 }, standB: { x: -1764, z: -1191, r: 5 } };
@@ -56,6 +58,7 @@ export class Ridgeback {
       [-1915, -772], [-1880, -805], [-1878, -845], [-1905, -868], [-1975, -872], [-2060, -852], [-2125, -852], [-2165, -875], [-2175, -912], [-2150, -940], [-2105, -940], [-2075, -960]],
     { width: 12, yOf: (s, x, z) => Math.max(Y + 0.1, s < 150 ? Y + 0.1 : this.natural(x, z) - 1.5), smoothN: 12, maxGrade: 0.12, name: 'pass' });
     this.summitY = this.pass.pts.at(-1).y;
+    { const E = this.pass.pts.at(-1); this.coneAz = Math.atan2(E.x - this.peak.x, E.z - this.peak.z); } // (the car park's side of the mountain)
     const q = this.quarry;
     const passY = (x, z) => this.pass.pts.reduce((b, p) => ((p.x - x) ** 2 + (p.z - z) ** 2 < (b.x - x) ** 2 + (b.z - z) ** 2 ? p : b)).y;
     // the haul road: down the valley, then in through a cutting in the spoil bank to the pit floor
@@ -81,12 +84,12 @@ export class Ridgeback {
     for (let t = 6; t < T.len; t += 1) { const x = P.x + T.u.x * t, z = P.z + T.u.z * t; if (this.heightAt(x, z) - P.y > 9.5) { T.portal = t; break; } }
     T.portal ??= T.len * 0.4;
     // the alcove up the spire, facing the city: a ledge cut into the rock (the chute and glider shop)
-    { const th = Math.atan2(-T.u.x, -T.u.z) + 0.82, y = P.y + 92; let r = 10; while (this.coneAt(r) > y && r < 118) r += 0.5;
+    { const th = Math.atan2(-T.u.x, -T.u.z) + 0.82, y = P.y + 92; let r = 10; while (this.coneAt(r, th) > y && r < this.R0at(th)) r += 0.5;
       this.alcove = { th, y, r, x: V.x + Math.sin(th) * r, z: V.z + Math.cos(th) * r }; }
     // the footpath up to it: once round the spire, from beside the car park, on a ledge cut into the rock
-    { const A = this.alcove, th0 = Math.atan2(-T.u.x, -T.u.z) + 0.32, th1 = A.th + Math.PI * 2 - 9.5 / A.r, y0 = P.y + 0.2, y1 = A.y, n = 150;
-      const rCone = (y) => { let r = 2; while (this.coneAt(r) > y && r < this.crater.R0) r += 0.25; return r; };
-      const pts = []; for (let i = 0; i <= n; i++) { const t = i / n, th = th0 + (th1 - th0) * t, y = y0 + (y1 - y0) * t, r = Math.min(rCone(y) + 1.2, 112); pts.push({ x: V.x + Math.sin(th) * r, y, z: V.z + Math.cos(th) * r }); }
+    { const A = this.alcove, th0 = Math.atan2(-T.u.x, -T.u.z) + 0.32, th1 = A.th + Math.PI * 2 - 9.5 / A.r, y0 = P.y + 0.2, y1 = A.y, n = 420;
+      const rCone = (y, th) => { let r = this.crater.rim; while (this.coneAt(r, th) > y && r < this.R0at(th)) r += 0.25; return r; };
+      const pts = []; for (let i = 0; i <= n; i++) { const t = i / n, th = th0 + (th1 - th0) * t, y = y0 + (y1 - y0) * t, r = Math.min(rCone(y, th) + 1.2, this.R0at(th) - 4); pts.push({ x: V.x + Math.sin(th) * r, y, z: V.z + Math.cos(th) * r }); }
       this.walkway = pts;
       const grid = new Map(); for (const p of pts) for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const k = `${Math.floor(p.x / 12) + a},${Math.floor(p.z / 12) + b}`; if (!grid.has(k)) grid.set(k, []); grid.get(k).push(p); }
       this.walkNear = (x, z) => { const l = grid.get(`${Math.floor(x / 12)},${Math.floor(z / 12)}`); if (!l) return null; let best = null, bd = Infinity; for (const p of l) { const d = (p.x - x) ** 2 + (p.z - z) ** 2; if (d < bd) { bd = d; best = p; } } return { p: best, d: Math.sqrt(bd) }; }; }
@@ -126,12 +129,39 @@ export class Ridgeback {
   // tunnel cut into its side from the car park to the portal (beyond that it runs underground).
   // the ground's opened up over the tunnel (beyond the portal), so it can run under the mountain
   underTunnel(x, z) { const T = this.tunnel; if (T.portal == null) return false; const ax = x - T.a.x, az = z - T.a.z, t = ax * T.u.x + az * T.u.z, lat = Math.abs(ax * T.u.z - az * T.u.x); return t > T.portal - 2 && t < T.len + 4 && lat < 8.5; }
-  coneAt(r) { const K = this.crater; return r < K.R0 ? this.summitY + K.top * Math.pow(1 - r / K.R0, K.p) : this.summitY - (r - K.R0) * 0.5; }
+  // how far out the cone reaches at an angle (round from the car park's side)
+  // (0 on the breached side, where the car park is, 1 round the rest of the mountain)
+  side(th) { const d = Math.abs(Math.atan2(Math.sin(th - this.coneAz), Math.cos(th - this.coneAz))); return smooth(0.25, 0.95, d); }
+  R0at(th) { const K = this.crater; return K.R0 + (K.R1 - K.R0) * this.side(th); }
+  // the cone's height r m out at angle th (by default on the car park's side, where it's lowest: the
+  // cavern's roof follows that): concave flanks up to the crater rim, then down into the crater
+  coneAt(r, th = this.coneAz) {
+    const K = this.crater, TOP = this.summitY + K.top, BASE = Y;
+    if (r <= K.rim) return TOP + 3 * smooth(K.rim - 9, K.rim, r) - K.dip * smooth(K.rim - 4, 10, r); // (a lip, then the crater)
+    // a broad stratovolcano, its flanks flattening all the way down; on the car park's side a breach,
+    // a great notch out of the flank, where the pass comes up
+    const prof = (R, p) => (r >= R ? BASE : BASE + (TOP - BASE) * Math.pow((R - r) / (R - K.rim), p));
+    const near = prof(K.R0, K.p), far = prof(K.R1, K.p1);
+    return near + (far - near) * this.side(th);
+  }
+  // ridges and gullies down the flanks (none at the rim or the foot)
+  gully(r, th) {
+    const K = this.crater, u = Math.min(1, Math.max(0, (this.R0at(th) - r) / (this.R0at(th) - K.rim)));
+    const n = fbm(th * 9.5 + 40, r / 55 + th * 0.3);
+    return 7 * Math.sin(Math.PI * u) * (1 - Math.abs(n * 2 - 1) * 2.2);
+  }
   volcanoAt(x, z, h) {
     const V = this.peak, r = Math.hypot(x - V.x, z - V.z);
-    if (r > 200) return h;
-    const cone = this.coneAt(r);
-    if (r < this.crater.R0) h = Math.max(h, cone); // (the cone's always the top: no dip)
+    if (r > 340) return h;
+    const th = Math.atan2(x - V.x, z - V.z), cone = this.coneAt(r, th);
+    if (r < this.R0at(th)) { // (the cone's always on top, flaring smoothly out of the hill instead of sitting on it like a hat)
+      const isl = this.isl, e = Math.min(x - isl.x0, isl.x1 - x, z - isl.z0, isl.z1 - z), edge = smooth(6, 110, e); // (down to the sea at the island's edge)
+      const c = Y + (cone - Y) * edge + (r > this.crater.rim ? this.gully(r, th) : 0) + (r < this.crater.rim + 6 ? 2.5 * fbm(th * 6, 3) - 1.2 : 0), k = 40, m = Math.max(0, k - Math.abs(c - h)) / k;
+      h = Math.max(h, c) + m * m * k * 0.25 * smooth(this.R0at(th), this.R0at(th) - 30, r);
+      // the roads up here run in cuttings through the flank
+      const n = this.index.nearest(x, z, 30);
+      if (n) { const w = n.r.width / 2; h = Math.min(h, n.p.y - 0.05 + Math.max(0, n.d - w - 3.5) * 0.9); }
+    }
     const T = this.tunnel;
     if (T.portal != null) {
       const ax = x - T.a.x, az = z - T.a.z, t = ax * T.u.x + az * T.u.z, lat = Math.abs(ax * T.u.z - az * T.u.x);
@@ -156,7 +186,7 @@ export class Ridgeback {
     if (this.flats.some((f) => Math.hypot(x - f.x, z - f.z) < f.r + m)) return false;
     if (this.quarryS(x, z) < this.quarry.r + 6 || this.inCutting(x, z, m)) return false;
     for (const k in this.spots) { const p = this.spots[k]; if (Math.hypot(x - p.x, z - p.z) < p.r + m) return false; }
-    if (Math.hypot(x - this.peak.x, z - this.peak.z) < 130) return false; // the crater
+    if (Math.hypot(x - this.peak.x, z - this.peak.z) < 150) return false; // the volcano's summit cone
     return true;
   }
 
@@ -165,27 +195,37 @@ export class Ridgeback {
     const base = import.meta.env.BASE_URL;
     const W = isl.x1 - isl.x0, D = isl.z1 - isl.z0;
     const q = this.quarry;
-    buildTerrain(g, sb, isl, {
+    // the volcano gets its own, much finer mesh out to coneR (the terrain's 5 m grid made the steep cone
+    // blocky); the terrain has a hole there
+    this.coneR = (th) => Math.min(this.R0at(th) * 0.8, 170);
+    const volcanoHole = (x, z) => { const dx = x - this.peak.x, dz = z - this.peak.z; return Math.hypot(dx, dz) < this.coneR(Math.atan2(dx, dz)) - 1; };
+    this.terrain = buildTerrain(g, sb, isl, {
       heightAt: (x, z) => this.heightAt(x, z), step: 5, sideColor: 0x6a604e, castShadow: true,
-      hole: (x, z) => Math.hypot(x - this.peak.x, z - this.peak.z) < this.crater.oculus + 0.5 || this.underTunnel(x, z), // the vent at the top, and the tunnel (roofed over: volcano.js)
+      hole: (x, z) => volcanoHole(x, z) || this.underTunnel(x, z), // the volcano (its own mesh: buildCone), and the tunnel (roofed over: volcano.js)
       map: photoTex(`${base}assets/textures/grass.jpg`, W / 9, D / 9),
-      colorAt: (x, y, z, ny) => {
+      colorAt: this.colorAt = (x, y, z, ny) => {
         const steep = smooth(0.9, 0.66, ny), high = smooth(Y + 90, Y + 145, y);
         const k = Math.max(steep, high * 0.9);
         const c = [1 - k * 0.12, 1 - k * 0.42, 1 - k * 0.2 + k * 0.08]; // grey-brown rock up high and on the crags
         // the quarry: pale grey stone on the faces, dusty gravel on the benches, the floor and the haul road
         const qk = Math.max(smooth(q.r + 4, q.r - 3, this.quarryS(x, z)), this.inCutting(x, z) ? smooth(32, 16, Math.abs(x - q.x)) : 0);
         if (qk > 0) { const t = ny < 0.8 ? [1.6, 1.3, 5.9] : [2.75, 2.2, 8.0]; /* (the grass photo's tinted: these take it to grey stone and pale gravel) */ for (let k3 = 0; k3 < 3; k3++) c[k3] += (t[k3] - c[k3]) * qk; }
-        const vr = Math.hypot(x - this.peak.x, z - this.peak.z), basalt = smooth(300, 170, vr);
+        const vr = Math.hypot(x - this.peak.x, z - this.peak.z), basalt = smooth(380, 240, vr);
         if (basalt > 0) { // dark grey-brown rock (the texture's green, so the tint undoes it)
-          const t = [0.5, 0.33, 0.78].map((v) => v * (0.85 - 0.25 * steep));
+          const t = [0.8, 0.56, 1.35].map((v) => v * (1 - 0.18 * steep)); // (volcanic rock: dark grey-brown)
           for (let k3 = 0; k3 < 3; k3++) c[k3] += (t[k3] - c[k3]) * basalt;
+          const th = Math.atan2(x - this.peak.x, z - this.peak.z);
+          if (vr < this.R0at(th)) {
+            const rust = smooth(-1.5, -5, this.gully(vr, th)) * 0.75, ash = smooth(this.summitY + 190, this.summitY + 285, y) * 0.85;
+            for (let k3 = 0; k3 < 3; k3++) { c[k3] += ([1.05, 0.42, 0.85][k3] - c[k3]) * rust; c[k3] += ([1.45, 1.18, 5.0][k3] - c[k3]) * ash; } // rusty streaks down the gullies, pale ash up top
+          }
         }
         const snow = smooth(Y + 128, Y + 150, y) * smooth(0.7, 0.85, ny) * (1 - basalt);
         if (snow > 0) { c[0] += snow * 2.2; c[1] += snow * 1.9; c[2] += snow * 2.2; }
         return c;
       },
     });
+    this.buildCone();
     // ---- the pass (asphalt with a centre line) and the quarry track ----
     const roadTex = canvasTex(64, 128, (c, cw, ch) => {
       c.fillStyle = '#3a3d41'; c.fillRect(0, 0, cw, ch); speckle(c, cw, ch, 500, 0.06);
@@ -291,7 +331,7 @@ export class Ridgeback {
       if (!this.free(x, z, 3)) continue;
       const y = this.heightAt(x, z);
       if (y > Y + 132) continue; // the treeline
-      if (Math.hypot(x - this.peak.x, z - this.peak.z) < 230) continue; // bare volcanic rock up top
+      if (Math.hypot(x - this.peak.x, z - this.peak.z) < 255) continue; // bare volcanic rock up top
       spots.push({ x, y: y - 0.2, z, s: 0.7 + R() * 0.9, yaw: R() * 6.28 });
     }
     scatter(g, trunkGeo, std({ color: 0x5a3e2a, roughness: 1 }), spots.length, (i) => spots[i]);
@@ -312,7 +352,7 @@ export class Ridgeback {
     }
 
     // ---- the undergrowth: bushes, ferns, mushrooms, birches lower down, stumps, flowers, fallen logs ----
-    { const forest = (m) => { for (let k = 0; k < 6; k++) { const x = isl.x0 + R() * W, z = isl.z0 + R() * D; if (!this.free(x, z, m)) continue; if (Math.hypot(x - this.peak.x, z - this.peak.z) < 235) continue; if (this.heightAt(x, z) > Y + 128) continue; return { x, z }; } return null; };
+    { const forest = (m) => { for (let k = 0; k < 6; k++) { const x = isl.x0 + R() * W, z = isl.z0 + R() * D; if (!this.free(x, z, m)) continue; if (Math.hypot(x - this.peak.x, z - this.peak.z) < 255) continue; if (this.heightAt(x, z) > Y + 128) continue; return { x, z }; } return null; };
       const low = (m) => { const p = forest(m); return p && this.heightAt(p.x, p.z) < Y + 60 ? p : null; };
       undergrowth(g, sb, { spot: forest, heightAt: (x, z) => this.heightAt(x, z), rnd: R, counts: { bush: 1500, fern: 1500, shroom: 240, stump: 150, birch: 0, flower: 500, log: 50 } });
       undergrowth(g, sb, { spot: low, heightAt: (x, z) => this.heightAt(x, z), rnd: R, counts: { bush: 0, fern: 0, shroom: 0, stump: 0, birch: 240, flower: 0, log: 0 } });
@@ -330,8 +370,41 @@ export class Ridgeback {
   // where the deer live: the woods below the treeline (not the roads, the quarry, the volcano)
   deerArea() {
     const isl = this.isl, Yb = Y;
-    const ok = (x, z) => x > isl.x0 + 15 && x < isl.x1 - 15 && z > isl.z0 + 15 && z < isl.z1 - 15 && !this.index.nearest(x, z, 7) && this.quarryS(x, z) > this.quarry.r + 8 && !this.inCutting(x, z, 4) && Math.hypot(x - this.peak.x, z - this.peak.z) > 240 && this.heightAt(x, z) < Yb + 120;
+    const ok = (x, z) => x > isl.x0 + 15 && x < isl.x1 - 15 && z > isl.z0 + 15 && z < isl.z1 - 15 && !this.index.nearest(x, z, 7) && this.quarryS(x, z) > this.quarry.r + 8 && !this.inCutting(x, z, 4) && Math.hypot(x - this.peak.x, z - this.peak.z) > 260 && this.heightAt(x, z) < Yb + 120;
     const spot = () => { for (let k = 0; k < 40; k++) { const x = isl.x0 + Math.random() * (isl.x1 - isl.x0), z = isl.z0 + Math.random() * (isl.z1 - isl.z0); if (ok(x, z) && !this.index.nearest(x, z, 20)) return { x, z }; } return null; };
     return { spot, ok, heightAt: (x, z) => this.heightAt(x, z) };
+  }
+
+  // The volcano's own mesh: a polar grid, fine near the summit, out to coneR (where the terrain takes
+  // over; the last few metres tuck just under it). Same material and colours as the terrain.
+  buildCone() {
+    const V = this.peak, NA = 288, NR = 96, isl = this.isl, W = isl.x1 - isl.x0, D = isl.z1 - isl.z0;
+    const pos = new Float32Array((NR + 1) * NA * 3), uv = new Float32Array((NR + 1) * NA * 2);
+    for (let i = 0; i <= NR; i++) for (let j = 0; j < NA; j++) {
+      const th = (j / NA) * Math.PI * 2, Rm = this.coneR(th), s = i / NR, r = 0.6 + (Rm + 6 - 0.6) * Math.pow(s, 1.25);
+      const x = V.x + Math.sin(th) * r, z = V.z + Math.cos(th) * r;
+      const y = this.heightAt(x, z) - 0.35 * smooth(Rm - 5, Rm + 2, r); // (tucked under the terrain at the edge)
+      const k = i * NA + j;
+      pos[k * 3] = x; pos[k * 3 + 1] = y; pos[k * 3 + 2] = z;
+      uv[k * 2] = (x - isl.x0) / W; uv[k * 2 + 1] = 1 - (z - isl.z0) / D;
+    }
+    const idx = [], hole = (x, z) => Math.hypot(x - V.x, z - V.z) < this.crater.oculus + 0.5 || this.underTunnel(x, z);
+    for (let i = 0; i < NR; i++) for (let j = 0; j < NA; j++) {
+      const a = i * NA + j, b = i * NA + ((j + 1) % NA), c = (i + 1) * NA + j, d = (i + 1) * NA + ((j + 1) % NA);
+      for (const [p, q, r] of [[a, c, b], [b, c, d]]) {
+        const mx = (pos[p * 3] + pos[q * 3] + pos[r * 3]) / 3, mz = (pos[p * 3 + 2] + pos[q * 3 + 2] + pos[r * 3 + 2]) / 3;
+        if (!hole(mx, mz)) idx.push(p, q, r);
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.setIndex(idx);
+    geo.computeVertexNormals();
+    const nrm = geo.attributes.normal, col = new Float32Array(pos.length);
+    for (let k = 0; k < pos.length / 3; k++) { const c = this.colorAt(pos[k * 3], pos[k * 3 + 1], pos[k * 3 + 2], nrm.getY(k)); col[k * 3] = c[0]; col[k * 3 + 1] = c[1]; col[k * 3 + 2] = c[2]; }
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const mesh = new THREE.Mesh(geo, this.terrain.material);
+    mesh.receiveShadow = mesh.castShadow = true; mesh.userData.noMerge = true;
+    this.group.add(mesh); this.coneMesh = mesh;
+    this.sb.addStaticCollider(RAPIER.ColliderDesc.trimesh(pos, new Uint32Array(idx)));
   }
 }

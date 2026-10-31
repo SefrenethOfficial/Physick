@@ -7,6 +7,7 @@ import { pistolModel, magnumModel, smgModel, shotgunModel, rifleModel, combatSho
 import { LAUNDER_CUT, moneyBagMesh } from './loot.js';
 import { GLOW } from './effects.js';
 import { marcosLogo } from './marcos.js';
+import { buildFigure } from './figure.js';
 
 // Inside Mount Ridgeback. The volcano is hollow: a tunnel from the summit car park (behind a blast
 // door) runs into a great cone-shaped cavern with a concrete floor, lit by the lava glowing up
@@ -103,8 +104,9 @@ export class VolcanoBase {
     const prof = []; for (let k = 0; k <= 24; k++) { const r = R - ((R - K.oculus) * k) / 24; prof.push(new THREE.Vector2(r, coneIn(r) - Y)); }
     const roof = new THREE.Mesh(new THREE.LatheGeometry(prof, 72), M.rockLit); roof.position.set(V.x, Y, V.z); g.add(roof);
     const ventTop = rb.heightAt(V.x + K.oculus + 2, V.z) + 0.5, ventBot = coneIn(K.oculus);
+    this.ventTop = ventTop;
     const vent = new THREE.Mesh(new THREE.CylinderGeometry(K.oculus, K.oculus, ventTop - ventBot, 24, 1, true), M.rock); vent.position.set(V.x, (ventTop + ventBot) / 2, V.z); g.add(vent);
-    const lip = new THREE.Mesh(new THREE.TorusGeometry(K.oculus + 1.2, 1.6, 8, 24), M.rock); lip.rotation.x = Math.PI / 2; lip.position.set(V.x, ventTop - 0.6, V.z); g.add(lip);
+    const lip = new THREE.Mesh(new THREE.TorusGeometry(K.oculus + 1.2, 1.6, 8, 24), M.rock); lip.rotation.x = Math.PI / 2; lip.position.set(V.x, ventTop - 0.6, V.z); g.add(lip); lip.userData.noMerge = true; this.ventLip = lip;
     // (the wall's solid; the roof's out of reach)
     for (let k = 0; k < 48; k++) {
       const a = (k / 48) * Math.PI * 2; if (Math.abs(Math.atan2(Math.sin(a), Math.cos(a))) < gap + 0.03) continue;
@@ -157,14 +159,20 @@ export class VolcanoBase {
       const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.9, 0.6, 12, 1, true), M.dark); shade.position.set(p.x, Y + 8.8, p.z); g.add(shade);
       const bulb = new THREE.Mesh(new THREE.CircleGeometry(0.75, 12), M.lamp); bulb.rotation.x = Math.PI / 2; bulb.position.set(p.x, Y + 8.52, p.z); g.add(bulb);
     }
+    this.buildCage();
+    this.buildHunter();
     this.buildTunnel();
     this.buildRooms();
     this.buildAlcove();
-    this.ventTop = ventTop;
-    // seen from far off (through the haze): the spire, so you can pick it out from the city
-    { const prof = []; for (let r = 0; r <= 300; r += 6) prof.push(new THREE.Vector2(r, rb.coneAt(r) + 2 - Math.max(0, r - 110) * 0.15)); prof.reverse();
-      const far = new THREE.Mesh(new THREE.LatheGeometry(prof, 48), new THREE.MeshBasicMaterial({ color: 0x40434c, fog: false, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }));
-      far.position.set(V.x, 0, V.z); far.visible = false; far.renderOrder = -1; this.game.scene.add(far); this.far = far; }
+    // seen from far off (through the haze): the mountain's shape, so you can pick it out from the city.
+    // (A coarse copy of the real ground, just behind it, so the two never fight.)
+    { const NA = 72, NR = 26, pos = [], idx = [];
+      for (let i = 0; i <= NR; i++) for (let j = 0; j < NA; j++) { const th = (j / NA) * Math.PI * 2, r = 0.5 + (330 * i) / NR, x = V.x + Math.sin(th) * r, z = V.z + Math.cos(th) * r; pos.push(x, rb.heightAt(x, z) - 1.5 - Math.max(0, r - 260) * 0.3, z); }
+      for (let i = 0; i < NR; i++) for (let j = 0; j < NA; j++) { const a = i * NA + j, b = i * NA + (j + 1) % NA, c = (i + 1) * NA + j, d = (i + 1) * NA + (j + 1) % NA; idx.push(a, c, b, b, c, d); }
+      const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx);
+      const far = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0x3e3f46, fog: false, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }));
+      far.visible = false; far.renderOrder = -1; this.game.scene.add(far); this.far = far; }
+    this.buildSummit();
     // the eruption: big glowing blobs out of the vent, and its light on the mountainside
     this.blobs = [];
     this.ventLight = new THREE.PointLight(0xff6a20, 0, 400, 1.2); this.ventLight.position.set(V.x, ventTop + 15, V.z); this.game.scene.add(this.ventLight);
@@ -194,6 +202,49 @@ export class VolcanoBase {
     this.cine = { t: 0, a0: Number.isFinite(a) ? a : 0, dur: 6 };
   }
 
+  // the top of the mountain: the crater glowing round the vent, cracks of lava down from the rim,
+  // and a plume of smoke you can see from the city
+  buildSummit() {
+    const rb = this.rb, V = this.V, K = this.K, g = this.game.scene;
+    const glowM = new THREE.MeshBasicMaterial({ color: 0xff6a18 });
+    this.ventLip?.material && (this.ventLip.material = glowM);
+    const top = this.ventTop;
+    const pool = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0xff5a10, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.9 })); pool.scale.set(40, 22, 1); pool.position.set(V.x, top + 4, V.z); g.add(pool);
+    this.summitGlow = pool;
+    // the fissures: glowing ribbons from the rim a long way down, on three sides (above the footpath)
+    const fis = new THREE.MeshBasicMaterial({ color: 0xff7a20 }), fis2 = new THREE.MeshBasicMaterial({ color: 0xffc040 });
+    for (const [a0, len] of [[rb.coneAz + 2.2, 70], [rb.coneAz + 3.6, 85], [rb.coneAz + 4.9, 60]]) {
+      const pts = [];
+      for (let r = K.rim - 2; r < K.rim + len; r += 2) { const th = a0 + Math.sin(r * 0.07) * 0.06, x = V.x + Math.sin(th) * r, z = V.z + Math.cos(th) * r; pts.push(new THREE.Vector3(x, rb.heightAt(x, z) + 0.25, z)); }
+      for (const [w, m, lift] of [[2.4, fis, 0], [0.9, fis2, 0.06]]) {
+        const v = [], ix = [];
+        pts.forEach((p, i) => { const q = pts[Math.min(i + 1, pts.length - 1)], o = pts[Math.max(i - 1, 0)], dx = q.x - o.x, dz = q.z - o.z, l = Math.hypot(dx, dz) || 1, ww = w * (1 - i / pts.length * 0.8); v.push(p.x - dz / l * ww / 2, p.y + lift, p.z + dx / l * ww / 2, p.x + dz / l * ww / 2, p.y + lift, p.z - dx / l * ww / 2); if (i) ix.push((i - 1) * 2, i * 2, (i - 1) * 2 + 1, (i - 1) * 2 + 1, i * 2, i * 2 + 1); });
+        const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); geo.setIndex(ix);
+        const ribbon = new THREE.Mesh(geo, m); ribbon.material.side = THREE.DoubleSide; ribbon.userData.noMerge = true; g.add(ribbon);
+      }
+    }
+    // the plume: big soft puffs rising and drifting off the summit (seen through the haze)
+    const smoke = canvasTex(128, 128, (c, w, h) => { const gr = c.createRadialGradient(w / 2, h / 2, 4, w / 2, h / 2, w / 2); gr.addColorStop(0, 'rgba(120,116,112,0.85)'); gr.addColorStop(0.6, 'rgba(110,106,104,0.4)'); gr.addColorStop(1, 'rgba(100,100,100,0)'); c.fillStyle = gr; c.fillRect(0, 0, w, h); });
+    this.plume = [];
+    for (let i = 0; i < 14; i++) {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: smoke, transparent: true, depthWrite: false, fog: false, opacity: 0 }));
+      sp.userData.t = i / 14; g.add(sp); this.plume.push(sp);
+    }
+  }
+
+  updatePlume(dt) {
+    const V = this.V, top = this.ventTop, cam = this.game.camera.position, d = Math.hypot(cam.x - V.x, cam.z - V.z);
+    const haze = Math.max(0.35, Math.min(1, 1 - (d - 2500) / 3000)); // (fainter a long way off)
+    for (const sp of this.plume) {
+      const u = (sp.userData.t = (sp.userData.t + dt * 0.012) % 1);
+      const s = 18 + u * 110;
+      sp.scale.set(s, s, 1);
+      sp.position.set(V.x + u * u * 260 + Math.sin(u * 9 + sp.id) * 6, top + 10 + u * 230, V.z + u * 80 + Math.cos(u * 7 + sp.id) * 6);
+      sp.material.opacity = Math.sin(Math.PI * Math.min(1, u * 1.4)) * 0.55 * haze;
+    }
+    if (this.summitGlow) this.summitGlow.material.opacity = 0.75 + Math.sin(this.t * 1.7) * 0.15;
+  }
+
   cinema(dt, cam) {
     const C = this.cine; if (!C) return false;
     C.t += dt;
@@ -220,14 +271,15 @@ export class VolcanoBase {
       const deck = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.12, len), deckM); deck.position.copy(mid); deck.quaternion.copy(q); g.add(deck);
       sb.addStaticCollider(RAPIER.ColliderDesc.cuboid(1.2, 0.08, len / 2).setTranslation(mid.x, mid.y - 0.02, mid.z).setRotation(q));
       // the outer rail (away from the mountain) and a low inner one
-      const ox = mid.x - V.x, oz = mid.z - V.z, ol = Math.hypot(ox, oz), nx = ox / ol, nz = oz / ol;
+      // (sideways from the walkway, whichever way it's running: the outer side's the one away from the mountain)
+      let nx = dz / L, nz = -dx / L; if (nx * (mid.x - V.x) + nz * (mid.z - V.z) < 0) { nx = -nx; nz = -nz; }
       for (const [off, h] of [[1.15, 1.05], [-1.15, 0.5]]) {
         const rx = mid.x + nx * off, rz = mid.z + nz * off;
         const rail = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, len), railM); rail.position.set(rx, mid.y + h, rz); rail.quaternion.copy(q); g.add(rail);
         sb.addStaticCollider(RAPIER.ColliderDesc.cuboid(0.05, h / 2, len / 2).setTranslation(rx, mid.y + h / 2, rz).setRotation(q));
-        if (i % 2 === 0) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, h), postM); post.position.set(rx, mid.y + h / 2, rz); g.add(post); }
+        if (i % 5 === 0) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, h), postM); post.position.set(rx, mid.y + h / 2, rz); g.add(post); }
       }
-      if (i % 6 === 0) { const br = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 2.6), postM); br.position.set(mid.x - nx * 0.3, mid.y - 0.5, mid.z - nz * 0.3); br.rotation.y = Math.atan2(nx, nz); br.rotation.x = 0.6; g.add(br); } // brackets into the rock
+      if (i % 16 === 0) { const br = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 2.6), postM); br.position.set(mid.x - nx * 0.3, mid.y - 0.5, mid.z - nz * 0.3); br.rotation.y = Math.atan2(nx, nz); br.rotation.x = 0.6; g.add(br); } // brackets into the rock
     }
     { const p = pts[0]; sign(g, 'SKYHIGH CHUTES & GLIDERS · FOOTPATH ↑', p.x, p.y + 2.4, p.z, Math.atan2(V.x - p.x, V.z - p.z) + Math.PI, { w: 5.5, h: 0.7, bg: '#2a6ac8', fg: '#ffffff', post: p.y }); }
     // ---- the alcove: a ledge in a niche cut into the spire ----
@@ -250,6 +302,101 @@ export class VolcanoBase {
     k.cyl(0.05, 5, -6.5, 0, 5.5, M.dark, 6); const sock = k.cyl(0.25, 1.4, -6.5, 4.4, 6.2, lit(0xe86a20, 0.4), 8, 0.1); sock.rotation.x = Math.PI / 2; this.sock = sock;
     this.alcoveShop = k.world(-2.5, 0, -1.8); this.alcoveClerk = k.world(-2.5, 0, -3.8); this.alcoveYaw = k.yaw + Math.PI;
     this.alcove = k.world(0, 0, 2);
+  }
+
+  // ---- a cage round the pit: a tall cylinder of grating, so nobody walks (or drives) in. The only way
+  // in is the disposal hatch on the tunnel side: E there with a body or something in your hand.
+  buildCage() {
+    const g = this.group, sb = this.sb, V = this.V, Y = this.Y, M = this.M;
+    const CR = this.pit + 0.7, H = 9, hatch = 1.9 / CR, hy0 = 0.95, hy1 = 2.05; // (the hatch: a slot at chest height, too small to climb through)
+    this.cageR = CR;
+    const gm = M.grate.clone(); gm.map = M.grate.map.clone(); gm.map.repeat.set(70, 7); gm.map.needsUpdate = true; gm.emissiveIntensity = 0.7;
+    const t0 = this.thetaT + hatch / 2, sweep = Math.PI * 2 - hatch;
+    const wall = new THREE.Mesh(new THREE.CylinderGeometry(CR, CR, H, 96, 1, true, t0, sweep), gm); wall.position.set(V.x, Y + H / 2, V.z); g.add(wall);
+    for (const [y0, y1] of [[0, hy0], [hy1, H]]) { const piece = new THREE.Mesh(new THREE.CylinderGeometry(CR, CR, y1 - y0, 4, 1, true, this.thetaT - hatch / 2, hatch), gm); piece.position.set(V.x, Y + (y0 + y1) / 2, V.z); g.add(piece); }
+    // the frame: rings top, middle and bottom, and posts
+    for (const y of [0.1, hy0, H / 2, H]) { const ring = new THREE.Mesh(new THREE.TorusGeometry(CR, 0.12, 6, 96), M.steel); ring.rotation.x = Math.PI / 2; ring.position.set(V.x, Y + y, V.z); g.add(ring); }
+    for (let k = 0; k < 24; k++) { const a = (k / 24) * Math.PI * 2 + 0.13, p = this.at(CR, a); const post = new THREE.Mesh(new THREE.BoxGeometry(0.22, H, 0.22), M.steel); post.position.set(p.x, Y + H / 2, p.z); post.rotation.y = this.thetaT + a; g.add(post); }
+    // the hatch: a yellow frame, a sloped steel lip and a sign
+    { const k = new Kit(g, sb, ...this.at(CR + 0.05, 0).toArray(), this.thetaT); // (local +z: out from the middle)
+      k.box(2.2, 0.14, 0.3, 0, hy0 - 0.14, 0, M.yellow, false); k.box(2.2, 0.14, 0.3, 0, hy1, 0, M.yellow, false);
+      for (const s of [-1, 1]) k.box(0.14, hy1 - hy0 + 0.14, 0.3, s * 1.03, hy0 - 0.07, 0, M.yellow, false);
+      const lip = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.06, 1.2), M.steel); lip.rotation.x = -0.35; k.add(lip, 0, hy0 - 0.15, -0.55); /* (tipping in) */ }
+    { const p = this.at(CR + 0.1, 0.13); sign(g, 'DISPOSAL HATCH · E', p.x, Y + 2.7, p.z, this.inward(0.13) + Math.PI, { w: 2.4, h: 0.45, bg: '#b3261e', fg: '#ffffff' }); }
+    this.hatch = this.at(CR + 1.0, 0);
+    // (solid: a ring of panels, the hatch slot left open between its sill and lintel)
+    const N = 64;
+    for (let k = 0; k < N; k++) {
+      const a = (k / N) * Math.PI * 2, p = this.at(CR, a), L = (2 * Math.PI * CR) / N + 0.15, q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.thetaT + a); // (along the curve)
+      const inHatch = Math.abs(Math.atan2(Math.sin(a), Math.cos(a))) < hatch / 2 + (Math.PI / N);
+      const spans = inHatch ? [[0, hy0], [hy1, H]] : [[0, H]];
+      for (const [y0, y1] of spans) sb.addStaticCollider(RAPIER.ColliderDesc.cuboid(L / 2, (y1 - y0) / 2, 0.15).setTranslation(p.x, Y + (y0 + y1) / 2, p.z).setRotation(q));
+    }
+    // (and a lid, so nothing's thrown over the top)
+    sb.addStaticCollider(RAPIER.ColliderDesc.cylinder(0.1, CR).setTranslation(V.x, Y + H + 0.1, V.z));
+  }
+
+  // E at the hatch: down the chute it goes
+  dispose() {
+    const g = this.game, V = this.V, drop = new THREE.Vector3(V.x, this.Y - 3, V.z);
+    if (g.dragging) {
+      const rd = g.dragging.prop?.ragdoll; g.endDrag(false);
+      if (rd) { for (const p of rd.parts) { const t = p.body.translation(); p.body.setTranslation({ x: drop.x + (t.x - rd.torso.body.translation().x) * 0.3, y: drop.y + Math.random(), z: drop.z + (t.z - rd.torso.body.translation().z) * 0.3 }, true); p.body.setLinvel({ x: 0, y: -4, z: 0 }, true); } }
+      g.sfx.play('thud'); g.hud.toast('Down the chute…', 0xff8a3a); return;
+    }
+    if (g.held) {
+      const def = g.held; g.clearHand();
+      const prop = g.portSandbox.spawn(def, drop, new THREE.Quaternion(), { noHistory: true }); prop.body?.setLinvel?.({ x: 0, y: -4, z: 0 }, true);
+      g.sfx.play('drop'); g.hud.toast(`The ${def.name.toLowerCase()} goes down the chute`, 0xff8a3a);
+    }
+  }
+
+  // ---- by the cage, a curved desk: the bounty hunter who hands out contracts. Nobody knows his face;
+  // nobody's ever managed to put a bullet in him either.
+  buildHunter() {
+    const g = this.group, sb = this.sb, V = this.V, Y = this.Y, M = this.M;
+    const a = Math.PI, r = this.pit + 4.6; // (across the cage from the tunnel)
+    const top = new THREE.Mesh(new THREE.RingGeometry(r - 0.45, r + 0.45, 32, 1, this.thetaT + a - 0.42 - Math.PI / 2, 0.84), M.wood); // (the desktop: an arc)
+    top.rotation.x = -Math.PI / 2; top.position.set(V.x, Y + 0.92, V.z);
+    // RingGeometry's angle runs the other way round after the flip: rebuild the arc by points instead
+    top.geometry.dispose(); top.geometry = (() => { const sh = new THREE.Shape(), n = 24, a0 = a - 0.42, a1 = a + 0.42; for (let i = 0; i <= n; i++) { const p = this.at(r + 0.45, a0 + (a1 - a0) * i / n); i ? sh.lineTo(p.x - V.x, -(p.z - V.z)) : sh.moveTo(p.x - V.x, -(p.z - V.z)); } for (let i = n; i >= 0; i--) { const p = this.at(r - 0.45, a0 + (a1 - a0) * i / n); sh.lineTo(p.x - V.x, -(p.z - V.z)); } return new THREE.ExtrudeGeometry(sh, { depth: 0.08, bevelEnabled: false }); })();
+    g.add(top);
+    for (let i = 0; i < 12; i++) { // the front panel, in facets
+      const a0 = a - 0.42 + (0.84 * i) / 12, a1 = a0 + 0.84 / 12, p0 = this.at(r + 0.4, a0), p1 = this.at(r + 0.4, a1), L = p0.distanceTo(p1) + 0.03, m = p0.clone().add(p1).multiplyScalar(0.5);
+      const pan = new THREE.Mesh(new THREE.BoxGeometry(L, 0.92, 0.08), M.dark); pan.position.set(m.x, Y + 0.46, m.z); pan.rotation.y = Math.atan2(p1.x - p0.x, p1.z - p0.z) + Math.PI / 2; g.add(pan);
+      sb.addStaticCollider(RAPIER.ColliderDesc.cuboid(L / 2, 0.55, 0.06).setTranslation(m.x, Y + 0.55, m.z).setRotation(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), pan.rotation.y)));
+      if (i % 3 === 1) { const strip = new THREE.Mesh(new THREE.BoxGeometry(L, 0.05, 0.02), new THREE.MeshBasicMaterial({ color: 0xb3261e })); strip.position.set(m.x, Y + 0.82, m.z); strip.rotation.y = pan.rotation.y; strip.translateZ(-0.05); g.add(strip); }
+    }
+    // on the desk: a lamp, a stack of files, a wanted poster pinned to the front, a glass
+    const on = (rr, aa, y = 1.0) => this.at(rr, aa).setY(Y + y);
+    { const p = on(r, a + 0.3); const base = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.04, 12), M.dark); base.position.copy(p); g.add(base); const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.5, 6), M.dark); arm.position.copy(p).add(new THREE.Vector3(0, 0.25, 0)); g.add(arm); const shade = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.16, 12, 1, true), std({ color: 0x1f5a3a, side: THREE.DoubleSide })); shade.position.copy(p).add(new THREE.Vector3(0, 0.52, 0)); g.add(shade); const bulb = new THREE.PointLight(0xffd8a0, 1.4, 6, 1.6); bulb.position.copy(p).add(new THREE.Vector3(0, 0.45, 0)); g.add(bulb); }
+    for (let i = 0; i < 4; i++) { const f = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.03, 0.24), std({ color: [0xd8c8a0, 0xb8a070, 0xd8c8a0, 0x8a3a2a][i] })); f.position.copy(on(r, a - 0.25, 1.02 + i * 0.032)); f.rotation.y = i * 0.15; g.add(f); }
+    { const p = on(r - 0.1, a - 0.08); const gl = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.035, 0.1, 10), std({ color: 0xc8a050, roughness: 0.2 })); gl.position.copy(p).add(new THREE.Vector3(0, 0.05, 0)); g.add(gl); }
+    { const p = this.at(r + 0.46, a); sign(g, 'CONTRACTS', p.x, Y + 0.62, p.z, this.inward(a) + Math.PI, { w: 1.4, h: 0.32, bg: '#141414', fg: '#b3261e' }); }
+    // him: a long dark coat, a wide-brimmed hat pulled down, and where his face should be, shadow
+    const fig = buildFigure({ shirt: 0x4a3a2c, pants: 0x2a2622, skin: 0x030303, hat: 'cowboy', hatColor: 0x3a2a1e });
+    const pos = this.at(r - 0.85, a);
+    fig.root.scale.setScalar(1.18); fig.root.position.set(pos.x, Y + 0.83 * 1.18, pos.z); fig.root.rotation.y = this.inward(a) + Math.PI; // (facing out, at you)
+    const P = fig.parts, coat = std({ color: 0x4a3a2c, roughness: 0.9 });
+    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.75, 0.3), coat); tail.position.set(0, -0.5, 0); P.torso.add(tail); // the coat's skirts
+    for (const s of [-1, 1]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.014, 6, 4), new THREE.MeshBasicMaterial({ color: 0x8a1a10 })); eye.position.set(s * 0.05, 0.02, 0.15); P.head.add(eye); } // (just a glint)
+    fig.root.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    this.game.scene.add(fig.root);
+    { const sp = new THREE.SpotLight(0xffc890, 14, 9, 0.6, 0.6, 1.5); const sp0 = this.at(r + 2.5, a); sp.position.set(sp0.x, Y + 4.2, sp0.z); sp.target.position.set(pos.x, Y + 1.3, pos.z); g.add(sp, sp.target); } // (lit from the front: his face stays in shadow under the brim)
+    this.hunter = { fig, pos: pos.clone(), yaw: fig.root.rotation.y, t: 0 };
+    sb.addStaticCollider(RAPIER.ColliderDesc.capsule(0.55, 0.32).setTranslation(pos.x, Y + 0.95, pos.z)); // (bullets just hit the wall behind him… or so it seems)
+    this.hunterDesk = this.at(r + 1.2, a);
+  }
+
+  updateHunter(dt) {
+    const H = this.hunter; if (!H) return;
+    H.t += dt;
+    const p = this.game.shorePlayer.body.translation(), d = Math.hypot(p.x - H.pos.x, p.z - H.pos.z);
+    // he turns his head to follow you when you're near, and his eyes catch the light now and then
+    const want = d < 14 ? Math.atan2(p.x - H.pos.x, p.z - H.pos.z) - H.yaw : 0;
+    const head = H.fig.parts.head, cur = head.rotation.y, dd = Math.atan2(Math.sin(want - cur), Math.cos(want - cur));
+    head.rotation.y = cur + Math.max(-0.9, Math.min(0.9, dd)) * Math.min(1, dt * 3) * (Math.abs(want) < 1.1 ? 1 : 0);
+    H.fig.parts.torso.rotation.x = Math.sin(H.t * 0.8) * 0.015;
   }
 
   // ---- the tunnel from the summit car park, and its blast door ----
@@ -526,6 +673,8 @@ export class VolcanoBase {
     if (near(this.bar, 2.4)) return { label: 'Have a drink', run: () => { g.health.heal(15); g.sfx.play('cash'); g.hud.toast(['"On the house."', '"Steady, now."', '"Rough day?"'][Math.floor(Math.random() * 3)] + ' +15 health', 0x7be08a); } };
     if (near(this.board, 2.6)) return { label: 'Heist board', run: () => this.openBoard() };
     if (near(this.mcCounter, 2.4)) return { label: 'MARCOS* (order)', run: () => g.marcos.order() };
+    if (near(this.hunterDesk, 2.6)) return { label: 'The bounty hunter: contracts', run: () => g.hits.open() };
+    if (near(this.hatch, 2.2) && (g.dragging || g.held)) return { label: g.dragging ? 'Throw the body down the chute' : `Throw the ${g.held.name.toLowerCase()} down the chute`, run: () => this.dispose() };
     return null;
   }
 
@@ -677,9 +826,12 @@ export class VolcanoBase {
     if (!pr) this.prSplashed = false;
     const A = g.vehicles.active;
     if (A && inPit(A.pos)) { this.splash(A.pos.x, A.pos.z); g.vehicles.exit(); g.health.damage(9999, 'lava'); if (g.vehicles.list.includes(A)) g.vehicles.remove(A); }
+    if (g.health.dead && this.cine) g.health.deadT = Math.max(g.health.deadT, this.cine.dur - this.cine.t + 0.3); // (you come round once the eruption's over, not with the camera still out there)
     const C = g.citizens;
     for (const rd of [...(C.ragdolls || [])]) { const t = rd.torso?.body?.translation?.(); if (t && inPit(t)) { this.splash(t.x, t.z); for (const q of rd.parts) if (g.portSandbox.props.has(q)) g.portSandbox.remove(q); C.ragdolls.splice(C.ragdolls.indexOf(rd), 1); } }
-    for (const q of [...g.portSandbox.props]) { const t = q.body?.translation?.(); if (t && inPit(t)) { this.splash(t.x, t.z, false); g.portSandbox.remove(q); } }
+    // (anything else that's fallen in: not your own ragdoll, though. Deleting the body you're in froze the game)
+    const mine = new Set(g.pragdoll?.rd?.parts || []);
+    for (const q of [...g.portSandbox.props]) { if (mine.has(q)) continue; const t = q.body?.translation?.(); if (t && inPit(t)) { this.splash(t.x, t.z, false); g.portSandbox.remove(q); } }
   }
 
   // in the cavern or the tunnel (for the lighting)
@@ -709,6 +861,8 @@ export class VolcanoBase {
     if (this.ventCol) { const c = this.ventCol; c.t += dt; const h = Math.max(0.01, Math.sin(Math.min(1, c.t / 3) * Math.PI) * 110); c.m.scale.set(1 + c.t * 0.6, h, 1 + c.t * 0.6); c.m.position.y = this.ventTop + h / 2; c.m.material.opacity = Math.max(0, 0.95 - c.t * 0.28); if (c.t > 3.4) { c.m.removeFromParent(); c.m.geometry.dispose(); this.ventCol = null; } }
     this.ventLight.intensity = Math.max(0, this.ventLight.intensity - dt * 8);
     { const cam = g.camera.position, d = Math.hypot(cam.x - this.V.x, cam.z - this.V.z), o = Math.max(0, Math.min(1, (d - 650) / 450)); this.far.visible = o > 0.01; this.far.material.opacity = o; }
+    this.updatePlume(dt);
+    this.updateHunter(dt);
     // the odd blob of lava pops up on its own
     this.bubT = (this.bubT ?? 2) - dt;
     const p = g.shorePlayer.body.translation(), here = Math.hypot(p.x - this.V.x, p.z - this.V.z) < 160;

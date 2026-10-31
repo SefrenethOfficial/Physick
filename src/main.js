@@ -66,6 +66,7 @@ import { Pelican } from './pelican.js';
 import { Ridgeback } from './ridgeback.js';
 import { Woods, Wildlife } from './woods.js';
 import { Inventory } from './inventory.js';
+import { Hits } from './hits.js';
 import { Scorch } from './scorch.js';
 import { HomeLife } from './homelife.js';
 import { Stocks } from './stocks.js';
@@ -201,6 +202,7 @@ class Game {
     this.woods = new Woods(this);
     for (const A of [this.park, this.ridgeback]) { this.woods.fires.push(...A.fires); this.woods.chimneys.push(...A.chimneys); }
     this.woods.nightMats = this.ridgeback.nightMats;
+    this.hits = new Hits(this); // the bounty hunter's contracts (the desk in the volcano base)
     this.wildlife = new Wildlife(this);
     this.wildlife.addHerd({ n: 14, ...this.park.deerArea() });
     this.wildlife.addHerd({ n: 14, ...this.ridgeback.deerArea() });
@@ -1527,6 +1529,7 @@ class Game {
     if (this.dealer) P(this.dealer.desk, '#e8c547', 'Verian Motors (cars)', true, 5);
     if (this.marcos) P(this.marcos.door, '#ffc72c', 'MARCOS (food)', true, 5);
     for (const st of this.railway?.stations || []) P(st.street, '#b3261e', `${st.name} station`, false, 3.5);
+    if (this.hits?.wp) P(this.hits.wp, '#ff3a2a', `☠ ${this.hits.active.name}`, true, 6);
     if (this.volcano) P(this.volcano.portal, '#ff6a20', this.loot?.carrying ? 'Volcano base: count the money!' : 'Volcano base', true, this.loot?.carrying ? 7 : 5);
     for (const m of this.business?.marks() || []) if (m.name) P(m, m.color, m.name, m.label === '!', m.label === '!' ? 6 : 4);
     for (const m of this.stunts?.marks() || []) P(m, m.color, m.name, false, 3.5);
@@ -1593,6 +1596,7 @@ class Game {
     if (this.story.active?.id === 'm4') for (const p of this.portSandbox.props) if (p.def.bombPart) { const t = p.body.translation(); marks.push({ x: t.x, z: t.z, color: '#ff3030', r: 3.5 }); }
     if (wp) marks.push({ x: wp.x, z: wp.z, color: '#ffd166', r: 5.5, label: '★' });
     { const hw = this.trainHeist?.wp; if (hw) marks.push({ x: hw.x, z: hw.z, color: '#ffd166', r: 5.5, label: '★' }); }
+    { const ht = this.hits?.wp; if (ht) marks.push({ x: ht.x, z: ht.z, color: '#ff3a2a', r: 5.5, label: '☠' }); }
     for (const m of this.activities?.marks() || []) marks.push(m);
     for (const m of this.business?.marks() || []) marks.push(m);
     for (const m of this.stunts?.marks() || []) marks.push(m);
@@ -1672,6 +1676,7 @@ class Game {
     this.marcos?.update(dt);
     this.volcano?.update(dt);
     this.inv?.update(dt);
+    this.hits?.update(dt);
     this.woods?.update(dt);
     this.wildlife?.update(dt);
     this.railway?.update(dt);
