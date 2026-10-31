@@ -391,6 +391,8 @@ export class Boats {
   exit() {
     const b = this.active;
     if (!b) return false;
+    const deck = this.boardAt?.(b); /* (alongside something you can climb onto: the story's barge) */
+    if (deck) { this.active = null; b.driver.root.visible = false; b.speed = 0; this.game.leaveBoatAt(deck.pos, deck.heading); return true; }
     const p = nearestLandPoint(b.pos.x, b.pos.z);
     if (!p || p.dist > b.type.beam / 2 + 7) { this.game.hud.toast('Too far from shore to get off — find a pier or the coast'); return false; }
     this.active = null;
@@ -406,7 +408,7 @@ export class Boats {
       boat.driver.root.visible = false;
       this.game.boatSunk();
     }
-    if (boat.owned) this.respawnQueue.push({ id: boat.type.id, t: 30 });
+    if (boat.owned && !boat.loan) this.respawnQueue.push({ id: boat.type.id, t: 30 });
     if (boat.police) this.game.police?.policeBoatSunk(boat);
   }
 
@@ -418,7 +420,9 @@ export class Boats {
           throttle: (keys.has('KeyW') ? 1 : 0) - (keys.has('KeyS') ? 1 : 0),
           steer: (keys.has('KeyD') ? 1 : 0) - (keys.has('KeyA') ? 1 : 0),
         };
-      } else if (b.police) ctl = this.game.police.boatAI(b, dt);
+      } else if (b.ai) ctl = b.ai(b, dt); /* (a story boat steering itself) */
+      else if (b.police) ctl = this.game.police.boatAI(b, dt);
+      if (b.frozen) continue; /* (stopped dead, with people walking about on it) */
       b.update(dt, ctl);
       if (b.sinking > 6) this.remove(b);
     }

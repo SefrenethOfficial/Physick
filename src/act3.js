@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { ITEM_BY_ID } from './items.js';
-import { std } from './buildkit.js';
+import RAPIER from '@dimforge/rapier3d-compat';
+import { std, canvasTex } from './buildkit.js';
+import { blocked } from './world.js';
+import { BOAT_BY_ID } from './boats.js';
 
 // ACT III: Foundations. The Ashen Hand blow things up; Gideon Pratt's company builds on what's left.
 // Verian Central was on land he wanted, and the money runs from both of them offshore, to something
@@ -23,6 +26,7 @@ const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 export const ACT3_KEY_ITEMS = {
   ledger: { name: 'The Meridian ledger', desc: 'Copied off the director\'s computer at Verian National. Ashen Hand front companies pay Pratt Developments; Pratt Developments pays out to an account offshore called MERIDIAN. Every month. Since before the bombing.' },
   sniperphone: { name: "The sniper's phone", desc: 'One message, from a withheld number, an hour before you got to the cabins: "Cabin 3. He\'s alone tonight."' },
+  hollowsplans: { name: 'Demolition plans: the Hollows', desc: 'PRATT DEVELOPMENTS · HOLLOWS REGENERATION. Six blocks of the Hollows, each marked "VACANT BY Q3". Nobody\'s told the people living in them. Clipped to the back: a list of "site preparation" dates, and the first one is next week.' },
   raidphone: { name: "The lieutenant's phone", desc: 'One photo in it: your tunnel entrance, taken from the summit car park. Sent from a withheld number, the day before the raid.' },
 };
 
@@ -44,6 +48,12 @@ export const ACT3_MISSIONS = [
     brief: `${FIXER}: "Somebody saw your ledger and wants out. Elias Varga, Pratt Developments' bookkeeper. Twenty years cooking Pratt's books, and now he's scared. He's hiding up at Ridgeback Cabins, cabin 3. Nobody knows he's there but me. Walk him through the woods to the volcano. Dutch will take him out by sea, and then he talks."`,
     reward: 8000,
     passText: `${FIXER}: "Cabin 3? … No. No, I didn't tell anyone, kid. Who would I tell? … Look, we'll talk later. I've got a call."`,
+  },
+  {
+    id: 'm15', title: 'Black Water', requires: 'm14',
+    brief: `${FIXER}: "Kid. I've been asking around. Pratt's got a barge running \"cement\" out of Ridgeback tonight. It isn't cement. Get to the sea pen, take one of Dutch's armoured boats, and stop it. Get on board and find out what he's moving. And kid… about cabin 3. It wasn't me. You know that, right?"`,
+    reward: 9000,
+    passText: `${FIXER}: "The Hollows. Six blocks of people's homes. He's going to do Verian Central again." … "I'll call you back." He hangs up before you can say anything.`,
   },
 ];
 
@@ -170,6 +180,7 @@ export class Act3 {
     Object.assign(a, { goons: [], stage: 'go', fx: [] });
     if (a.id === 'm13') { this.startM13(a); return; }
     if (a.id === 'm14') { this.startM14(a); return; }
+    if (a.id === 'm15') { this.startM15(a); return; }
     const hasGun = g.held?.gun || g.economy.carried.some((x) => ITEM_BY_ID[x]?.gun);
     if (!hasGun) { g.giveItem(ITEM_BY_ID.smg); g.hud.toast(`${FIXER} left an SMG for you`, 0xffd166); }
     for (const [k, n] of [['smgAmmo', 150], ['pistolAmmo', 60], ['rifleAmmo', 90]]) if ((g.economy.ammo[k] || 0) < n) g.economy.addAmmo(k, n - (g.economy.ammo[k] || 0));
@@ -189,6 +200,15 @@ export class Act3 {
     for (const o of a.fx || []) o.removeFromParent();
     if (a.phoneMesh) a.phoneMesh.removeFromParent();
     if (a.elias && g.citizens.list.includes(a.elias)) g.citizens.despawn(a.elias);
+    if (a.id === 'm15') {
+      g.boats.boardAt = null;
+      for (const c of a.cols || []) { g.portSandbox.staticColliders.delete(c.handle); g.portSandbox.world.removeCollider(c, false); }
+      const strand = a.barge && g.onShore && !g.boats.active && a.W && (() => { const t = g.shorePlayer.body.translation(); return Math.abs(a.barge.mesh.worldToLocal(V3(t.x, t.y, t.z)).x) < 5; })();
+      for (const e of [...(a.escorts || []), a.barge]) if (e && g.boats.list.includes(e) && !strand) g.boats.remove(e);
+      if (strand) { a.barge.ai = null; this.leftBarge = a.barge; this.leftCols = a.cols; a.cols = []; } /* (you're standing on it: it stays till you've left) */
+      if (a.loan && g.boats.list.includes(a.loan) && g.boats.active !== a.loan && !pass) g.boats.remove(a.loan);
+      if (a.loan) a.loan.loan = true;
+    }
     this.alarm(false);
     if (a.id === 'm13') this.stealth.clearStealth(a);
     if (!pass) this.retry = { id: a.id, t: performance.now() };
@@ -196,6 +216,7 @@ export class Act3 {
 
   checkpoint(a) {
     const g = this.game, v = this.vb;
+    if (a.id === 'm15') { const pen = this.rb.pen; this.story.fade(() => { g.placeOnShore(V3(this.vb.penDealer.x, this.vb.penDealer.y + 1.2, this.vb.penDealer.z), 0); g.hud.toast('Checkpoint: the sea pen', 0x9ec5ff); }); void pen; return; }
     if (a.id === 'm14') { const c = this.rb.cabins[2], d = c.door; this.story.fade(() => { g.placeOnShore(V3(d.x, d.y + 1.2, d.z).add(V3(Math.sin(c.yaw + Math.PI) * -6, 0, Math.cos(c.yaw + Math.PI) * -6)), c.yaw + Math.PI); g.hud.toast('Checkpoint: Ridgeback Cabins', 0x9ec5ff); }); return; }
     if (a.id === 'm13') { const d = this.game.city.bank.door, B = this.bankB, o = V3(d.x - B.x, 0, d.z - B.z).normalize(); this.story.fade(() => { g.placeOnShore(V3(d.x + o.x * 14, d.y + 1.2, d.z + o.z * 14), Math.atan2(-o.x, -o.z)); g.hud.toast('Checkpoint: across the street from the bank', 0x9ec5ff); }); return; }
     if (a.id === 'm12' && v) this.story.fade(() => { g.placeOnShore(v.portal.clone().add(V3(0, 1.2, 0)), Math.atan2(v.T.u.x, v.T.u.z)); g.hud.toast('Checkpoint: the summit car park', 0x9ec5ff); });
@@ -204,6 +225,20 @@ export class Act3 {
   action(pos, a) {
     if (!a || !this.owns(a.id)) return null;
     const g = this.game;
+    if (a.id === 'm15' && a.W && (a.stage === 'search' || a.stage === 'aboard')) {
+      const near = (lx, lz, r) => { const w = a.W(lx, lz); return Math.hypot(pos.x - w.x, pos.z - w.z) < r && Math.abs(pos.y - w.y) < 2.6; };
+      if (!a.crates && near(-1.1, 7.4, 2.2)) return { label: 'Force the crates open', run: () => {
+        a.crates = true; g.sfx.play('crash');
+        g.giveItem(ITEM_BY_ID.rifle || ITEM_BY_ID.smg); g.economy.addAmmo('rifleAmmo', 60);
+        g.hud.toast('Rifles, still in grease paper, and boxes of rounds. Ashen Hand guns, on a Pratt barge. You help yourself to one.', 0xe8e2d4);
+      } };
+      if (a.stage === 'search' && near(0, 9.3, 2.2)) return { label: 'Search the wheelhouse', run: () => {
+        this.story.giveKeyItem('hollowsplans');
+        g.hud.toast(ACT3_KEY_ITEMS.hollowsplans.desc, 0xe8e2d4);
+        a.stage = 'done';
+        setTimeout(() => this.story.end(true), 4500);
+      } };
+    }
     if (a.id === 'm14') {
       if (a.stage === 'meet' && Math.hypot(pos.x - a.cabin.door.x, pos.z - a.cabin.door.z) < 3.5) return { label: 'Knock on cabin 3', run: () => {
         g.sfx.play('punch');
@@ -255,6 +290,196 @@ export class Act3 {
     if (a.id === 'm12') this.updM12(a, p, dt);
     if (a.id === 'm13') this.updM13(a, p, dt);
     if (a.id === 'm14') this.updM14(a, p, dt);
+    if (a.id === 'm15') this.updM15(a, p, dt);
+  }
+
+  // ---------------------------------------------------------------- m15: Black Water
+  // A Pratt Aggregates barge out at sea west of the pen with two Ashen Hand boats riding shotgun.
+  // Ram the escorts under, ram the barge until its rudder goes, then pull alongside and climb on.
+  startM15(a) {
+    const g = this.game, pen = this.rb.pen;
+    Object.assign(a, { stage: 'pen', escorts: [], crew: [], rams: 0, crates: false });
+    const hasGun = g.held?.gun || g.economy.carried.some((x) => ITEM_BY_ID[x]?.gun);
+    if (!hasGun) { g.giveItem(ITEM_BY_ID.smg); g.hud.toast(`${FIXER} left an SMG for you`, 0xffd166); }
+    for (const [k, n] of [['smgAmmo', 150], ['pistolAmmo', 60]]) if ((g.economy.ammo[k] || 0) < n) g.economy.addAmmo(k, n - (g.economy.ammo[k] || 0));
+    // Dutch lends you a gunboat if you haven't an armoured boat of your own in the pen
+    const mine = g.boats.list.find((b) => b.owned && b.alive && b.type.armored);
+    if (!mine) {
+      const loan = g.boats.spawnOwned('gunboat'); loan.loan = true; a.loan = loan; }
+    a.boat0 = mine || a.loan;
+    // the barge: out west of the pen, heading out to sea
+    const n = pen.n, s = { x: -n.z, z: n.x };
+    let st = null;
+    for (let k = 0; k < 30 && !st; k++) { const d = 420 + k * 20, x = pen.x + n.x * d + s.x * 160, z = pen.z + n.z * d + s.z * 160; if (!blocked(x, z, 40)) st = { x, z }; }
+    a.route = [1, 2, 3, 4].map((k) => ({ x: st.x + n.x * 700 * k + s.x * 120 * Math.sin(k), z: st.z + n.z * 700 * k + s.z * 120 * Math.sin(k) }));
+    this.makeBarge(a, st.x, st.z, Math.atan2(-n.x, -n.z));
+    for (const [i, id] of [[0, 'speedboat'], [1, 'rib']]) {
+      const e = g.boats.spawnPolice(st.x + s.x * (i ? 22 : -22), st.z + s.z * (i ? 22 : -22), a.barge.heading);
+      this.dressEscort(e, BOAT_BY_ID[id]); e.ai = (b, dt) => this.escortAI(a, b, dt); a.escorts.push(e);
+    }
+    g.boats.boardAt = (b) => this.boardBarge(a, b);
+    this.maybeCheckpoint(a);
+  }
+
+  // an Ashen Hand boat: a police boat's AI slot, but painted black with no lights, and its own stats
+  dressEscort(e, type) {
+    const g = this.game;
+    e.police = false; e.escort = true;
+    e.type = { ...type, id: 'ashen-' + type.id };
+    e.hp = type.hp; e.radius = type.len * 0.42;
+    e.mesh.traverse((o) => { if (o.isMesh && o.material?.color) { o.material = o.material.clone(); o.material.color.multiplyScalar(0.25); } });
+    const L = e.mesh.userData.lights; if (L) { L.red.visible = L.blue.visible = false; e.mesh.userData.lights = null; }
+    e.driver.root.visible = true; void g;
+  }
+
+  steer(b, goal, look = 14) {
+    const dx = goal.x - b.pos.x, dz = goal.z - b.pos.z;
+    let desired = Math.atan2(-dx, -dz);
+    const probe = (ang, d) => blocked(b.pos.x - Math.sin(ang) * d, b.pos.z - Math.cos(ang) * d, 2);
+    const lk = look + Math.abs(b.speed) * 1.2;
+    if (probe(desired, lk)) for (const off of [0.5, -0.5, 1, -1, 1.6, -1.6, 2.4, -2.4]) if (!probe(desired + off, lk)) { desired += off; break; }
+    let d = desired - b.heading; d = Math.atan2(Math.sin(d), Math.cos(d));
+    return { turn: d, steer: THREE.MathUtils.clamp(-d * 2, -1, 1), dist: Math.hypot(dx, dz) };
+  }
+
+  escortAI(a, b, dt) {
+    const g = this.game, P = g.boats.active, B = a.barge;
+    const hunting = a.stage === 'chase' && P && b.pos.distanceTo(P.pos) < 260;
+    let goal;
+    if (hunting) { const lead = THREE.MathUtils.clamp(b.pos.distanceTo(P.pos) / 25, 0, 2); goal = P.pos.clone().addScaledVector(P.forward, P.speed * lead); }
+    else { const side = a.escorts.indexOf(b) ? 1 : -1, r = B.forward.clone(); goal = B.pos.clone().add(V3(-r.z * 22 * side, 0, r.x * 22 * side)); }
+    const st = this.steer(b, goal);
+    // and they shoot: tracers at your boat (the armour stops them; a boat that isn't armoured gets holed)
+    b.shootT = (b.shootT || 1) - dt;
+    if (hunting && b.shootT <= 0 && st.dist < 60) {
+      b.shootT = 0.9 + Math.random() * 0.6;
+      g.police.tracer(b.pos.clone().setY(b.mesh.position.y + 1.6), P.pos.clone().setY(P.mesh.position.y + 1.2).add(V3((Math.random() - 0.5) * 3, 0, (Math.random() - 0.5) * 3)));
+      g.sfx.play('smg');
+      if (!P.type.armored) { P.damage(4); g.health.damage(3, 'goon'); } else if (Math.random() < 0.3) g.sfx.play('impact');
+    }
+    let throttle = Math.abs(st.turn) > 1.6 ? 0.5 : 1;
+    if (!hunting) throttle = THREE.MathUtils.clamp((st.dist - 4) / 20, 0, 1) * 0.9 + 0.1;
+    return { throttle, steer: st.steer };
+  }
+
+  // the barge: a long low hull, cement silos up front, containers amidships, a wheelhouse at the stern
+  makeBarge(a, x, z, heading) {
+    const g = this.game, type = { id: 'barge', name: 'Pratt Aggregates barge', maxSpeed: 6.5, accel: 0.8, turn: 0.22, hp: 1e6, len: 30, beam: 9, depth: 2.4, style: 'cruiser', color: 0x3a3f46 };
+    const b = g.boats.spawnPolice(x, z, heading);
+    b.police = false; b.type = type; b.hp = type.hp; b.radius = 13; b.barge = true;
+    for (const c of [...b.mesh.children]) c.visible = false;
+    b.mesh.userData.lights = null;
+    const grp = new THREE.Group(); b.mesh.add(grp);
+    const M = { hull: std({ color: 0x3a3f46, roughness: 0.8 }), deck: std({ color: 0x6a645a, roughness: 0.95 }), red: std({ color: 0x8a2a1e, roughness: 0.8 }), silo: std({ color: 0xc8c4bc, roughness: 0.6, metalness: 0.3 }), box: [0x1f4a7a, 0xb0401e, 0x2e5a3a].map((c) => std({ color: c, roughness: 0.7 })), white: std({ color: 0xe8e6e0 }), glass: std({ color: 0x1a2a3a, roughness: 0.1, metalness: 0.5 }), crate: std({ color: 0x7a6040, roughness: 0.9 }) };
+    const box = (w, h, d, px, py, pz, m) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(px, py + h / 2, pz); o.castShadow = true; grp.add(o); return o; };
+    const D = 1.6; /* (the deck, above the waterline) */
+    box(9, 3.6, 30, 0, D - 3.6, 0, M.hull);
+    box(9.02, 0.6, 30.02, 0, -0.6, 0, M.red); /* (the boot-top, red at the waterline) */
+    box(8.6, 0.05, 29.6, 0, D, 0, M.deck);
+    for (const sx of [-1, 1]) box(0.2, 0.9, 30, sx * 4.4, D, 0, M.hull);
+    box(9, 0.9, 0.2, 0, D, -14.9, M.hull); box(9, 0.9, 0.2, 0, D, 14.9, M.hull);
+    for (const [px, pz] of [[-2.2, -11], [2.2, -11], [-2.2, -6.5], [2.2, -6.5]]) { const c = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 5.5, 18), M.silo); c.position.set(px, D + 2.75, pz); c.castShadow = true; grp.add(c); const cone = new THREE.Mesh(new THREE.ConeGeometry(1.6, 0.9, 18), M.silo); cone.position.set(px, D + 5.95, pz); grp.add(cone); }
+    box(2.4, 2.6, 6, -2.3, D, 0, M.box[0]); box(2.4, 2.6, 6, 2.3, D, 0, M.box[1]); box(2.4, 2.6, 6, -2.3, D + 2.6, 0.2, M.box[2]);
+    for (let i = 0; i < 3; i++) box(1.2, 0.9, 0.9, -2.6 + i * 1.5, D, 6.2, M.crate);
+    box(6, 3.4, 4, 0, D, 11.8, M.white); box(6.2, 0.2, 4.2, 0, D + 3.4, 11.8, M.hull);
+    box(5.4, 0.9, 0.05, 0, D + 2.1, 9.78, M.glass);
+    const side = new THREE.Mesh(new THREE.PlaneGeometry(14, 1.4), new THREE.MeshBasicMaterial({ map: canvasTex(512, 52, (c, w, h) => { c.fillStyle = '#3a3f46'; c.fillRect(0, 0, w, h); c.fillStyle = '#f2f0ea'; c.font = 'bold 34px Arial'; c.textAlign = 'center'; c.fillText('PRATT AGGREGATES', w / 2, 38); }) }));
+    for (const sx of [-1, 1]) { const m = side.clone(); m.position.set(sx * 4.52, 0.4, -2); m.rotation.y = sx * Math.PI / 2; grp.add(m); }
+    a.barge = b; a.bargeD = D;
+    b.ai = (bb, dt) => this.bargeAI(a, bb, dt);
+  }
+
+  bargeAI(a, b, dt) {
+    if (a.stage === 'aboard' || a.stage === 'search' || a.bargeDead) return { throttle: 0, steer: 0 };
+    let w = a.route[a.wi || 0];
+    if (Math.hypot(w.x - b.pos.x, w.z - b.pos.z) < 40) { a.wi = Math.min(a.route.length - 1, (a.wi || 0) + 1); w = a.route[a.wi]; }
+    const st = this.steer(b, w, 30);
+    return { throttle: 0.9, steer: st.steer };
+  }
+
+  // stopped dead: freeze it level and give it a deck you can walk on
+  stopBarge(a) {
+    const g = this.game, b = a.barge, sb = g.portSandbox;
+    a.bargeDead = true;
+    b.frozen = true; b.speed = 0; b.pitch = b.roll = 0; b.heave = 0;
+    b.mesh.position.set(b.pos.x, 0, b.pos.z); b.mesh.rotation.set(0, b.heading, 0, 'YXZ'); b.mesh.updateMatrixWorld(true);
+    const q = new THREE.Quaternion().setFromAxisAngle(V3(0, 1, 0), b.heading), D = a.bargeD;
+    a.cols = [];
+    const col = (hx, hy, hz, px, py, pz) => { const w = V3(px, py, pz).applyQuaternion(q).add(b.mesh.position); a.cols.push(sb.addStaticCollider(RAPIER.ColliderDesc.cuboid(hx, hy, hz).setTranslation(w.x, w.y, w.z).setRotation(q))); };
+    col(4.5, 1.8, 15, 0, D - 1.8, 0);
+    for (const sx of [-1, 1]) col(0.1, 0.45, 15, sx * 4.4, D + 0.45, 0);
+    col(4.5, 0.45, 0.1, 0, D + 0.45, -14.9); col(4.5, 0.45, 0.1, 0, D + 0.45, 14.9);
+    col(4, 2.75, 3.9, 0, D + 2.75, -8.75); /* (the silos) */
+    col(2.4, 1.3, 3, 0, D + 1.3, 0); col(1.2, 1.3, 3, -2.3, D + 3.9, 0.2);
+    col(2.2, 0.45, 0.45, -1.1, D + 0.45, 6.2);
+    col(3, 1.7, 2, 0, D + 1.7, 11.8);
+    a.W = (lx, lz, dy = 0) => V3(lx, D + dy, lz).applyQuaternion(q).add(b.mesh.position);
+  }
+
+  boardBarge(a, boat) {
+    if (!a.bargeDead || a.stage === 'search' || boat === a.barge) return null;
+    const b = a.barge, l = b.mesh.worldToLocal(boat.pos.clone().setY(0));
+    if (Math.abs(l.x) > 4.5 + boat.type.beam / 2 + 7 || Math.abs(l.z) > 17) return null;
+    const sx = Math.sign(l.x) || 1, lz = THREE.MathUtils.clamp(l.z, -3, 5);
+    return { pos: a.W(sx * 3.4, lz, 1.2), heading: b.heading };
+  }
+
+  updM15(a, p, dt) {
+    const g = this.game, C = g.citizens, b = a.barge, P = g.boats.active, pen = this.rb.pen;
+    a.escorts = a.escorts.filter((e) => e.alive && g.boats.list.includes(e));
+    if (!b || !g.boats.list.includes(b)) { this.story.end(false, 'The barge is gone'); return; }
+    // the barge gets away if you let it run too far out
+    if (!a.bargeDead && Math.hypot(b.pos.x - pen.x, b.pos.z - pen.z) > 3600) { this.story.end(false, 'The barge got away'); return; }
+    if (a.stage === 'pen') {
+      a.text = P ? 'Head out to sea, west of the volcano: find the barge' : `Get to the sea pen under the volcano and take ${a.loan ? "Dutch's Bulletproof Gunboat" : 'your armoured boat'}`;
+      a.wp = P ? b.pos.clone() : (a.boat0?.pos.clone() || V3(pen.x, 0, pen.z));
+      if (P && P.pos.distanceTo(b.pos) < 300) { a.stage = 'chase'; g.hud.flashBanner('THE BARGE', '#ffd166'); g.hud.toast('There: PRATT AGGREGATES, riding low, and two black boats with no lights alongside it. They\'ve seen you.', 0xffd166); }
+      return;
+    }
+    if (a.stage === 'chase') {
+      a.wp = b.pos.clone();
+      if (a.escorts.length) { a.text = `Ram the Ashen Hand boats under: ${a.escorts.length} left${P ? '' : '. Get back in a boat!'}`; return; }
+      // count the rams on the barge (its hp drops when you hit it)
+      const lost = 1e6 - b.hp;
+      if (lost > (a.lost || 0) + 8) { a.rams++; g.hud.toast(['Its stern swings round', 'Something cracks under the counter…', 'The rudder\'s gone! She\'s dead in the water'][Math.min(2, a.rams - 1)], 0xffd166); }
+      a.lost = lost;
+      a.text = `Ram the barge's stern to smash its rudder (${a.rams}/3)`;
+      if (a.rams >= 3) {
+        a.stage = 'stopping';
+        a.stopT = 4;
+      }
+      return;
+    }
+    if (a.stage === 'stopping') {
+      a.text = 'She\'s slowing…';
+      b.speed *= 1 - dt * 0.8; a.stopT -= dt;
+      if (a.stopT <= 0) {
+        this.stopBarge(a);
+        a.stage = 'board';
+        g.hud.toast('Dead in the water. Pull alongside and press E to climb aboard', 0xffd166);
+      }
+      return;
+    }
+    if (a.stage === 'board') {
+      a.text = 'Pull alongside the barge and press E to climb aboard';
+      a.wp = b.pos.clone();
+      if (!P && Math.abs(b.mesh.worldToLocal(V3(p.x, p.y, p.z)).x) < 4.6 && p.y > a.bargeD - 0.5) {
+        a.stage = 'aboard';
+        g.hud.flashBanner('ABOARD', '#ff3a2a');
+        g.hud.toast('The crew come out of the wheelhouse with guns. Ashen Hand, every one of them.', 0xff6a5a);
+        [['rifle', -2.5, 10], ['smg', 2.5, 10], ['heavy', 0, 8.5], ['rifle', -3.2, -3.5], ['smg', 3.2, -4]].forEach(([kind, lx, lz]) => this.spawnGoon(a, a.W(lx, lz, 0.05), kind, 'hills'));
+      }
+      return;
+    }
+    if (a.stage === 'aboard') {
+      a.goons = a.goons.filter((n) => C.list.includes(n));
+      this.story.updateNades(a, dt, p);
+      a.text = a.goons.length ? `Clear the barge: ${a.goons.length} of them` : 'Search the barge: the crates, and the wheelhouse';
+      a.wp = null;
+      if (!a.goons.length) a.stage = 'search';
+      return;
+    }
+    if (a.stage === 'search') { a.text = a.crates ? 'Now the wheelhouse: whatever he\'s hiding, it\'s in there' : 'Search the barge: the crates, and the wheelhouse'; a.wp = null; }
   }
 
   // ---------------------------------------------------------------- m14: Dead Man's Switch
@@ -557,7 +782,18 @@ export class Act3 {
     }
   }
 
-  tick() {}
+  tick() {
+    // the barge you were left standing on: gone once you've sailed off (or wandered far away)
+    const g = this.game, b = this.leftBarge;
+    if (b && !this.story.active) {
+      const p = g.shorePlayer.body.translation();
+      if (g.boats.active || !g.onShore || Math.hypot(p.x - b.pos.x, p.z - b.pos.z) > 80) {
+        for (const c of this.leftCols || []) { g.portSandbox.staticColliders.delete(c.handle); g.portSandbox.world.removeCollider(c, false); }
+        if (g.boats.list.includes(b) && (!g.boats.active || Math.hypot(g.boats.active.pos.x - b.pos.x, g.boats.active.pos.z - b.pos.z) > 60)) { g.boats.remove(b); this.leftBarge = null; this.leftCols = null; }
+        else this.leftCols = null;
+      }
+    }
+  }
 
   completeText() {
     return `<p>Pratt Developments is rebuilding Verian Central. The Ashen Hand cleared the ground for it. And the money from both goes somewhere offshore called MERIDIAN.</p>

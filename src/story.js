@@ -527,7 +527,8 @@ export class Story {
     if (this.foundations.owns(a.id)) this.foundations.update(a, p, dt);
     if (!this.active) return;
     const wp = a.wp;
-    const d = wp ? Math.hypot(wp.x - p.x, wp.z - p.z) : 0;
+    const me = g.boats?.active?.pos || g.vehicles?.active?.pos || p; /* (where you actually are: at the wheel, not where you got in) */
+    const d = wp ? Math.hypot(wp.x - me.x, wp.z - me.z) : 0;
     this.beacon.visible = !!wp && d > 4 && !this.underground;
     if (wp) {
       this.beacon.position.set(wp.x, wp.y, wp.z);
