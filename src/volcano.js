@@ -714,7 +714,7 @@ export class VolcanoBase {
       for (let z = 4; z < L1 - 2; z += 8) { k.cyl(0.18, 0.5, s * (CH + 0.4), 0, z, M.steel); } // bollards
     }
     // the slit: the seaward wall, a narrow gap in the middle for the boats
-    const SL = 4.5;
+    const SL = 6; // (half the slit: wide enough for the yacht)
     for (const s of [-1, 1]) k.box(W - SL + 1.6, H + 4, 2.4, s * (SL + (W - SL + 1.6) / 2), -4, L1 + 1.2, rock);
     k.box(2 * SL, 4, 2.4, 0, H - 4 + 1, L1 + 1.2, rock, false);
     // the roof, and rock heaped over the whole thing so it's part of the cliff
@@ -742,7 +742,7 @@ export class VolcanoBase {
     const rect = (x0, x1, z0, z1) => { const a = k.world(x0, 0, z0), b = k.world(x1, 0, z1); addPier(Math.min(a.x, b.x), Math.max(a.x, b.x), Math.min(a.z, b.z), Math.max(a.z, b.z)); };
     for (const s of [-1, 1]) { rect(s > 0 ? CH : -W - 1.6, s > 0 ? W + 1.6 : -CH, 0, L1); rect(s > 0 ? SL : -W - 1.6, s > 0 ? W + 1.6 : -SL, L1, L1 + 2.4); }
     // where boats wait: in the channel, nose out to sea
-    this.penBerths = [-3.6, 3.6].map((x) => { const p = k.world(x, 0, 20); /* (side by side, so either can get out) */ return { x: p.x, z: p.z, heading: Math.atan2(-P.n.x, -P.n.z) }; });
+    this.penBerths = [[0, 18], [0, L1 + 22]].map(([x, z]) => { const p = k.world(x, 0, z); /* (one in the channel; a second boat waits moored just outside the slit) */ return { x: p.x, z: p.z, heading: Math.atan2(-P.n.x, -P.n.z) }; });
   }
 
   // a berth in the sea pen that isn't taken (for a boat coming round, or bought here)
