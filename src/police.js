@@ -455,11 +455,13 @@ export class Police {
 
     // getting arrested
     let cuffs = false;
-    if (this.wanted > 0 && onFoot && !g.health.dead) {
+    // (not from 24 stars: you've gone too far, they just want you dead)
+    if (this.wanted > 0 && this.wanted < 24 && onFoot && !g.health.dead) {
       for (const n of g.citizens.list) {
-        if (n.role !== 'cop') continue;
+        if (n.role !== 'cop' || n.down) continue;
         const t = n.body.translation();
-        if (!g.hostage && Math.hypot(t.x - pt.x, t.z - pt.z) < 1.8) { cuffs = true; break; }
+        // within arm's reach, and on the same level as you (not on the floor below, or the street under the roof you're on)
+        if (!g.hostage && Math.hypot(t.x - pt.x, t.z - pt.z) < 1.8 && Math.abs(t.y - pt.y) < 1.4) { cuffs = true; break; }
       }
     }
     this.bustT = cuffs ? this.bustT + dt : Math.max(0, this.bustT - dt * 2);
