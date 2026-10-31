@@ -94,6 +94,15 @@ export class Ridgeback {
       const grid = new Map(); for (const p of pts) for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const k = `${Math.floor(p.x / 12) + a},${Math.floor(p.z / 12) + b}`; if (!grid.has(k)) grid.set(k, []); grid.get(k).push(p); }
       this.walkNear = (x, z) => { const l = grid.get(`${Math.floor(x / 12)},${Math.floor(z / 12)}`); if (!l) return null; let best = null, bd = Infinity; for (const p of l) { const d = (p.x - x) ** 2 + (p.z - z) ** 2; if (d < bd) { bd = d; best = p; } } return { p: best, d: Math.sqrt(bd) }; }; }
     this.roads.push(this.tunnelRoad);
+    // the sea pen: straight out from the base's sea lift (the old workshop, 136 degrees round from the
+    // tunnel) to where that meets the coast; a boathouse cut into the shore there, open to the sea
+    { const isl = this.isl, th = Math.atan2(-T.u.x, -T.u.z) - 136 * Math.PI / 180, dx = Math.sin(th), dz = Math.cos(th);
+      const hits = [[dx < 0 ? (isl.x0 - V.x) / dx : Infinity, 'x0'], [dx > 0 ? (isl.x1 - V.x) / dx : Infinity, 'x1'], [dz < 0 ? (isl.z0 - V.z) / dz : Infinity, 'z0'], [dz > 0 ? (isl.z1 - V.z) / dz : Infinity, 'z1']].sort((a, b) => a[0] - b[0]);
+      const [t, edge] = hits[0], hx = V.x + dx * t, hz = V.z + dz * t;
+      const n = { x0: [-1, 0], x1: [1, 0], z0: [0, -1], z1: [0, 1] }[edge];
+      const x = edge[0] === 'x' ? isl[edge] : Math.min(isl.x1 - 70, Math.max(isl.x0 + 70, hx)), z = edge[0] === 'z' ? isl[edge] : Math.min(isl.z1 - 70, Math.max(isl.z0 + 70, hz));
+      this.pen = { x, z, n: { x: n[0], z: n[1] }, yaw: Math.atan2(n[0], n[1]), y: Y };
+      this.flats.push({ x: x - n[0] * 9, z: z - n[1] * 9, r: 13, y: Y, blend: 14 }); } // (level ground for the boathouse)
     for (const f of this.flats) if (f.y == null) f.y = this.natural(f.x, f.z);
   }
 

@@ -8,6 +8,8 @@ import { LAUNDER_CUT, moneyBagMesh } from './loot.js';
 import { GLOW } from './effects.js';
 import { marcosLogo } from './marcos.js';
 import { buildFigure } from './figure.js';
+import { addPier } from './world.js';
+import { BOAT_TYPES, BOAT_BY_ID } from './boats.js';
 
 // Inside Mount Ridgeback. The volcano is hollow: a tunnel from the summit car park (behind a blast
 // door) runs into a great cone-shaped cavern with a concrete floor, lit by the lava glowing up
@@ -164,6 +166,8 @@ export class VolcanoBase {
     this.buildTunnel();
     this.buildRooms();
     this.buildAlcove();
+    this.buildRim();
+    this.buildPen();
     // seen from far off (through the haze): the mountain's shape, so you can pick it out from the city.
     // (A coarse copy of the real ground, just behind it, so the two never fight.)
     { const NA = 72, NR = 26, pos = [], idx = [];
@@ -637,12 +641,134 @@ export class VolcanoBase {
       for (let x = -w / 2 + 2; x < w / 2; x += 4) k.box(1.2, 0.05, 0.3, x, 3.95, 1, lit(0xfff2d8, 1.2), false);
       this.mcCounter = k.world(-2, 0, -0.4); this.mcCook = k.world(-2, 0, -2.6); this.mcYaw = k.yaw;
     }
-    // ---- the workshop: crates and a forklift ----
-    { const a = -136 * D2R, w = 14, d = 10, k = this.room(a, w, d, 'WORKSHOP', { open: true, h: 5 });
-      for (let i = 0; i < 9; i++) k.box(1.4, 1.2, 1.2, -w / 2 + 1.2 + (i % 3) * 1.5, Math.floor(i / 3) * 1.2, -d / 2 + 1.0, M.wood);
-      k.box(3, 0.9, 0.9, w / 2 - 2, 0, -d / 2 + 0.7, M.steel); k.box(3, 1.4, 0.1, w / 2 - 2, 1.1, -d / 2 + 0.3, M.olive, false);
-      const fl = k.box(1.4, 1.4, 2.4, 0.5, 0.2, 0.5, M.yellow); fl.rotation.y = 0.4; k.box(1.2, 2.6, 0.12, 0.5 + Math.sin(0.4) * 1.3, 0, 0.5 + Math.cos(0.4) * 1.3, M.dark, false);
+    // ---- the sea lift (where the workshop was): a freight lift down through the mountain to the sea pen ----
+    { const a = -136 * D2R, w = 14, d = 10, k = this.room(a, w, d, 'SEA PEN ▼', { open: true, h: 5 });
+      this.liftDoors(k, 0, -d / 2 + 0.2, 4.2);
+      for (let i = 0; i < 4; i++) k.box(1.2, 1.0, 1.0, -w / 2 + 1.2 + (i % 2) * 1.3, Math.floor(i / 2) * 1.0, -d / 2 + 1.0, M.wood); // (crates waiting to go down)
+      k.box(1.6, 1.0, 2.2, w / 2 - 1.6, 0, -1, M.yellow); k.box(0.1, 1.4, 2.2, w / 2 - 0.85, 1.0, -1, M.dark, false); // a pallet truck
+      this.seaLift = k.world(0, 0, -d / 2 + 2.2); this.seaLiftYaw = k.yaw + Math.PI;
     }
+    // ---- the summit lift: a steel shaft up the inside of the cavern wall, to a lookout on the crater rim ----
+    { const a = -22 * D2R, w = 6, d = 5, k = this.room(a, w, d, 'SUMMIT ▲', { open: true, h: 4.2 });
+      this.liftDoors(k, 0, -d / 2 + 0.2, 3.6);
+      const rb = this.rb, top = rb.coneAt(this.R - 1.4) - this.K.thick - 4, p = this.at(this.R - 1.4, a); // (the shaft: against the wall, behind the lift)
+      for (const [ox, oz] of [[-1.6, -1.6], [1.6, -1.6], [-1.6, 1.6], [1.6, 1.6]]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.25, top - this.Y, 0.25), M.steel); post.position.set(p.x + ox, (top + this.Y) / 2, p.z + oz); this.group.add(post); }
+      for (let y = this.Y + 6; y < top; y += 7) for (const [w2, d2, ox, oz] of [[3.4, 0.12, 0, -1.6], [3.4, 0.12, 0, 1.6], [0.12, 3.4, -1.6, 0], [0.12, 3.4, 1.6, 0]]) { const br = new THREE.Mesh(new THREE.BoxGeometry(w2, 0.12, d2), M.steel); br.position.set(p.x + ox, y, p.z + oz); this.group.add(br); }
+      const car = new THREE.Mesh(new THREE.BoxGeometry(2.8, 2.6, 2.8), M.dark); car.position.set(p.x, this.Y + 30, p.z); this.group.add(car); this.liftCar = { mesh: car, y0: this.Y + 6, y1: Math.min(top - 4, this.Y + 120) };
+      for (let y = this.Y + 10; y < top; y += 14) { const L = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), M.lamp); L.position.set(p.x + 1.7, y, p.z); this.group.add(L); }
+      this.summitLift = k.world(0, 0, -d / 2 + 1.8); this.summitLiftYaw = k.yaw + Math.PI;
+    }
+  }
+
+  // a pair of steel lift doors on a back wall, with a call panel
+  liftDoors(k, x, z, h = 3.6) {
+    const M = this.M;
+    for (const s of [-1, 1]) k.box(1.1, h - 0.6, 0.12, x + s * 0.57, 0, z + 0.1, M.steel, false);
+    k.box(2.6, 0.3, 0.2, x, h - 0.6, z + 0.12, M.yellow, false); for (const s of [-1, 1]) k.box(0.2, h - 0.6, 0.2, x + s * 1.25, 0, z + 0.12, M.yellow, false);
+    k.box(0.25, 0.4, 0.06, x + 1.6, 1.2, z + 0.16, M.dark, false); k.box(0.1, 0.1, 0.03, x + 1.6, 1.4, z + 0.2, new THREE.MeshBasicMaterial({ color: 0x40ff60 }), false);
+  }
+
+  // a ride in a lift: a short fade, the clank of the doors, and you're there
+  ride(to, yaw, msg) {
+    const g = this.game;
+    if (g.vehicles.active) { g.hud.toast('Not in a car', 0xffd166); return; }
+    g.endDrag?.(false);
+    g.sfx.play('switch');
+    const go = () => { g.placeOnShore(to.clone().add(new THREE.Vector3(0, 1.1, 0)), yaw); g.sfx.play('switch'); if (msg) g.hud.toast(msg, 0x9ec5ff); };
+    if (g.story?.fade) g.story.fade(go); else go();
+  }
+
+  // ---- the lookout on the crater rim: where the summit lift comes out ----
+  buildRim() {
+    const rb = this.rb, V = this.V, K = this.K, g = this.group, M = this.M, sb = this.sb;
+    const th = rb.coneAz + 1.0; // (round towards the city)
+    let best = null; for (let r = K.rim - 6; r < K.rim + 6; r += 0.5) { const x = V.x + Math.sin(th) * r, z = V.z + Math.cos(th) * r, y = rb.heightAt(x, z); if (!best || y > best.y) best = { x, z, y, r }; }
+    const k = new Kit(g, sb, best.x, best.y + 0.3, best.z, th + Math.PI); // (local +z: in towards the crater)
+    k.box(10, 0.3, 9, 0, -0.3, 0, M.grate.clone()); k.box(10, 2.4, 9, 0, -2.7, 0, M.conc, false); // the deck, on a plinth
+    for (const [w, d, x, z] of [[10, 0.12, 0, 4.5], [0.12, 9, -5, 0], [0.12, 9, 5, 0], [3.5, 0.12, -3.25, -4.5], [3.5, 0.12, 3.25, -4.5]]) k.box(w, 1.1, d, x, 0, z, M.yellow); // (the rail, open at the back to step off)
+    k.box(3, 3.2, 2.6, 0, 0, -3.0, M.wall); this.liftDoors(k, 0, -1.65, 3.0); // the lift hut
+    k.box(3.4, 0.25, 3.0, 0, 3.2, -3.0, M.dark, false);
+    sign(g, 'SUMMIT · 370 m', ...k.world(0, 3.6, -1.6).toArray(), k.yaw, { w: 2.6, h: 0.5, bg: '#14161c', fg: '#ffd166' });
+    this.rimLift = k.world(0, 0, -0.6); this.rimYaw = k.yaw; this.rimTop = best;
+  }
+
+  // ---- the sea pen: a boathouse cut into the shore, open to the sea through a slit in the rock ----
+  // (local: +z out to sea; the coastline's at z = 0; the boats float in the channel between two piers)
+  buildPen() {
+    const P = this.rb.pen; if (!P) return;
+    const g = this.group, sb = this.sb, M = this.M, Yl = P.y;
+    const k = new Kit(g, sb, P.x, Yl, P.z, P.yaw);
+    this.penKit = k;
+    const W = 10, L0 = -16, L1 = 44, H = 8, CH = 7; // (half-width, the back wall, the slit wall, the roof, the channel half-width)
+    const rock = M.rock;
+    // the shore building: the lift, the dealer's counter, the boat locker
+    k.box(2 * W, 0.4, -L0, 0, -0.4, L0 / 2, M.conc);
+    k.box(2 * W + 2, H + 1, 1.2, 0, -1, L0 - 0.6, rock); // the back wall: the rock face
+    k.box(1.2, H + 1, 9, W + 0.6, -1, L0 + 4.5, rock); k.box(1.2, H + 1, 3.5, W + 0.6, -1, -1.75, rock); // right wall, with a door out to the shore
+    k.box(1.2, H - 2.8, 3.5, W + 0.6, 2.8, L0 + 10.75, rock, false); k.box(1.2, H + 1, -L0, -W - 0.6, -1, L0 / 2, rock);
+    // the pen: rock walls either side, out to the slit; piers along them
+    for (const s of [-1, 1]) {
+      k.box(1.6, H + 4, L1, s * (W + 0.8), -4, L1 / 2, rock);
+      k.box(W - CH, 0.35, L1 - 1, s * (CH + (W - CH) / 2), -0.35, (L1 - 1) / 2, M.wood); // the pier deck
+      for (let z = 2; z < L1 - 1; z += 4) k.box(0.3, 4, 0.3, s * (CH + 0.15), -4, z, M.wood, false); // its piles
+      for (let z = 4; z < L1 - 2; z += 8) { k.cyl(0.18, 0.5, s * (CH + 0.4), 0, z, M.steel); } // bollards
+    }
+    // the slit: the seaward wall, a narrow gap in the middle for the boats
+    const SL = 4.5;
+    for (const s of [-1, 1]) k.box(W - SL + 1.6, H + 4, 2.4, s * (SL + (W - SL + 1.6) / 2), -4, L1 + 1.2, rock);
+    k.box(2 * SL, 4, 2.4, 0, H - 4 + 1, L1 + 1.2, rock, false);
+    // the roof, and rock heaped over the whole thing so it's part of the cliff
+    k.box(2 * W + 3.2, 1.2, L1 - L0 + 2.4, 0, H, (L0 + L1) / 2, rock);
+    for (let i = 0; i < 26; i++) { const b = new THREE.Mesh(new THREE.DodecahedronGeometry(3 + Math.random() * 4, 0), rock); k.add(b, (Math.random() - 0.5) * (2 * W + 6), H + 1 + Math.random() * 2, L0 + Math.random() * (L1 - L0 + 2)); b.rotation.set(Math.random(), Math.random() * 6, Math.random()); }
+    for (const s of [-1, 1]) for (let i = 0; i < 8; i++) { const b = new THREE.Mesh(new THREE.DodecahedronGeometry(2.5 + Math.random() * 3, 0), rock); k.add(b, s * (W + 3 + Math.random() * 2), Math.random() * H, Math.random() * L1); b.rotation.set(Math.random(), Math.random() * 6, Math.random()); }
+    // lamps along the walls, a red light over the slit, the berth's yellow lines
+    for (let z = -12; z < L1; z += 8) for (const s of [-1, 1]) { const l = k.box(0.4, 0.3, 1.4, s * (W - 0.1), H - 1.2, z, M.lamp, false); void l; }
+    const pl = new THREE.PointLight(0xfff0d8, 3, 50, 1.2); pl.position.copy(k.world(0, H - 1.5, 10)); g.add(pl);
+    const pl2 = new THREE.PointLight(0xfff0d8, 2.4, 30, 1.2); pl2.position.copy(k.world(0, H - 1.5, L0 / 2)); g.add(pl2);
+    this.penRed = new THREE.Mesh(new THREE.SphereGeometry(0.35, 10, 8), new THREE.MeshBasicMaterial({ color: 0xff2a1a })); this.penRed.position.copy(k.world(0, H - 1.3, L1 - 0.2)); g.add(this.penRed);
+    for (const s of [-1, 1]) k.box(0.15, 0.02, L1 - 6, s * CH, 0.01, (L1 - 2) / 2, M.yellow, false);
+    // the lift (back up to the base), the dealer, the boat locker
+    this.liftDoors(k, 0, L0 + 0.1, 3.6);
+    this.penLift = k.world(0, 0, L0 + 2); this.penLiftYaw = k.yaw;
+    k.box(4.5, 1.05, 1.0, -W + 3.5, 0, -7, M.wood); k.box(4.7, 0.08, 1.2, -W + 3.5, 1.05, -7, M.steel, false); // the dealer's counter
+    k.box(0.1, 2.6, 4, -W + 0.1, 1.2, -7, new THREE.MeshBasicMaterial({ color: 0x0c0c0c }), false); // (a chalkboard of prices behind him)
+    sign(g, 'NO QUESTIONS · CASH OR TRANSFER', ...k.world(-W + 0.25, 3.2, -7).toArray(), k.yaw + Math.PI / 2, { w: 3.6, h: 0.45, bg: '#141414', fg: '#e8c547' });
+    this.penDealer = k.world(-W + 3.5, 0, -5.6);
+    { const fig = buildFigure({ shirt: 0x3a4a3a, pants: 0x2a2620, skin: 0xa8724f, hat: 'beanie', hatColor: 0x2a2a2a, glasses: 'black' }); const p = k.world(-W + 3.5, 0.83, -8.3); fig.root.position.copy(p); fig.root.rotation.y = k.yaw; g.add(fig.root); sb.addStaticCollider(RAPIER.ColliderDesc.capsule(0.5, 0.3).setTranslation(p.x, p.y + 0.1, p.z)); }
+    k.box(1.2, 1.6, 0.5, W - 1.0, 0, -9, M.dark); k.box(0.9, 0.6, 0.05, W - 1.0, 1.0, -8.74, M.screen, false); // the boat locker terminal
+    this.penLocker = k.world(W - 1.0, 0, -8);
+    sign(g, 'SEA PEN', ...k.world(0, H - 0.6, 0.2).toArray(), k.yaw + Math.PI, { w: 3.2, h: 0.7, bg: '#14161c', fg: '#ffd166', glow: true });
+    // boats can't sail through the walls or the piers (rectangles in world space: the pen's square to the coast)
+    const rect = (x0, x1, z0, z1) => { const a = k.world(x0, 0, z0), b = k.world(x1, 0, z1); addPier(Math.min(a.x, b.x), Math.max(a.x, b.x), Math.min(a.z, b.z), Math.max(a.z, b.z)); };
+    for (const s of [-1, 1]) { rect(s > 0 ? CH : -W - 1.6, s > 0 ? W + 1.6 : -CH, 0, L1); rect(s > 0 ? SL : -W - 1.6, s > 0 ? W + 1.6 : -SL, L1, L1 + 2.4); }
+    // where boats wait: in the channel, nose out to sea
+    this.penBerths = [-3.6, 3.6].map((x) => { const p = k.world(x, 0, 20); // (side by side, so either can get out) return { x: p.x, z: p.z, heading: Math.atan2(-P.n.x, -P.n.z) }; });
+  }
+
+  // a berth in the sea pen that isn't taken (for a boat coming round, or bought here)
+  penBerth(type) {
+    const B = this.penBerths; if (!B) return null;
+    const boats = this.game.boats.list.filter((b) => b.alive);
+    return B.find((p) => !boats.some((b) => Math.hypot(b.pos.x - p.x, b.pos.z - p.z) < 8)) || B[type?.len > 12 ? 0 : 1];
+  }
+
+  // the boat locker: bring any boat you own round to the pen
+  openLocker() {
+    const g = this.game, e = g.economy;
+    const render = () => {
+      const rows = e.ownedBoats.map((id, i) => { const t = BOAT_BY_ID[id]; if (!t) return ''; const b = g.boats.list.find((x) => x.owned && x.alive && x.type.id === id); const here = b && this.penBerths.some((p) => Math.hypot(b.pos.x - p.x, b.pos.z - p.z) < 10);
+        return `<div class="erow"><div><b>${t.name}</b><small>${t.armored ? 'bulletproof · ' : ''}${here ? 'here in the pen' : b ? 'out somewhere' : 'at the marina'}</small></div><div class="btns"><button data-a="bring" data-i="${i}" ${here || g.boats.active === b && b ? 'disabled' : ''}>${here ? 'Here' : 'Bring it round'}</button></div></div>`; }).join('') || '<p class="empty">You don\'t own a boat.</p>';
+      e.open('Boat locker', e.header() + '<p class="lede">Any boat you own, brought round to the pen. Takes a phone call and a few minutes, but nobody\'s timing.</p>' + rows, (el) => el.addEventListener('click', (ev) => {
+        const b = ev.target.closest('button[data-a="bring"]'); if (!b || b.disabled) return;
+        const id = e.ownedBoats[+b.dataset.i], t = BOAT_BY_ID[id], spot = this.penBerth(t);
+        let boat = g.boats.list.find((x) => x.owned && x.alive && x.type.id === id && x !== g.boats.active);
+        if (!boat) boat = g.boats.spawnOwned(id);
+        boat.pos.set(spot.x, 0, spot.z); boat.heading = spot.heading; boat.speed = 0;
+        g.sfx.play('engineStart'); g.hud.toast(`Your ${t.name} is in the pen`, 0x7be08a);
+        render();
+      }));
+    };
+    render();
   }
 
   // ---- the people who work here (off in multiplayer) ----
@@ -663,6 +789,10 @@ export class VolcanoBase {
     const g = this.game;
     const near = (p, r = 2.2) => p && Math.hypot(pos.x - p.x, pos.z - p.z) < r && Math.abs(pos.y - 1 - p.y) < 2;
     if (near(this.alcoveShop, 2.6)) return { label: 'Skyhigh Chutes & Gliders', run: () => g.airGear.open() };
+    if (near(this.rimLift, 2.4)) return { label: 'Lift: down to the base', run: () => this.ride(this.summitLift, this.summitLiftYaw, 'The volcano base') };
+    if (near(this.penLift, 2.4)) return { label: 'Lift: up to the base', run: () => this.ride(this.seaLift, this.seaLiftYaw, 'The volcano base') };
+    if (near(this.penDealer, 2.6)) return { label: 'Dutch: boats (no questions asked)', run: () => g.economy.openDealer(BOAT_TYPES.filter((t) => t.illegal), { title: 'Dutch\'s boats', lede: '"Steel plate, bulletproof screens, no paperwork. They\'re yours, and they live here in the pen. Nobody at the marina\'s ever seen them."' }) };
+    if (near(this.penLocker, 2.4)) return { label: 'Boat locker: bring a boat round', run: () => this.openLocker() };
     if (!this.inside(pos, 2)) return null;
     const car = g.vehicles.active;
     if (car && this.inGarage(car.pos)) return { label: car.ownedUid ? 'Keep this car at the volcano garage' : 'Store this car in the volcano garage', run: () => this.store(car) };
@@ -673,6 +803,8 @@ export class VolcanoBase {
     if (near(this.bar, 2.4)) return { label: 'Have a drink', run: () => { g.health.heal(15); g.sfx.play('cash'); g.hud.toast(['"On the house."', '"Steady, now."', '"Rough day?"'][Math.floor(Math.random() * 3)] + ' +15 health', 0x7be08a); } };
     if (near(this.board, 2.6)) return { label: 'Heist board', run: () => this.openBoard() };
     if (near(this.mcCounter, 2.4)) return { label: 'MARCOS* (order)', run: () => g.marcos.order() };
+    if (near(this.seaLift, 2.4)) return { label: 'Lift: down to the sea pen', run: () => this.ride(this.penLift, this.penLiftYaw, 'The sea pen') };
+    if (near(this.summitLift, 2.4)) return { label: 'Lift: up to the summit', run: () => this.ride(this.rimLift, this.rimYaw, 'The summit: 370 m up') };
     if (near(this.hunterDesk, 2.6)) return { label: 'The bounty hunter: contracts', run: () => g.hits.open() };
     if (near(this.hatch, 2.2) && (g.dragging || g.held)) return { label: g.dragging ? 'Throw the body down the chute' : `Throw the ${g.held.name.toLowerCase()} down the chute`, run: () => this.dispose() };
     return null;
@@ -863,6 +995,8 @@ export class VolcanoBase {
     { const cam = g.camera.position, d = Math.hypot(cam.x - this.V.x, cam.z - this.V.z), o = Math.max(0, Math.min(1, (d - 650) / 450)); this.far.visible = o > 0.01; this.far.material.opacity = o; }
     this.updatePlume(dt);
     this.updateHunter(dt);
+    if (this.liftCar) { const L = this.liftCar; L.mesh.position.y = L.y0 + (L.y1 - L.y0) * (0.5 - 0.5 * Math.cos(this.t * 0.12)); }
+    if (this.penRed) this.penRed.visible = Math.sin(this.t * 3) > 0;
     // the odd blob of lava pops up on its own
     this.bubT = (this.bubT ?? 2) - dt;
     const p = g.shorePlayer.body.translation(), here = Math.hypot(p.x - this.V.x, p.z - this.V.z) < 160;

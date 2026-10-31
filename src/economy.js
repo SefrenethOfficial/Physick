@@ -183,20 +183,20 @@ export class Economy {
     render();
   }
 
-  openDealer(types) {
+  openDealer(types, { title = 'Boat sales', lede = 'Bought boats are waiting at the marina berths.' } = {}) {
     const render = () => {
       const rows = types.filter((t) => t.price !== undefined).map((t) => {
         const owned = this.ownedBoats.includes(t.id);
         const btn = owned ? '<span class="owned">Owned</span>'
-          : `<button data-a="buy" data-id="${t.id}" ${this.money < t.price ? 'disabled' : ''}>Buy $${t.price.toLocaleString()}</button>`;
-        return `<div class="erow"><div><b>${t.name}</b><small>${Math.round(t.maxSpeed * 1.944)} kn · hull ${t.hp} · ${t.blurb}</small></div><div class="btns">${btn}</div></div>`;
+          : `<button data-a="buy" data-id="${t.id}" ${this.money + (t.illegal ? this.bank : 0) < t.price ? 'disabled' : ''}>Buy $${t.price.toLocaleString()}</button>`;
+        return `<div class="erow"><div><b>${t.name}</b><small>${Math.round(t.maxSpeed * 1.944)} kn · hull ${t.hp}${t.armored ? ' · bulletproof' : ''} · ${t.blurb}</small></div><div class="btns">${btn}</div></div>`;
       }).join('');
-      this.open('Boat sales', this.header() + '<p class="lede">Bought boats are waiting at the marina berths.</p>' + rows, (body) => body.addEventListener('click', (e) => {
+      this.open(title, this.header() + `<p class="lede">${lede}</p>` + rows, (body) => body.addEventListener('click', (e) => {
         const b = e.target.closest('button[data-a="buy"]');
         if (!b) return;
         const t = types.find((x) => x.id === b.dataset.id);
-        if (this.money < t.price) return;
-        this.addMoney(-t.price, `bought a ${t.name}`);
+        if (this.money + (t.illegal ? this.bank : 0) < t.price) return;
+        { const c = Math.min(this.money, t.price); if (t.price > c) this.bank -= t.price - c; this.addMoney(-c, `bought a ${t.name}`); } // (cash first; the dealer under the volcano takes a bank transfer too)
         this.ownedBoats.push(t.id);
         this.save();
         this.game.boats.spawnOwned(t.id);

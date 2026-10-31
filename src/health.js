@@ -23,6 +23,9 @@ export class Health {
     // El Monstruo is bulletproof: rounds spark off the armoured glass
     const v = this.game.vehicles?.active;
     if ((v?.monster || v?.bulletproof) && ['goon', 'police', 'gang', 'clerk'].includes(kind)) return;
+    const boat = this.game.boats?.active; // (an armoured boat: same again, the military's guns too)
+    if (boat?.type.armored && ['goon', 'police', 'gang', 'clerk', 'military'].includes(kind)) return;
+    if (boat?.type.armored && kind === 'explosion') amount *= 0.35;
     if (this.armor > 0) { // armour takes 70% of the hit until it's shot through
       const soak = Math.min(this.armor, amount * 0.7);
       this.armor -= soak;

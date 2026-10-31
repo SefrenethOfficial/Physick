@@ -1157,7 +1157,7 @@ class Game {
     const jet = this.jets.nearby(pos);
     if (jet) return { label: 'Fly the jet', run: () => this.jets.enter(jet) };
     if (this.near(this.city.pawnCounter, 3.5)) return { label: 'Pawn shop — sell loot', run: () => this.economy.openPawn() };
-    if (this.near(this.city.dealerCounter, 4)) return { label: 'Boat sales', run: () => this.economy.openDealer(BOAT_TYPES) };
+    if (this.near(this.city.dealerCounter, 4)) return { label: 'Boat sales', run: () => this.economy.openDealer(BOAT_TYPES.filter((t) => !t.illegal)) };
     const dealer = this.underworld.near(pos);
     if (this.bank.nearCounter(pos)) return { label: 'Bank teller', run: () => this.bank.open(false) };
     const st = this.stores.nearCounter(pos);

@@ -15,6 +15,11 @@ export const BOAT_TYPES = [
   { id: 'rib', name: 'Patrol RIB', price: 4800, maxSpeed: 26, accel: 7, turn: 0.9, hp: 170, len: 8, beam: 2.8, depth: 1.0, style: 'rib', color: 0x2b2f36, blurb: 'Fast and tough; shrugs off rams.' },
   { id: 'cruiser', name: 'Cabin Cruiser', price: 9500, maxSpeed: 17, accel: 3, turn: 0.55, hp: 340, len: 12, beam: 4, depth: 1.5, style: 'cruiser', color: 0xf2f2ee, blurb: 'Built like a tank. Rams back.' },
   { id: 'yacht', name: 'Super Yacht', price: 26000, maxSpeed: 20, accel: 2.4, turn: 0.4, hp: 750, len: 24, beam: 6, depth: 2.4, style: 'yacht', color: 0xffffff, blurb: 'Make a statement.' },
+  // the illegal ones: only from the sea pen under the volcano. Steel plate and bulletproof screens:
+  // gunfire doesn't touch you or the boat, and the armour soaks up most of a ram
+  { id: 'gofast', name: 'Armoured Go-Fast', price: 18000, illegal: true, armored: true, maxSpeed: 31, accel: 8, turn: 0.85, hp: 380, len: 9, beam: 2.6, depth: 1.0, style: 'speed', color: 0x1a1c20, blurb: 'A smuggler\'s go-fast. Bulletproof. Outruns anything the police have.' },
+  { id: 'gunboat', name: 'Bulletproof Gunboat', price: 27000, illegal: true, armored: true, maxSpeed: 25, accel: 7, turn: 0.9, hp: 560, len: 9.5, beam: 3, depth: 1.1, style: 'rib', color: 0x2e3428, blurb: 'Armour-plated RIB. Shrugs off bullets and police rams alike.' },
+  { id: 'ironclad', name: 'Armoured Cruiser', price: 42000, illegal: true, armored: true, maxSpeed: 19, accel: 3.5, turn: 0.55, hp: 950, len: 13, beam: 4.2, depth: 1.6, style: 'cruiser', color: 0x2a2c30, blurb: 'Steel plate over a cabin cruiser. Rams like a battleship.' },
 ];
 export const POLICE_BOAT = { id: 'police', name: 'Police Boat', maxSpeed: 21, accel: 6, turn: 0.95, hp: 220, len: 9, beam: 3, depth: 1.1, style: 'police', color: 0xf2f2ee };
 export const BOAT_BY_ID = Object.fromEntries([...BOAT_TYPES, POLICE_BOAT].map((t) => [t.id, t]));
@@ -186,6 +191,15 @@ export function buildBoat(type) {
     root.add(mast);
     helm.set(0, deckY + 0.5, L * 0.32);
   }
+  // armour: steel plates down both sides, and the screens blacked out
+  if (type.armored) {
+    const steel = std({ color: 0x4a4e52, roughness: 0.55, metalness: 0.6 }), rivet = std({ color: 0x2a2c2e, metalness: 0.7 });
+    for (const s of [-1, 1]) for (let i = 0; i < 4; i++) {
+      const pl = new THREE.Mesh(new THREE.BoxGeometry(0.07, D * 0.42, L * 0.17), steel); pl.position.set(s * B * 0.5, D * 0.22, -L * 0.28 + i * L * 0.19); pl.rotation.z = s * 0.12; root.add(pl);
+      for (const dz of [-1, 1]) { const r = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 4), rivet); r.position.set(s * B * 0.53, D * 0.36, -L * 0.28 + i * L * 0.19 + dz * L * 0.07); root.add(r); }
+    }
+    root.traverse((o) => { if (o.isMesh && o.material === glass) o.material = std({ color: 0x0c0e10, roughness: 0.2, metalness: 0.7 }); });
+  }
   // driver (shown while someone's at the helm)
   const driver = buildFigure(type.style === 'police'
     ? { shirt: 0x1c2f6e, pants: 0x1b2638, skin: 0xd9a47c, hat: 'cap', hatColor: 0x111a33 }
@@ -226,6 +240,7 @@ export class Boat {
 
   damage(n) {
     if (this.sinking || n <= 0) return;
+    if (this.type.armored) n *= 0.4; // (the plate takes most of it)
     this.hp -= n;
     if (this.game.boats.active === this) this.game.hud.boatHit(n);
     if (this.hp <= 0) this.sink();
@@ -335,6 +350,8 @@ export class Boats {
     const type = BOAT_BY_ID[id];
     const berths = this.game.city.berths;
     const big = type.len > 10;
+    const pen = type.illegal && this.game.volcano?.penBerth?.(type); // (the illegal ones live in the sea pen)
+    if (pen) { const boat = new Boat(this.game, type, pen.x, pen.z, pen.heading, { owned: true }); this.list.push(boat); return boat; }
     const b = berths.find((x) => this.berthFree(x) && (!big || Math.abs(x.z) > 10)) || berths[0];
     // big boats moor further out
     const boat = new Boat(this.game, type, b.x + (big ? type.len * 0.3 : 0), b.z + (big ? Math.sign(b.z || 1) * type.beam * 0.4 : 0), b.heading, { owned: true });
@@ -433,7 +450,7 @@ export class Boats {
       if (q.t <= 0) {
         this.respawnQueue.splice(this.respawnQueue.indexOf(q), 1);
         this.spawnOwned(q.id);
-        this.game.hud.toast(`Your ${BOAT_BY_ID[q.id].name} is back at the marina`);
+        this.game.hud.toast(`Your ${BOAT_BY_ID[q.id].name} is back ${BOAT_BY_ID[q.id].illegal ? 'in the sea pen' : 'at the marina'}`);
       }
     }
     const a = this.active;
