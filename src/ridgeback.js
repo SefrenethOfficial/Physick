@@ -165,8 +165,8 @@ export class Ridgeback {
     const th = Math.atan2(x - V.x, z - V.z), cone = this.coneAt(r, th);
     if (r < this.R0at(th)) { // (the cone's always on top, flaring smoothly out of the hill instead of sitting on it like a hat)
       const isl = this.isl, e = Math.min(x - isl.x0, isl.x1 - x, z - isl.z0, isl.z1 - z), edge = smooth(6, 110, e); // (down to the sea at the island's edge)
-      const c = Y + (cone - Y) * edge + (r > this.crater.rim ? this.gully(r, th) : 0) + (r < this.crater.rim + 6 ? 2.5 * fbm(th * 6, 3) - 1.2 : 0), k = 40, m = Math.max(0, k - Math.abs(c - h)) / k;
-      h = Math.max(h, c) + m * m * k * 0.25 * smooth(this.R0at(th), this.R0at(th) - 30, r);
+      const c = Y + (cone - Y) * edge + (r > this.crater.rim ? this.gully(r, th) * edge : 0) + (r < this.crater.rim + 6 ? 2.5 * fbm(th * 6, 3) - 1.2 : 0), k = 40, m = Math.max(0, k - Math.abs(c - h)) / k;
+      h = Math.max(h, c) + m * m * k * 0.25 * smooth(this.R0at(th), this.R0at(th) - 30, r) * edge * smooth(Y + 4, Y + 30, Math.max(h, c)); // (the fillet: not out at the coast, where it lifted the ground off the island's edge)
       // the roads up here run in cuttings through the flank
       const n = this.index.nearest(x, z, 30);
       if (n) { const w = n.r.width / 2; h = Math.min(h, n.p.y - 0.05 + Math.max(0, n.d - w - 3.5) * 0.9); }

@@ -440,11 +440,16 @@ export class VolcanoBase {
       for (let i = 0; i < P.count; i++) {
         const lx = P.getX(i), lt = a0 + (P.getZ(i) + (a1 - a0) / 2);
         const wx = T.a.x + T.u.x * lt + T.u.z * lx, wz = T.a.z + T.u.z * lt - T.u.x * lx;
-        P.setXYZ(i, wx, Math.max(rb.heightAt(wx, wz) + 0.3, Y + 8.8), wz);
+        P.setXYZ(i, wx, Math.max(rb.heightAt(wx, wz) + 0.12, Y + 8.8), wz);
       }
       geo.computeVertexNormals();
-      const cap = new THREE.Mesh(geo, Object.assign(std({ color: 0x4a423c, roughness: 1, map: this.M.rock.map }), { side: THREE.DoubleSide })); cap.receiveShadow = true; cap.castShadow = true;
+      // (the mountain's own ground: same material and colours, and solid: it used to be a dark strip you fell through)
+      const isl = rb.isl, uv = new Float32Array(P.count * 2), col = new Float32Array(P.count * 3), N = geo.attributes.normal;
+      for (let i = 0; i < P.count; i++) { uv[i * 2] = (P.getX(i) - isl.x0) / (isl.x1 - isl.x0); uv[i * 2 + 1] = 1 - (P.getZ(i) - isl.z0) / (isl.z1 - isl.z0); const c = rb.colorAt(P.getX(i), P.getY(i), P.getZ(i), N.getY(i)); col[i * 3] = c[0]; col[i * 3 + 1] = c[1]; col[i * 3 + 2] = c[2]; }
+      geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      const cap = new THREE.Mesh(geo, rb.terrain.material); cap.receiveShadow = true; cap.castShadow = true;
       this.group.add(cap);
+      sb.addStaticCollider(RAPIER.ColliderDesc.trimesh(new Float32Array(P.array), new Uint32Array(geo.index.array)));
     }
   }
 
