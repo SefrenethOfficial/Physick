@@ -8,6 +8,7 @@ import { Phone } from './phone.js';
 import { Heli, SHIP } from './cargo.js';
 import { ElMonstruo, CARS_TOTAL, MAX_ALIVE } from './elmonstruo.js';
 import { Act2, ACT2_MISSIONS, ACT2_KEY_ITEMS } from './act2.js';
+import { Act3, ACT3_MISSIONS, ACT3_KEY_ITEMS } from './act3.js';
 
 // The story: Wren Takavic, your oldest friend, was killed in the Verian Central bombing.
 // The Ashen Hand cell did it. Work your way towards them one job at a time.
@@ -23,7 +24,7 @@ export const KEY_ITEMS = {
   manifest: { name: 'Shipping manifest', desc: 'Crates through Saltmarsh dock marked "agricultural". Half of it is in some kind of code.' },
   blueprint: { name: 'Torn blueprint', desc: 'Part of a floor plan, with a circle drawn round one room. You can\'t tell where it is from this piece.' },
 };
-Object.assign(KEY_ITEMS, ACT2_KEY_ITEMS);
+Object.assign(KEY_ITEMS, ACT2_KEY_ITEMS, ACT3_KEY_ITEMS);
 const DOCS = ['manifest', 'blueprint'];
 
 const INTRO = [
@@ -74,6 +75,7 @@ export const MISSIONS = [
     passText: `${FIXER}: "That's one of them. The Courier's done, the bomb's in the sea and El Monstruo's a pancake. Wren, that's for you."`,
   },
   ...ACT2_MISSIONS,
+  ...ACT3_MISSIONS,
 ];
 
 export class Story {
@@ -94,6 +96,7 @@ export class Story {
     this.heli = new Heli(game);
     this.monstruo = new ElMonstruo(game);
     this.fallout = new Act2(game, this); // Act II
+    this.foundations = new Act3(game, this); // Act III
     // Vic's texts: the brief for every job you've been given so far
     if (!this.state.messages) {
       this.state.messages = [];
@@ -375,6 +378,7 @@ export class Story {
       if ((g.economy.ammo.pistolAmmo || 0) < 24) g.economy.addAmmo('pistolAmmo', 24);
     }
     if (this.fallout.owns(id)) this.fallout.start(a);
+    if (this.foundations.owns(id)) this.foundations.start(a);
     if (id === 'm4') {
       Object.assign(a, { stage: 'board', goons: [], parts: [], sunk: 0, alert: false, reinfT: 0 });
       if (!hasGun) { g.giveItem(ITEM_BY_ID.pistol); g.hud.toast(`${FIXER} left you a pistol`, 0xffd166); }
@@ -409,6 +413,7 @@ export class Story {
       if (this.phone.call) { this.phone.call = null; this.phone.ringEl.classList.remove('on'); }
     }
     if (this.fallout.owns(a.id)) this.fallout.end(a, pass);
+    if (this.foundations.owns(a.id)) this.foundations.end(a, pass);
     if (pass) {
       if (!this.passed(a.id)) this.state.passed.push(a.id);
       this.save();
@@ -431,7 +436,7 @@ export class Story {
   action(pos) {
     const g = this.game, a = this.active;
     const near = (p, r) => p && Math.hypot(p.x - pos.x, p.z - pos.z) < r && Math.abs(p.y - pos.y) < 3;
-    const fa = this.fallout.action(pos, a);
+    const fa = this.fallout.action(pos, a) || this.foundations.action(pos, a);
     if (fa) return fa;
     if (a?.id === 'm2' && a.stage === 'shutter' && near(this.shutter.front, 3)) {
       return { label: 'Force the shutter open', run: () => {
@@ -507,6 +512,7 @@ export class Story {
     if (this.keyMesh?.visible) this.keyMesh.rotation.y += dt * 1.5;
     this.phone.update(dt);
     this.fallout.tick(dt);
+    this.foundations.tick(dt);
     if (this.mansion.built && this.underground) this.mansion.update(this.game.time);
     if (!a) { this.beacon.visible = false; return; }
     a.t += dt;
@@ -518,6 +524,7 @@ export class Story {
     if (a.id === 'm4') this.updateM4(a, p, dt);
     if (a.id === 'm5') this.updateM5(a, p, dt);
     if (this.fallout.owns(a.id)) this.fallout.update(a, p, dt);
+    if (this.foundations.owns(a.id)) this.foundations.update(a, p, dt);
     if (!this.active) return;
     const wp = a.wp;
     const d = wp ? Math.hypot(wp.x - p.x, wp.z - p.z) : 0;
@@ -895,8 +902,8 @@ export class Story {
   actComplete(n) {
     const e = this.game.economy;
     const html = `<div class="story act">
-      <h1>ACT ${['', 'I', 'II', 'III'][n]}</h1><h2>complete</h2>
-      ${n === 2 ? this.fallout.completeText() : `<p>Verian Central Square is still standing. The bomb is at the bottom of the harbour, the Courier is dead in a truck that's now a metal pancake, and the Ashen Hand have lost their first man.</p>
+      <h1>ACT ${['', 'I', 'II', 'III', 'IV'][n]}</h1><h2>complete</h2>
+      ${n === 3 ? this.foundations.completeText() : n === 2 ? this.fallout.completeText() : `<p>Verian Central Square is still standing. The bomb is at the bottom of the harbour, the Courier is dead in a truck that's now a metal pancake, and the Ashen Hand have lost their first man.</p>
       <p>They know someone is coming for them now. They don't know it's you. Not yet.</p>`}
       ${n === 1 ? '<p><b>Next:</b> Route 9 runs out into <b>the Scorch</b>, where Act II begins.</p>' : ''}
       <div class="btns"><button data-a="ok">Continue</button></div></div>`;

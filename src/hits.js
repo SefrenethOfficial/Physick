@@ -32,13 +32,13 @@ const FAMOUS = [
   { name: 'Dario Venn', who: 'the TV chef off Channel 6\'s "Verian Kitchen"', why: 'his last review closed somebody\'s restaurant, and he did it on purpose', d: [2, 4], look: { shirt: 0xf2f2ee, pants: 0x2a2c30, hat: 'dixie', hatColor: 0xffffff } },
   { name: 'Rex Halloway', who: 'the Verian Vipers\' star striker', why: 'took money to throw the cup final. The people who paid him lost more', d: [3, 4], look: { shirt: 0x1a7a3a, pants: 0x111111 } },
   { name: 'DJ Nova', who: 'the biggest act in Verian City', why: 'stole the client\'s song and made a million off it', d: [3, 5], look: { shirt: 0xc23b8a, pants: 0x1a1a1a, hat: 'beanie', hatColor: 0x2a2a2a } },
-  { name: 'Gideon Pratt', who: 'the property developer behind half of downtown', why: 'his towers went up where a whole street used to be', d: [4, 5], look: { shirt: 0x1f2a3a, pants: 0x1f2a3a, hat: 'fedora', hatColor: 0x1a1a1a } },
+  { name: 'Sterling Cobb', who: 'the man who owns the casino boats on the waterfront', why: 'takes everything a gambler has, then sends men round for the rest', d: [4, 5], look: { shirt: 0x1f2a3a, pants: 0x1f2a3a, hat: 'fedora', hatColor: 0x1a1a1a } },
   { name: 'Benny Sloane', who: 'the talk radio host on 98.4 the Mouth', why: 'said a name on air he shouldn\'t have', d: [2, 3], look: { shirt: 0x8a5a2a, pants: 0x2a2620 } },
-  { name: 'Vivian Ash', who: 'Channel 6\'s news anchor', why: 'is about to read out a story on air that somebody needs to stay buried', d: [3, 4], look: { shirt: 0x8a1a2a, pants: 0x1a1a1a } },
-  { name: 'Lars Ekman', who: 'the chief executive of Verian National Bank', why: 'foreclosed on half of Saltmarsh to pay for his yacht', d: [4, 5], look: { shirt: 0x2a2c30, pants: 0x2a2c30, hat: 'tophat', hatColor: 0x111111 } },
+  { name: 'Tess Calloway', who: 'the Verian Herald\'s gossip columnist', why: 'printed something about the client\'s family that wasn\'t true, and won\'t take it back', d: [2, 4], look: { shirt: 0x8a1a2a, pants: 0x1a1a1a } },
+  { name: 'Pieter Holm', who: 'the head of Coastline Insurance', why: 'turned down every claim in Saltmarsh after the storm and bought the houses for nothing', d: [4, 5], look: { shirt: 0x2a2c30, pants: 0x2a2c30, hat: 'tophat', hatColor: 0x111111 } },
   { name: 'Mickey Drummond', who: 'the man who owns the MARCOS franchise in Verian', why: 'found out about the MARCOS* in the volcano and he\'s talking to his lawyers', d: [2, 3], look: { shirt: 0xc8102e, pants: 0x1a1a1a } },
   { name: 'Kayla Bright', who: 'the influencer with two million followers', why: 'filmed something in the Hollows she shouldn\'t have, and she\'s posting it tonight', d: [2, 3], look: { shirt: 0xf2c0d8, pants: 0xe8e2d4 } },
-  { name: 'Judge Harlan Oakes', who: 'Verian City\'s hanging judge', why: 'sent the client\'s son down for twenty years on evidence everyone knew was planted', d: [4, 5], look: { shirt: 0x111111, pants: 0x111111 } },
+  { name: 'Judge Ambrose Kell', who: 'Verian City\'s hanging judge', why: 'sent the client\'s son down for twenty years on evidence everyone knew was planted', d: [4, 5], look: { shirt: 0x111111, pants: 0x111111 } },
   { name: 'Councillor Marla Quint', who: 'the city councillor who runs the planning committee', why: 'sold the Hollows to the highest bidder', d: [3, 5], look: { shirt: 0x2a3a5a, pants: 0x2a3a5a } },
 ];
 // difficulty: bodyguards (their guns), how tough the target is, the pay, and who's around
