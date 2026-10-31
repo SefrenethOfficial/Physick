@@ -232,7 +232,7 @@ export class Act3 {
         g.giveItem(ITEM_BY_ID.rifle || ITEM_BY_ID.smg); g.economy.addAmmo('rifleAmmo', 60);
         g.hud.toast('Rifles, still in grease paper, and boxes of rounds. Ashen Hand guns, on a Pratt barge. You help yourself to one.', 0xe8e2d4);
       } };
-      if (a.stage === 'search' && near(0, 9.3, 2.2)) return { label: 'Search the wheelhouse', run: () => {
+      if (a.stage === 'search' && (near(0, 9.2, 2.8) || near(0, 11.8, 4.4))) return { label: 'Search the wheelhouse', run: () => {
         this.story.giveKeyItem('hollowsplans');
         g.hud.toast(ACT3_KEY_ITEMS.hollowsplans.desc, 0xe8e2d4);
         a.stage = 'done';
@@ -383,6 +383,8 @@ export class Act3 {
     for (let i = 0; i < 3; i++) box(1.2, 0.9, 0.9, -2.6 + i * 1.5, D, 6.2, M.crate);
     box(6, 3.4, 4, 0, D, 11.8, M.white); box(6.2, 0.2, 4.2, 0, D + 3.4, 11.8, M.hull);
     box(5.4, 0.9, 0.05, 0, D + 2.1, 9.78, M.glass);
+    box(1.1, 2.1, 0.08, 0, D, 9.76, M.hull); /* (the door, on the deck side) */
+    { const sg = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.45), new THREE.MeshBasicMaterial({ map: canvasTex(256, 48, (c, w, h) => { c.fillStyle = '#1a1c20'; c.fillRect(0, 0, w, h); c.fillStyle = '#f2f0ea'; c.font = 'bold 30px Arial'; c.textAlign = 'center'; c.fillText('WHEELHOUSE', w / 2, 34); }) })); sg.position.set(0, D + 3.05, 9.74); sg.rotation.y = Math.PI; grp.add(sg); }
     const side = new THREE.Mesh(new THREE.PlaneGeometry(14, 1.4), new THREE.MeshBasicMaterial({ map: canvasTex(512, 52, (c, w, h) => { c.fillStyle = '#3a3f46'; c.fillRect(0, 0, w, h); c.fillStyle = '#f2f0ea'; c.font = 'bold 34px Arial'; c.textAlign = 'center'; c.fillText('PRATT AGGREGATES', w / 2, 38); }) }));
     for (const sx of [-1, 1]) { const m = side.clone(); m.position.set(sx * 4.52, 0.4, -2); m.rotation.y = sx * Math.PI / 2; grp.add(m); }
     a.barge = b; a.bargeD = D;
@@ -467,19 +469,25 @@ export class Act3 {
         a.stage = 'aboard';
         g.hud.flashBanner('ABOARD', '#ff3a2a');
         g.hud.toast('The crew come out of the wheelhouse with guns. Ashen Hand, every one of them.', 0xff6a5a);
-        [['rifle', -2.5, 10], ['smg', 2.5, 10], ['heavy', 0, 8.5], ['rifle', -3.2, -3.5], ['smg', 3.2, -4]].forEach(([kind, lx, lz]) => this.spawnGoon(a, a.W(lx, lz, 0.05), kind, 'hills'));
+        [['rifle', -3.4, 8.4], ['smg', 3.4, 8.4], ['heavy', 0, 8.3], ['rifle', -3.2, -3.5], ['smg', 3.2, -4]].forEach(([kind, lx, lz]) => this.spawnGoon(a, a.W(lx, lz, 0.05), kind, 'hills'));
       }
       return;
     }
     if (a.stage === 'aboard') {
       a.goons = a.goons.filter((n) => C.list.includes(n));
+      /* (one that's gone over the side is out of the fight) */
+      const deckY = a.W(0, 0).y;
+      for (const n of [...a.goons]) if (n.body.translation().y < deckY - 1.5) { C.despawn(n); a.goons.splice(a.goons.indexOf(n), 1); g.hud.toast('One of them went over the side', 0x9ec5ff); }
       this.story.updateNades(a, dt, p);
       a.text = a.goons.length ? `Clear the barge: ${a.goons.length} of them` : 'Search the barge: the crates, and the wheelhouse';
       a.wp = null;
       if (!a.goons.length) a.stage = 'search';
       return;
     }
-    if (a.stage === 'search') { a.text = a.crates ? 'Now the wheelhouse: whatever he\'s hiding, it\'s in there' : 'Search the barge: the crates, and the wheelhouse'; a.wp = null; }
+    if (a.stage === 'search') {
+      a.text = a.crates ? 'Now the wheelhouse (the white cabin at the back of the barge): go to its door and press E' : 'Search the barge: the crates amidships, and the wheelhouse (the white cabin at the back). Go to its door and press E';
+      a.wp = a.W(0, 9.2, 0);
+    }
   }
 
   // ---------------------------------------------------------------- m14: Dead Man's Switch
