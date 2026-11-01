@@ -9,7 +9,8 @@ import { BOAT_BY_ID } from './boats.js';
 // Verian Central was on land he wanted, and the money runs from both of them offshore, to something
 // called MERIDIAN. Somewhere along the way, Vic starts taking calls he doesn't want you to hear.
 //   m12 Ash on the Wind    the Ashen Hand raid the volcano base. Somebody told them where it was.
-//   (more to come: Following the Money, Dead Man's Switch, Black Water, The Quarry Job, Lockdown)
+//   m13 Following the Money · m14 Dead Man's Switch · m15 Black Water · m16 The Quarry Job
+//   (still to come: Lockdown)
 
 const FIXER = 'Vic';
 
@@ -27,6 +28,7 @@ export const ACT3_KEY_ITEMS = {
   ledger: { name: 'The Meridian ledger', desc: 'Copied off the director\'s computer at Verian National. Ashen Hand front companies pay Pratt Developments; Pratt Developments pays out to an account offshore called MERIDIAN. Every month. Since before the bombing.' },
   sniperphone: { name: "The sniper's phone", desc: 'One message, from a withheld number, an hour before you got to the cabins: "Cabin 3. He\'s alone tonight."' },
   hollowsplans: { name: 'Demolition plans: the Hollows', desc: 'PRATT DEVELOPMENTS · HOLLOWS REGENERATION. Six blocks of the Hollows, each marked "VACANT BY Q3". Nobody\'s told the people living in them. Clipped to the back: a list of "site preparation" dates, and the first one is next week.' },
+  blastregister: { name: 'The quarry\'s explosives register', desc: 'RIDGEBACK AGGREGATES (a Pratt Developments company). Every month since Pratt bought the pit: cases of blasting charges signed out to "P.D. · SITE PREP" and never blasted. The batch numbers match the crates in the old mine. Marta has circled one in red: the batch the fire service pulled out of Verian Central.' },
   raidphone: { name: "The lieutenant's phone", desc: 'One photo in it: your tunnel entrance, taken from the summit car park. Sent from a withheld number, the day before the raid.' },
 };
 
@@ -54,6 +56,12 @@ export const ACT3_MISSIONS = [
     brief: `${FIXER}: "Kid. I've been asking around. Pratt's got a barge running \"cement\" out of Ridgeback tonight. It isn't cement. Get to the sea pen, take one of Dutch's armoured boats, and stop it. Get on board and find out what he's moving. And kid… about cabin 3. It wasn't me. You know that, right?"`,
     reward: 9000,
     passText: `${FIXER}: "The Hollows. Six blocks of people's homes. He's going to do Verian Central again." … "I'll call you back." He hangs up before you can say anything.`,
+  },
+  {
+    id: 'm16', title: 'The Quarry Job', requires: 'm15',
+    brief: `${FIXER}: "Site preparation. That's what Pratt calls blowing up people's homes. So where's he getting the bang? Ridgeback Quarry, kid. Pratt bought it last year. The foreman, Marta Kos, owes me one, and she's scared. Go up there tonight. She'll show you where the charges go."`,
+    reward: 10000,
+    passText: `${FIXER}: "Kid! You're… good. Good. I sent a car up, it must've got held up. … The register? Hang on to that. Don't show it to anyone. Not yet. Not even me." He laughs. It doesn't sound like him.`,
   },
 ];
 
@@ -181,6 +189,7 @@ export class Act3 {
     if (a.id === 'm13') { this.startM13(a); return; }
     if (a.id === 'm14') { this.startM14(a); return; }
     if (a.id === 'm15') { this.startM15(a); return; }
+    if (a.id === 'm16') { this.startM16(a); return; }
     const hasGun = g.held?.gun || g.economy.carried.some((x) => ITEM_BY_ID[x]?.gun);
     if (!hasGun) { g.giveItem(ITEM_BY_ID.smg); g.hud.toast(`${FIXER} left an SMG for you`, 0xffd166); }
     for (const [k, n] of [['smgAmmo', 150], ['pistolAmmo', 60], ['rifleAmmo', 90]]) if ((g.economy.ammo[k] || 0) < n) g.economy.addAmmo(k, n - (g.economy.ammo[k] || 0));
@@ -190,6 +199,7 @@ export class Act3 {
 
   maybeCheckpoint(a) {
     const g = this.game, retry = this.retry?.id === a.id && performance.now() - this.retry.t < 20 * 60e3;
+    a.retryStage = retry ? this.retry.stage : null;
     this.retry = null;
     if (retry && !this.vb?.playerInside && !g.vehicles.active && !g.flying && !g.boats?.active && !g.skydive?.active) this.checkpoint(a);
   }
@@ -211,11 +221,14 @@ export class Act3 {
     }
     this.alarm(false);
     if (a.id === 'm13') this.stealth.clearStealth(a);
-    if (!pass) this.retry = { id: a.id, t: performance.now() };
+    for (const nd of a.nades || []) nd.m.removeFromParent();
+    if (a.marta && g.citizens.list.includes(a.marta)) g.citizens.despawn(a.marta);
+    if (!pass) this.retry = { id: a.id, t: performance.now(), stage: a.stage };
   }
 
   checkpoint(a) {
     const g = this.game, v = this.vb;
+    if (a.id === 'm16') { const o = this.rb.quarryOffice, q = this.rb.quarry; this.story.fade(() => { g.placeOnShore(V3(o.x - 2, o.y + 1.4, o.z - 6), Math.atan2(q.x - o.x, q.z - o.z)); if (a.blown) { a.stage = 'back'; g.hud.toast('Checkpoint: the quarry. The stash is already gone. Get back to Marta.', 0x9ec5ff); } else g.hud.toast('Checkpoint: Ridgeback Quarry', 0x9ec5ff); }); return; }
     if (a.id === 'm15') { const pen = this.rb.pen; this.story.fade(() => { g.placeOnShore(V3(this.vb.penDealer.x, this.vb.penDealer.y + 1.2, this.vb.penDealer.z), 0); g.hud.toast('Checkpoint: the sea pen', 0x9ec5ff); }); void pen; return; }
     if (a.id === 'm14') { const c = this.rb.cabins[2], d = c.door; this.story.fade(() => { g.placeOnShore(V3(d.x, d.y + 1.2, d.z).add(V3(Math.sin(c.yaw + Math.PI) * -6, 0, Math.cos(c.yaw + Math.PI) * -6)), c.yaw + Math.PI); g.hud.toast('Checkpoint: Ridgeback Cabins', 0x9ec5ff); }); return; }
     if (a.id === 'm13') { const d = this.game.city.bank.door, B = this.bankB, o = V3(d.x - B.x, 0, d.z - B.z).normalize(); this.story.fade(() => { g.placeOnShore(V3(d.x + o.x * 14, d.y + 1.2, d.z + o.z * 14), Math.atan2(-o.x, -o.z)); g.hud.toast('Checkpoint: across the street from the bank', 0x9ec5ff); }); return; }
@@ -239,6 +252,7 @@ export class Act3 {
         setTimeout(() => this.story.end(true), 4500);
       } };
     }
+    if (a.id === 'm16') return this.actM16(pos, a);
     if (a.id === 'm14') {
       if (a.stage === 'meet' && Math.hypot(pos.x - a.cabin.door.x, pos.z - a.cabin.door.z) < 3.5) return { label: 'Knock on cabin 3', run: () => {
         g.sfx.play('punch');
@@ -291,6 +305,218 @@ export class Act3 {
     if (a.id === 'm13') this.updM13(a, p, dt);
     if (a.id === 'm14') this.updM14(a, p, dt);
     if (a.id === 'm15') this.updM15(a, p, dt);
+    if (a.id === 'm16') this.updM16(a, p, dt);
+  }
+
+  // ---------------------------------------------------------------- m16: The Quarry Job
+  // Night at Ridgeback Quarry. Marta Kos, the foreman, gives you the run of the explosives store; the
+  // Ashen Hand keep their stash outside the old mine on the volcano's flank. Blow it, go back to Marta,
+  // and then Vic's "car" turns out to be three trucks on the haul road: hold the cutting till dawn.
+  later(a, s, fn) { (a.queue ||= []).push({ at: a.t + s, fn }); }
+  say(a, lines, then, gap = 3.8) {
+    lines.forEach((l, i) => this.later(a, i * gap, () => this.game.hud.toast(l, l.startsWith(FIXER) ? 0x9ec5ff : 0xe8e2d4)));
+    if (then) this.later(a, (lines.length - 1) * gap + 2.4, then);
+  }
+  qGate() { const q = this.rb.quarry; return V3(q.x, this.rb.heightAt(q.x, q.z + 118), q.z + 118); }
+
+  startM16(a) {
+    const g = this.game, rb = this.rb, q = rb.quarry, dn = g.daynight, r = this.retry;
+    const blown = r?.id === 'm16' && performance.now() - r.t < 20 * 60e3 && ['clear', 'call', 'back', 'warn', 'hold', 'dawn'].includes(r.stage);
+    Object.assign(a, { stage: blown ? 'back' : 'go', blown, plant: 0, wave: 0, queue: [], sharp: 1 });
+    const hasGun = g.held?.gun || g.economy.carried.some((x) => ITEM_BY_ID[x]?.gun);
+    if (!hasGun) { g.giveItem(ITEM_BY_ID.smg); g.hud.toast(`${FIXER} left an SMG for you`, 0xffd166); }
+    for (const [k, n] of [['smgAmmo', 180], ['pistolAmmo', 60], ['rifleAmmo', 90]]) if ((g.economy.ammo[k] || 0) < n) g.economy.addAmmo(k, n - (g.economy.ammo[k] || 0));
+    if (g.health.armor < 50) { g.health.armor = 100; g.hud.toast('…and a vest. You\'re wearing it.', 0x7fb2ff); }
+    if (dn && dn.hour > 5 && dn.hour < 20.5) this.story.fade(() => { dn.hour = 21.5; g.hud.toast('That night, up in the hills.', 0x9ec5ff); });
+    // Marta, in the site office (the lower cabin), facing her door
+    const m = g.citizens.spawnCitizen('hills', 'escort', V3(q.x + 26, rb.quarryFloor() + 1.3, q.z + 33.3), { look: { shirt: 0xe8a020, pants: 0x2a3a5a, skin: 0xe0b090, hat: 'cap', hatColor: 0xf2f2f2 } });
+    if (m) { m.faceYaw = Math.PI; m.heading = Math.PI; m.hp = 200; m.name = 'Marta Kos'; a.marta = m; }
+    a.store = V3(q.x - 37, rb.quarryFloor(), q.z + 33.4); /* (in front of the explosives store's door) */
+    // the stash: crates beside the mine's mouth (the portal's behind the ledge, the cart's in front of it)
+    const yaw = rb.mineYaw, side = V3(Math.cos(yaw), 0, -Math.sin(yaw)), back = V3(-Math.sin(yaw), 0, -Math.cos(yaw));
+    const s = rb.mine.clone().addScaledVector(side, 2.6).addScaledVector(back, 1.0); s.y = rb.heightAt(s.x, s.z);
+    a.stashAt = s;
+    if (!blown) this.buildStash(a, s, yaw);
+    this.maybeCheckpoint(a);
+  }
+
+  buildStash(a, p, yaw) {
+    const G = new THREE.Group(), wood = std({ color: 0x8a6a42, roughness: 0.9 }), dark = std({ color: 0x4a3622, roughness: 0.9 }), drum = std({ color: 0xa8281e, roughness: 0.6, metalness: 0.3 }), tarp = std({ color: 0x3a4630, roughness: 1, side: THREE.DoubleSide });
+    const box = (w, h, d, x, y, z, m, ry = 0) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y + h / 2, z); o.rotation.y = ry; o.castShadow = true; G.add(o); return o; };
+    for (const [x, z, y, r] of [[-0.6, -0.5, 0, 0.1], [0.5, -0.5, 0, -0.05], [-0.5, 0.5, 0, 0], [0.55, 0.45, 0, 0.15], [0, 0, 0.9, 0.3], [-0.3, -0.4, 1.8, -0.2]]) { box(0.9, 0.9, 0.9, x, y, z, wood, r); box(0.92, 0.08, 0.92, x, y + 0.45, z, dark, r); }
+    for (const [x, z] of [[1.5, -0.3], [1.6, 0.6]]) { const d = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.95, 14), drum); d.position.set(x, 0.48, z); d.castShadow = true; G.add(d); }
+    const t = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.2), tarp); t.rotation.set(-1.2, 0, 0.1); t.position.set(-0.1, 1.5, -0.7); G.add(t);
+    const sg = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 0.22), new THREE.MeshBasicMaterial({ map: textTex('P.D. · SITE PREP', '#e8dcc0', '#8a1a10', 0.85 / 0.22) })); sg.position.set(0.5, 0.65, 0.91); G.add(sg);
+    G.position.copy(p); G.rotation.y = yaw; this.game.scene.add(G);
+    a.stash = G; a.fx.push(G);
+  }
+
+  // five of them round the ledge, on watch (they don't come looking till they see you)
+  guardStash(a) {
+    const rb = this.rb, s = a.stashAt, yaw = rb.mineYaw;
+    a.guarded = true;
+    [['rifle', 7, -1.1], ['smg', 9, -0.45], ['heavy', 5.5, 0.1], ['grenadier', 11, 0.6], ['rifle', 13, 1.2]].forEach(([k, r, da]) => {
+      const ang = yaw + da, x = s.x + Math.sin(ang) * r, z = s.z + Math.cos(ang) * r;
+      const n = this.spawnGoon(a, V3(x, rb.heightAt(x, z) + 0.3, z), k);
+      if (n) { n.alerted = false; n.lastSeen = null; n.heading = ang; n.stash = true; }
+    });
+  }
+
+  blowStash(a) {
+    const g = this.game, s = a.stashAt.clone().setY(a.stashAt.y + 0.8);
+    a.stash?.removeFromParent();
+    g.blast(s, 16, 220, false);
+    this.later(a, 0.35, () => g.blast(s.clone().add(V3(1.6, 1.2, -0.8)), 9, 80, false));
+    this.later(a, 0.8, () => g.blast(s.clone().add(V3(-1.2, 2.5, 0.6)), 9, 80, false));
+    const sc = new THREE.Mesh(new THREE.CircleGeometry(5, 24), new THREE.MeshBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.75, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+    sc.rotation.x = -Math.PI / 2; sc.position.copy(a.stashAt).add(V3(0, 0.08, 0)); g.scene.add(sc); a.fx.push(sc);
+    const fire = new THREE.PointLight(0xff7a2a, 6, 30, 1.6); fire.position.copy(s).add(V3(0, 1, 0)); g.scene.add(fire); a.fx.push(fire); a.fire = fire;
+  }
+
+  // a box truck on the haul road, lights on, where the next lot get out
+  truck(a, p) {
+    const g = this.game, G = new THREE.Group(), body = std({ color: [0x2a2c30, 0x3a3020, 0x1f2a22][a.wave % 3], roughness: 0.7 }), blk = std({ color: 0x111111, roughness: 0.9 }), lamp = new THREE.MeshBasicMaterial({ color: 0xfff2c8 });
+    const box = (w, h, d, x, y, z, m) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); o.castShadow = true; G.add(o); };
+    box(2.4, 2.6, 4.6, 0, 1.9, -1.0, body); box(2.3, 1.9, 1.9, 0, 1.55, 2.4, body); box(2.1, 0.7, 0.05, 0, 2.05, 3.36, blk);
+    for (const x of [-0.8, 0.8]) box(0.4, 0.22, 0.05, x, 1.0, 3.37, lamp);
+    for (const [x, z] of [[-1.1, 2.3], [1.1, 2.3], [-1.1, -2.2], [1.1, -2.2]]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.35, 14), blk); w.rotation.z = Math.PI / 2; w.position.set(x, 0.5, z); G.add(w); }
+    const L = new THREE.PointLight(0xfff0c0, 5, 26, 1.5); L.position.set(0, 1.2, 5); G.add(L);
+    G.position.copy(p); G.rotation.y = Math.PI; g.scene.add(G); a.fx.push(G);
+  }
+
+  spawnWave(a) {
+    const g = this.game, rb = this.rb, q = rb.quarry, i = a.wave;
+    const tx = q.x + [-3, 3, 0][i], tz = q.z + 168 + i * 10;
+    this.truck(a, V3(tx, rb.heightAt(tx, tz), tz));
+    a.wave++; a.sharp = 0.9 + a.wave * 0.12;
+    g.hud.flashBanner(`WAVE ${a.wave} OF 3`, '#ff3a2a');
+    const kinds = [['rifle', 'smg', 'rifle', 'smg', 'grenadier'], ['rifle', 'heavy', 'smg', 'rifle', 'grenadier', 'smg'], ['heavy', 'rifle', 'smg', 'heavy', 'grenadier', 'rifle', 'smg']][i];
+    kinds.forEach((k, j) => {
+      const x = tx + (j % 2 ? 1 : -1) * (1.9 + (j >> 1) * 0.8), z = tz - 3 + (j >> 1) * 2.2;
+      const n = this.spawnGoon(a, V3(x, rb.heightAt(x, z) + 0.3, z), k);
+      if (n) { n.leg = 0; n.lastSeen = this.qGate(); n.heading = Math.PI; }
+    });
+  }
+
+  actM16(pos, a) {
+    const g = this.game, near = (w, r) => w && Math.hypot(pos.x - w.x, pos.z - w.z) < r && Math.abs(pos.y - w.y) < 3;
+    if (a.stage === 'store' && near(a.store, 3)) return { label: 'Open the explosives store', run: () => {
+      a.stage = 'mine'; g.sfx.play('crash');
+      g.hud.toast('Cases of charges, a reel of det cord and a timer. The log on the door: half this month\'s charges are already signed out to "P.D. · SITE PREP". You take what you need.', 0xe8e2d4);
+    } };
+    if (a.stage === 'mine' && near(a.stashAt, 2.8)) return { label: '(hold E) Plant the charges on the stash', hold: true, run: () => { a.planting = true; } };
+    if (a.stage === 'dawn' && a.marta && near(a.marta.body.translation(), 3.2)) return { label: 'Talk to Marta', run: () => {
+      a.stage = 'done';
+      this.story.giveKeyItem('blastregister');
+      this.say(a, ['Marta: "Here. The register. Every case Pratt\'s people ever signed out. I kept the real one at home."', 'Marta: "Whoever told them you were up here, it wasn\'t me. I didn\'t call anyone. Did you?"', ACT3_KEY_ITEMS.blastregister.desc], () => this.story.end(true), 4.2);
+    } };
+    return null;
+  }
+
+  updM16(a, p, dt) {
+    const g = this.game, rb = this.rb, q = rb.quarry, C = g.citizens, o = rb.quarryOffice;
+    for (const e of [...a.queue]) if (a.t >= e.at) { a.queue.splice(a.queue.indexOf(e), 1); e.fn(); if (this.story.active !== a) return; }
+    a.goons = a.goons.filter((n) => C.list.includes(n));
+    const left = a.goons.length;
+    if (a.stage !== 'done' && !(a.marta && C.list.includes(a.marta))) { this.story.end(false, 'Marta is dead'); return; }
+    if (a.fire) a.fire.intensity = 4 + Math.sin(g.time * 13) * 1.2 + Math.sin(g.time * 7.3) * 0.8;
+    if (left) this.story.updateNades(a, dt, p);
+    const dO = Math.hypot(p.x - o.x, p.z - o.z);
+    if (a.stage === 'go') {
+      a.text = 'Get to Ridgeback Quarry, up in the hills. Marta Kos, the foreman, is waiting in the site office on the pit floor';
+      a.wp = o.clone();
+      if (dO < 8) {
+        a.stage = 'brief'; a.wp = null;
+        this.say(a, ['Marta: "You\'re Vic\'s? … Come in, quick. Pratt bought this pit last year. Since then his people sign out more charges than we ever blast."',
+          'Marta: "Last week I followed one of their pickups. The old mine, round the volcano\'s flank, west of here. They\'ve got crates stacked outside it. Guarded."',
+          'Marta: "The store\'s across the pit, the red box behind the bank. It\'s open. Take what you need. And you never met me."'], () => { a.stage = 'store'; });
+      }
+      return;
+    }
+    if (a.stage === 'brief') { a.text = 'Marta\'s talking'; return; }
+    if (a.stage === 'store') {
+      a.text = 'Take charges from the explosives store: the red box behind the earth bank, on the far side of the pit floor';
+      a.wp = a.store.clone();
+      return;
+    }
+    if (a.stage === 'mine') {
+      const ds = Math.hypot(p.x - a.stashAt.x, p.z - a.stashAt.z);
+      if (!a.guarded && ds < 220) this.guardStash(a);
+      const holding = a.planting && g.keys.has('KeyE') && ds < 3;
+      if (!holding) a.planting = false;
+      a.wp = a.stashAt.clone();
+      if (holding) {
+        a.plant += dt / 4;
+        a.text = `Planting the charges… ${Math.round(a.plant * 100)}%`;
+        if (Math.random() < dt * 3) g.sfx.play('select');
+      } else a.text = ds < 60 && left ? `The stash is outside the mine's mouth. ${left} of them guarding it. Plant the charges on the crates (hold E)` : 'Get to the old mine on the volcano\'s flank, west of the quarry, and plant the charges on the Ashen Hand\'s stash';
+      if (a.plant >= 1) { a.stage = 'clear'; a.fuse = 12; a.planting = false; g.sfx.play('switch'); g.hud.flashBanner('RUN', '#ff3a2a'); }
+      return;
+    }
+    if (a.stage === 'clear') {
+      a.fuse -= dt;
+      const ds = Math.hypot(p.x - a.stashAt.x, p.z - a.stashAt.z);
+      a.text = `Charges set. Get clear! <b>0:${String(Math.max(0, Math.ceil(a.fuse))).padStart(2, '0')}</b>${ds < 40 ? ` <b style="color:#ff8a6a">${Math.round(ds)} m</b>` : ' (far enough)'}`;
+      a.wp = null;
+      if (Math.random() < dt * 1.5) g.sfx.play('select');
+      if (a.fuse <= 0) {
+        this.blowStash(a);
+        a.stage = 'call'; a.blown = true;
+        this.say(a, ['The whole ledge goes up. Whatever the Ashen Hand were keeping out there, they\'re not keeping it any more.',
+          `${FIXER}: "Kid! I heard that from the city. Where are you? … Still at the quarry? With the foreman?"`,
+          `${FIXER}: "Okay. Okay. Get back to her and sit tight. I'm sending a car to pick you both up."`], () => { a.stage = 'back'; }, 4);
+      }
+      return;
+    }
+    if (a.stage === 'call') { a.text = `${FIXER}'s calling`; return; }
+    if (a.stage === 'back') {
+      a.text = `Get back to Marta at the quarry's site office. ${FIXER}'s sending a car`;
+      a.wp = o.clone();
+      if (dO < 10) {
+        a.stage = 'warn'; a.wp = null;
+        for (const n of a.goons) if (n.stash) C.despawn(n); /* (whoever was left at the mine has gone to ground) */
+        a.goons = [];
+        this.say(a, ['Marta: "Headlights. On the haul road, past the gate. That\'s not one car."',
+          'Marta: "That\'s three trucks. Lights off now. Who did you tell you were here?"',
+          'Hold the cutting. If they get to the office, they get Marta.'], () => { a.stage = 'hold'; a.waveT = 3; }, 3.4);
+      }
+      return;
+    }
+    if (a.stage === 'warn') { a.text = 'Somebody\'s coming up the haul road'; return; }
+    if (a.stage === 'hold') {
+      if (Math.hypot(p.x - q.x, p.z - q.z) > 320) { this.story.end(false, 'You left Marta to them'); return; }
+      if (a.waveT != null) {
+        a.waveT -= dt;
+        a.text = `They're coming up the haul road. Get into the cutting and hold it (wave ${a.wave + 1} of 3)`;
+        a.wp = this.qGate();
+        if (a.waveT <= 0) { a.waveT = null; this.spawnWave(a); }
+        return;
+      }
+      a.wp = null;
+      // they walk in: to the gate, down the cutting, across to the office (unless they're busy with you)
+      const legs = [this.qGate(), V3(q.x + 4, rb.quarryFloor(), q.z + 40), o];
+      for (const n of a.goons) {
+        const t = n.body.translation();
+        if (Math.hypot(t.x - o.x, t.z - o.z) < 5) { this.story.end(false, 'They got to the site office. Marta…'); return; }
+        if (n.playerVisible || n.leg == null) continue;
+        if (n.leg < 2 && Math.hypot(t.x - legs[n.leg].x, t.z - legs[n.leg].z) < 4) n.leg++;
+        if (!n.lastSeen || Math.hypot(t.x - n.lastSeen.x, t.z - n.lastSeen.z) < 2.5 || n.leg > 0) n.lastSeen = legs[n.leg].clone();
+      }
+      const near = a.goons.reduce((m, n) => { const t = n.body.translation(); return Math.min(m, Math.hypot(t.x - o.x, t.z - o.z)); }, 1e9);
+      a.text = `Hold the cutting: don't let them reach the site office. Wave ${a.wave} of 3 · ${left} left${near < 40 ? ` <b style="color:#ff8a6a">One's ${Math.round(near)} m from the office!</b>` : ''}`;
+      if (!left) {
+        if (a.wave < 3) { a.waveT = 7; g.hud.toast(a.wave === 1 ? 'Marta: "The second truck\'s stopping. More of them."' : 'Marta: "Last one. I think it\'s the last one."', 0xe8e2d4); }
+        else {
+          a.stage = 'dawn';
+          this.story.fade(() => { if (g.daynight) g.daynight.hour = 5.6; g.hud.toast('Dawn. Nobody else comes up the haul road.', 0x9ec5ff); });
+        }
+      }
+      return;
+    }
+    if (a.stage === 'dawn') {
+      a.text = 'Talk to Marta in the site office';
+      a.wp = a.marta.body.translation() && V3(a.marta.body.translation().x, a.marta.body.translation().y, a.marta.body.translation().z);
+    }
   }
 
   // ---------------------------------------------------------------- m15: Black Water
