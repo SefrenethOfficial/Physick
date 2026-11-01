@@ -535,8 +535,9 @@ export class Act3 {
   // and then Vic's "car" turns out to be three trucks on the haul road: hold the cutting till dawn.
   later(a, s, fn) { (a.queue ||= []).push({ at: a.t + s, fn }); }
   say(a, lines, then, gap = 3.8) {
-    lines.forEach((l, i) => this.later(a, i * gap, () => this.game.hud.toast(l, l.startsWith(FIXER) ? 0x9ec5ff : 0xe8e2d4)));
-    if (then) this.later(a, (lines.length - 1) * gap + 2.4, then);
+    let t = 0, last = 0; // (a longer line gets longer before the next one)
+    lines.forEach(l => { last = t; this.later(a, t, () => this.game.hud.toast(l, l.startsWith(FIXER) ? 0x9ec5ff : 0xe8e2d4)); t += Math.max(gap, 1.2 + l.length * 0.06); });
+    if (then) this.later(a, last + 2.4, then);
   }
   qGate() { const q = this.rb.quarry; return V3(q.x, this.rb.heightAt(q.x, q.z + 118), q.z + 118); }
 

@@ -204,8 +204,10 @@ export class Hud {
     t.style.setProperty('--c', hex(color));
     this.toastsEl.prepend(t);
     while (this.toastsEl.children.length > 4) this.toastsEl.lastChild.remove();
-    setTimeout(() => t.classList.add('out'), 1800);
-    setTimeout(() => t.remove(), 2300);
+    // stay up long enough to read: ~15 characters a second, 3.5 s at least, 11 s at most
+    const ms = Math.min(11000, Math.max(3500, 1500 + String(text).length * 66));
+    setTimeout(() => t.classList.add('out'), ms);
+    setTimeout(() => t.remove(), ms + 500);
   }
 
   setStats(fps) {

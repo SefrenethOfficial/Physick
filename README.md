@@ -548,7 +548,7 @@ src/
   npcs.js      crew (wander, react, ragdoll)
   figure.js    blocky person model (townspeople, police, navy crew)
   health.js    health, damage, death/respawn
-  hud.js       compass, health, money, bag, wanted stars, minimap, panels, prompts
+  hud.js       compass, health, money, bag, wanted stars, minimap, panels, prompts, pop-up messages (they stay up longer the longer they are)
   sandbox.js   static colliders and physics props
   effects.js   particles
   audio.js     synthesized sounds (sea, engines, horn, telegraph)
