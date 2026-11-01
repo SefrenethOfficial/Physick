@@ -37,7 +37,7 @@ Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **
 - **Checkpoints:** fail missions 8–11 and retry from the phone straight away, and you start back at the mission's checkpoint (across from Pike's office, by the staff door in the terminal, just airside, or by the airliner) instead of having to travel there again.
 - **Stealth:** `C` crouches (slower, lower and much harder to see; running stands you up). Guards and cameras show their view as a cone on the floor that turns red as they notice you.
 
-**Act III: Foundations** (in progress). Pratt Developments is rebuilding Verian Central, on ground the Ashen Hand cleared for it, and the money from both runs offshore to something called MERIDIAN. Vic's phone keeps ringing.
+**Act III: Foundations** (complete; Act IV to come). Pratt Developments is rebuilding Verian Central, on ground the Ashen Hand cleared for it, and the money from both runs offshore to something called MERIDIAN. Vic's phone keeps ringing.
 
 - **12 · Ash on the Wind:** Vic hears the Ashen Hand are sending a crew to the volcano base, and they know exactly where it is. Get there through the summit car park tunnel (you get an SMG, ammo and a vest if you need them). As you walk in, the alarm goes and red lights flash round the cavern. Six gunmen come up the tunnel behind you; then ropes drop from the vent and six more come down them; then it was a distraction all along, and four are in the **counting room** cutting into the safe: stop them inside **50 seconds**. The heavy in the middle is the lieutenant: take the phone he drops (key item). Leave the base mid-raid and you fail; fail and retry and you start back at the car park.
 
@@ -47,6 +47,7 @@ Three weeks ago a bomb went off at Verian Central. One of the eleven dead was **
 
 - **15 · Black Water:** Pratt's got a "cement" barge running out of Ridgeback tonight. Go to the **sea pen** under the volcano and take an armoured boat (Dutch lends you his Bulletproof Gunboat if you haven't one of your own). Out west the **PRATT AGGREGATES** barge is heading out to sea with two black Ashen Hand boats riding alongside: they'll ram you and shoot (the armour stops the rounds). Ram them under, then ram the barge's stern three times to smash its rudder. Once it's dead in the water, pull alongside and press `E` to climb aboard (a boat alongside something you can board does that instead of looking for the shore). Clear the crew off the deck (one who goes over the side is out of it), force the crates amidships (Ashen Hand rifles: take one) and search the **wheelhouse**, the white cabin at the stern with WHEELHOUSE over its door (a waypoint marks it; `E` anywhere round it). Key item: the Hollows demolition plans. Let the barge get too far out and you lose it. Afterwards the gunboat's yours to drive home; the barge goes once you sail off.
 - **16 · The Quarry Job:** Night at **Ridgeback Quarry** (the clock jumps to night if it's daytime). Marta Kos, the foreman, is in the site office on the pit floor: Pratt bought the pit last year, and his people sign out more charges than ever get blasted. Take charges from the red **explosives store** behind the earth bank, then go west to the **old mine** on the volcano's flank, where the Ashen Hand keep a stash of crates (marked P.D. · SITE PREP) with five of them on watch. Hold `E` on the crates to plant the charges, then get clear: 12 seconds, and you want 40 m. Vic rings. Where are you? He says he's sending a car. Go back to Marta, and three trucks come up the haul road instead: hold the **cutting**, three waves of them, and if any reach the site office (or Marta dies) it's over. Wander more than 320 m off and you've left her to them. At dawn, talk to Marta. Key item: the quarry's explosives register. A failed retry after the stash is gone starts you back at the quarry, stash already blown.
+- **17 · Lockdown** (the act's finale): somebody blows up a block of flats in the Hollows and every channel has your face on it: **50 stars, full lockdown**, the army and all. Vic says get to the marina, he's got a boat. Marta says don't run: Channel 6's **Vivian Ash** is broadcasting live from Pratt's groundbreaking in **Verian Central Square** tonight (a stage, PRATT DEVELOPMENTS backdrop, the Channel 6 van by the fountain). Get to her alive and press `E` to hand her the evidence. The police stand down on camera, and she reads out whatever you've got (the ledger, the Hollows plans, the explosives register). Then Pratt runs for his car on the far corner of the square, and his two bodyguards draw: catch him and press `E` to tackle him before he gets there. He has to be alive. Then the act ends: a short cutscene of a ship with no flag tying up at NAS Halyard, a message on the Courier's old phone, and Vic on a call.
 - The objective's distance now counts from where you are at the wheel, not where you got into the boat or car.
 
 - **Key items** (the key, the documents, Act II's phone, keycard, schedule, photos, pass, plans and flight plan, and Act III's raid phone, ledger, the sniper's phone, the Hollows plans and the explosives register) are listed on the phone and at the bottom of the inventory (`Tab`). They can't be sold, dropped or confiscated.
@@ -466,7 +467,7 @@ For multiplayer locally, also run the server: `cd server && npm install && npm s
 server/
   index.js     the multiplayer server (rooms, host hand-off, relaying)
 src/
-  main.js      setup, camera, input, main loop
+  main.js      setup, camera (and the story's cutscene shots), input, main loop
   terrain.js   shared terrain kit: noise, graded roads, terrain mesh + collider, road ribbons
   pelican.js   Pelican Point (the headland off Saltmarsh: fishing village, harbour, lighthouse, Lighthouse Loop race)
   ridgeback.js Ridgeback Hills (the pass, the quarry pit, cabins, the mine, plane wreck, Hillclimb race)
@@ -476,7 +477,7 @@ src/
   woods.js     log cabins, campfires, undergrowth, treehouse, caravan, deer stands, plane wreck, mine, deer
   scorch.js    the Scorch desert and its causeway
   act2.js      Act II: its missions, stealth guards and cameras, the lock-ups, the Airport Authority's staff wing, Hangar 3
-  act3.js      Act III: its missions (so far: the raid on the volcano base; Verian National's executive floor; the escort from cabin 3; the barge at sea; the quarry job)
+  act3.js      Act III: its missions (so far: the raid on the volcano base; Verian National's executive floor; the escort from cabin 3; the barge at sea; the quarry job; the lockdown and the end of the act)
   planes.js    the airliner and the Chemist's jet
   skydive.js   ejecting, freefall and the parachute
   gasstation.js gas stations and the Saltmarsh general store

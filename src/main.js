@@ -1740,7 +1740,9 @@ class Game {
       }
     }
 
-    if (this.title?.active) {
+    if (this.cutCam) { // (a story cutscene: a fixed shot)
+      this.camera.position.copy(this.cutCam.pos); this.camera.lookAt(this.cutCam.at);
+    } else if (this.title?.active) {
       this.title.cameraPose(this.camera);
     } else if (this.pragdoll.active) {
       this.pragdoll.cameraPose(this.camera, dt);

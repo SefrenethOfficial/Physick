@@ -4,13 +4,17 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import { std, canvasTex } from './buildkit.js';
 import { blocked } from './world.js';
 import { BOAT_BY_ID } from './boats.js';
+import { carMesh } from './buildkit.js';
+import { HEAT, MAX_STARS } from './swat.js';
+import { islandAt } from './world.js';
+import { QUAY_X, LAND_Y } from './port.js';
 
 // ACT III: Foundations. The Ashen Hand blow things up; Gideon Pratt's company builds on what's left.
 // Verian Central was on land he wanted, and the money runs from both of them offshore, to something
 // called MERIDIAN. Somewhere along the way, Vic starts taking calls he doesn't want you to hear.
 //   m12 Ash on the Wind    the Ashen Hand raid the volcano base. Somebody told them where it was.
 //   m13 Following the Money · m14 Dead Man's Switch · m15 Black Water · m16 The Quarry Job
-//   (still to come: Lockdown)
+//   m17 Lockdown (the end of the act: MERIDIAN comes to Halyard)
 
 const FIXER = 'Vic';
 
@@ -62,6 +66,12 @@ export const ACT3_MISSIONS = [
     brief: `${FIXER}: "Site preparation. That's what Pratt calls blowing up people's homes. So where's he getting the bang? Ridgeback Quarry, kid. Pratt bought it last year. The foreman, Marta Kos, owes me one, and she's scared. Go up there tonight. She'll show you where the charges go."`,
     reward: 10000,
     passText: `${FIXER}: "Kid! You're… good. Good. I sent a car up, it must've got held up. … The register? Hang on to that. Don't show it to anyone. Not yet. Not even me." He laughs. It doesn't sound like him.`,
+  },
+  {
+    id: 'm17', title: 'Lockdown', requires: 'm16', act: 3,
+    brief: `${FIXER}: "Kid. Turn on the news. … Somebody blew up a block of flats in the Hollows an hour ago, and they've got your face on every channel. Listen to me. Don't go anywhere near the city. Get to the marina. I've got a boat waiting for you. Trust me."`,
+    reward: 15000,
+    passText: 'Vivian Ash, off air: "Gideon Pratt, arrested live on Channel 6. Off the record? Whoever MERIDIAN are, they just lost their builder. They\'ll be looking for a new one." She gives you her card. "When you find out who they are, call me first."',
   },
 ];
 
@@ -173,8 +183,8 @@ export class Act3 {
   get vb() { return this.game.volcano; }
 
   // an Ashen Hand gunman, anywhere (inside the volcano: the hills)
-  spawnGoon(a, at, kind, island = 'hills') {
-    const g = this.game, n = g.citizens.spawnCitizen(island, 'goon', at.clone(), { look: LOOKS[kind] });
+  spawnGoon(a, at, kind, island = 'hills', look = LOOKS[kind]) {
+    const g = this.game, n = g.citizens.spawnCitizen(island, 'goon', at.clone(), { look });
     if (!n) return null;
     Object.assign(n, { kind, weapon: WEAPONS[kind], nadeT: 3 + Math.random() * 3, hp: kind === 'heavy' ? 240 : 100, cash: 30 + Math.floor(Math.random() * 90), items: Math.random() < 0.3 ? ['pistol'] : [], heading: Math.random() * Math.PI * 2, mission: a, alerted: true });
     const p = g.shorePlayer.body.translation(); n.lastSeen = V3(p.x, p.y, p.z);
@@ -190,6 +200,7 @@ export class Act3 {
     if (a.id === 'm14') { this.startM14(a); return; }
     if (a.id === 'm15') { this.startM15(a); return; }
     if (a.id === 'm16') { this.startM16(a); return; }
+    if (a.id === 'm17') { this.startM17(a); return; }
     const hasGun = g.held?.gun || g.economy.carried.some((x) => ITEM_BY_ID[x]?.gun);
     if (!hasGun) { g.giveItem(ITEM_BY_ID.smg); g.hud.toast(`${FIXER} left an SMG for you`, 0xffd166); }
     for (const [k, n] of [['smgAmmo', 150], ['pistolAmmo', 60], ['rifleAmmo', 90]]) if ((g.economy.ammo[k] || 0) < n) g.economy.addAmmo(k, n - (g.economy.ammo[k] || 0));
@@ -223,6 +234,11 @@ export class Act3 {
     if (a.id === 'm13') this.stealth.clearStealth(a);
     for (const nd of a.nades || []) nd.m.removeFromParent();
     if (a.marta && g.citizens.list.includes(a.marta)) g.citizens.despawn(a.marta);
+    if (a.id === 'm17') {
+      for (const n of [a.vivian, a.pratt]) if (n && g.citizens.list.includes(n)) g.citizens.despawn(n);
+      for (const c of a.cols || []) { g.portSandbox.staticColliders.delete(c.handle); g.portSandbox.world.removeCollider(c, false); }
+      a.cols = []; g.cutCam = null;
+    }
     if (!pass) this.retry = { id: a.id, t: performance.now(), stage: a.stage };
   }
 
@@ -253,6 +269,7 @@ export class Act3 {
       } };
     }
     if (a.id === 'm16') return this.actM16(pos, a);
+    if (a.id === 'm17') return this.actM17(pos, a);
     if (a.id === 'm14') {
       if (a.stage === 'meet' && Math.hypot(pos.x - a.cabin.door.x, pos.z - a.cabin.door.z) < 3.5) return { label: 'Knock on cabin 3', run: () => {
         g.sfx.play('punch');
@@ -306,6 +323,210 @@ export class Act3 {
     if (a.id === 'm14') this.updM14(a, p, dt);
     if (a.id === 'm15') this.updM15(a, p, dt);
     if (a.id === 'm16') this.updM16(a, p, dt);
+    if (a.id === 'm17') this.updM17(a, p, dt);
+  }
+
+  // ---------------------------------------------------------------- m17: Lockdown
+  // Somebody blows up a block of flats in the Hollows and puts your face on every channel: fifty
+  // stars, the whole lockdown. Vic says run. Marta says go to Vivian Ash, live from Pratt's
+  // groundbreaking in Verian Central Square. Hand her the evidence on camera (the police stand down,
+  // live), and when Pratt bolts for his car, catch him: alive. Then the act's last word goes to
+  // MERIDIAN, to the Courier's old phone, and to Vic.
+  startM17(a) {
+    const g = this.game, dn = g.daynight, P = g.police;
+    Object.assign(a, { stage: 'square', queue: [], cols: [] });
+    const hasGun = g.held?.gun || g.economy.carried.some((x) => ITEM_BY_ID[x]?.gun);
+    if (!hasGun) { g.giveItem(ITEM_BY_ID.smg); g.hud.toast(`Marta left an SMG for you`, 0xffd166); }
+    for (const [k, n] of [['smgAmmo', 240], ['pistolAmmo', 60], ['rifleAmmo', 120]]) if ((g.economy.ammo[k] || 0) < n) g.economy.addAmmo(k, n - (g.economy.ammo[k] || 0));
+    if (g.health.armor < 100) g.health.armor = 100;
+    if (dn && dn.hour > 5 && dn.hour < 20.5) dn.hour = 21;
+    this.buildCeremony(a);
+    // the bomb: a block of flats off the Hollows' main street
+    const H = g.hood, b = H?.entrance ? H.entrance.clone().add(V3(22, 2, -90)) : null;
+    if (b) {
+      g.blast(b, 14, 160, false);
+      const fire = new THREE.PointLight(0xff7a2a, 12, 70, 1.4); fire.position.copy(b).add(V3(0, 6, 0)); g.scene.add(fire); a.fx.push(fire); a.fire = fire;
+    }
+    g.news?.add('BREAKING: a bomb has destroyed a block of flats in the Hollows. Police have named a suspect and are asking the public not to approach.', 'crime');
+    // the frame: fifty stars, everyone, right now
+    if (P.enabled) {
+      const p = g.shorePlayer.body.translation();
+      P.heat = HEAT[MAX_STARS]; P.setWantedFromHeat(); P.lastSeen = g.time * 1000; P.seenIsland = islandAt(p.x, p.z, 4)?.id || 'sea';
+    }
+    g.hud.flashBanner('FULL LOCKDOWN', '#ff3a2a');
+    this.say(a, ['Every screen in the city has your face on it. "Suspect in the Hollows bombing. Armed. Do not approach."',
+      'A text, from a number you don\'t know. MARTA: "Don\'t run. That\'s what they want. Channel 6, Vivian Ash. She\'s live from the square tonight, at Pratt\'s groundbreaking. Give her everything."'], null, 5);
+  }
+
+  buildCeremony(a) {
+    const g = this.game, C = g.city, P = C.plaza, Y = P.y, sb = g.portSandbox;
+    const G = new THREE.Group(); g.scene.add(G); a.fx.push(G);
+    const box = (w, h, d, x, y, z, m, ry = 0, col = false) => {
+      const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(P.x + x, Y + y + h / 2, P.z + z); o.rotation.y = ry; o.castShadow = true; G.add(o);
+      if (col) a.cols.push(sb.addStaticCollider(RAPIER.ColliderDesc.cuboid(w / 2, h / 2, d / 2).setTranslation(o.position.x, o.position.y, o.position.z).setRotation(new THREE.Quaternion().setFromAxisAngle(V3(0, 1, 0), ry))));
+      return o;
+    };
+    const plane = (w, h, tex, x, y, z, ry) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide })); m.position.set(P.x + x, Y + y, P.z + z); m.rotation.y = ry; G.add(m); return m; };
+    const navy = std({ color: 0x1a2a44, roughness: 0.7 }), steel = std({ color: 0x6a6e74, metalness: 0.6, roughness: 0.5 }), white = std({ color: 0xf2f2ee, roughness: 0.6 }), blk = std({ color: 0x141414, roughness: 0.6 });
+    // the stage, a backdrop and a lectern, facing the fountain
+    const SZ = 20;
+    box(11, 0.7, 4.6, 0, 0, SZ, navy, 0, true);
+    for (let i = 0; i < 5; i++) box(1.6, 0.14, 0.4, -3.5, 0.14 * i, SZ - 2.5 - (4 - i) * 0.4, steel, 0, true); /* (steps up the front, on the left) */
+    box(11, 4.2, 0.2, 0, 0.7, SZ + 2.2, navy, 0, true);
+    plane(10.4, 1.6, textTex('PRATT DEVELOPMENTS', '#1a2a44', '#f2e6c0', 10.4 / 1.6), 0, 3.9, SZ + 2.08, Math.PI);
+    plane(10.4, 0.8, textTex('VERIAN CENTRAL · PHASE II · GROUNDBREAKING', '#b08a3a', '#1a1408', 10.4 / 0.8), 0, 2.6, SZ + 2.08, Math.PI);
+    box(0.8, 1.15, 0.5, 0, 0.7, SZ - 0.9, std({ color: 0x5a3a24, roughness: 0.5 }));
+    a.ceremonyShovel = box(0.08, 1.2, 0.08, 1.6, 0.7, SZ - 1.2, std({ color: 0xd4af37, metalness: 0.8, roughness: 0.3 }));
+    for (const x of [-5, 5]) { box(0.2, 5, 0.2, x, 0, SZ - 2.6, steel); const L = new THREE.PointLight(0xfff2d8, 6, 22, 1.5); L.position.set(P.x + x * 0.7, Y + 5, P.z + SZ - 4); G.add(L); }
+    // rows of folding chairs in front
+    for (let r = 0; r < 3; r++) for (let c = -4; c <= 4; c++) if (Math.abs(c) > 0) box(0.5, 0.9, 0.5, c * 1.1, 0, SZ - 6 - r * 1.3, blk);
+    // the Channel 6 van, its mast and dish, a camera on legs and a light
+    const VX = -15, VZ = 6;
+    box(2.3, 2.4, 5.6, VX, 0.35, VZ, white, 0, true);
+    for (const s of [-1, 1]) plane(4.4, 0.9, textTex('CHANNEL 6 NEWS', '#f2f2ee', '#c01a10', 4.4 / 0.9), VX + s * 1.17, 1.9, VZ, Math.PI / 2);
+    box(0.12, 3.4, 0.12, VX, 2.75, VZ - 1.6, steel);
+    const dish = new THREE.Mesh(new THREE.SphereGeometry(0.7, 16, 8, 0, Math.PI * 2, 0, 0.9), white); dish.material = white.clone(); dish.material.side = THREE.DoubleSide; dish.position.set(P.x + VX, Y + 6.3, P.z + VZ - 1.6); dish.rotation.x = -1.1; G.add(dish);
+    for (const [x, z] of [[-1.1, 2.0], [1.1, 2.0], [-1.1, -2.0], [1.1, -2.0]]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.3, 14), blk); w.rotation.z = Math.PI / 2; w.position.set(P.x + VX + x, Y + 0.42, P.z + VZ + z); G.add(w); }
+    box(0.5, 0.4, 0.7, -10.4, 1.4, 8.3, blk, 0.6); for (const s of [-0.3, 0.3]) box(0.05, 1.4, 0.05, -10.4 + s, 0, 8.3, steel);
+    const tvL = new THREE.PointLight(0xe8f0ff, 5, 16, 1.5); tvL.position.set(P.x - 10.5, Y + 2.4, P.z + 8.2); G.add(tvL);
+    // Vivian, in front of the camera; Pratt at the lectern; two of his security
+    const vivAt = V3(P.x - 11.6, Y + 0.95, P.z + 9.8);
+    a.vivian = g.citizens.spawnCitizen('city', 'escort', vivAt, { look: { shirt: 0xb3261e, pants: 0x1d1f22, skin: 0x8a5a3c } });
+    if (a.vivian) { Object.assign(a.vivian, { faceYaw: 2.6, heading: 2.6, hp: 400, name: 'Vivian Ash' }); }
+    a.vivAt = vivAt;
+    a.pratt = g.citizens.spawnCitizen('city', 'escort', V3(P.x, Y + 1.7, P.z + SZ - 0.2), { look: { shirt: 0x24262c, pants: 0x24262c, skin: 0xf0c8a8, glasses: true } });
+    if (a.pratt) { Object.assign(a.pratt, { faceYaw: Math.PI, heading: Math.PI, hp: 120, name: 'Gideon Pratt' }); a.pratt.fig.root.scale.setScalar(1.04); }
+    a.guards = [];
+    for (const x of [-4, 4]) {
+      const n = this.spawnGoon(a, V3(P.x + x, Y + 1.7, P.z + SZ + 0.8), 'smg', 'city', { shirt: 0x111114, pants: 0x111114, skin: x < 0 ? 0x6a4a35 : 0xd9a47c, glasses: true });
+      if (n) { n.guard = true; n.alerted = false; n.lastSeen = null; n.heading = Math.PI; n.hp = 160; a.guards.push(n); }
+    }
+    // his car, waiting on the far corner of the square
+    const b = C.block(2, 2);
+    a.carAt = V3(b.x1 + 3.5, Y, b.z0 - 3.5);
+    const car = carMesh(0x0d0d10); car.position.copy(a.carAt).setY(Y - 0.15 + 0.2); car.rotation.y = Math.PI / 2; g.scene.add(car); a.fx.push(car); a.car = car;
+  }
+
+  // the end of Act III: a ship at Halyard, the Courier's phone, and Vic on a call
+  epilogue(a) {
+    const g = this.game, S = this.story;
+    a.stage = 'epilogue'; a.text = '';
+    const Q = { x: QUAY_X, y: LAND_Y };
+    S.fade(() => {
+      const ship = this.meridianShip(); ship.position.set(Q.x - 22, Q.y - 6.5, -420); g.scene.add(ship); a.fx.push(ship); a.ship = ship;
+      g.cutCam = { pos: V3(Q.x + 12, Q.y + 7, -372), at: V3(Q.x - 16, Q.y + 5, -398) };
+      g.cullFar?.();
+      g.hud.toast('NAS Halyard. The same night.', 0x9ec5ff);
+    });
+    this.say(a, ['A ship with no flag and no lights comes in to the naval quay. Nobody challenges it. Somebody on the quay waves it alongside.',
+      'Painted on its stern, small, the way you\'d sign something: MERIDIAN.'], null, 5);
+    this.later(a, 12, () => S.fade(() => {
+      const P = g.city.plaza; a.ship?.removeFromParent();
+      g.cutCam = { pos: V3(P.x + 70, P.y + 50, P.z + 70), at: V3(P.x, P.y, P.z) };
+      g.cullFar?.();
+      g.hud.toast('At the bottom of your bag, something buzzes. Not your phone. The Courier\'s: Rafe Doucet\'s burner, dead since Act I.', 0xe8e2d4);
+    }));
+    this.later(a, 17, () => g.hud.toast('One message, from "C": "You\'ve been busy. We should meet."', 0xff8a6a));
+    this.later(a, 23, () => g.hud.toast('Across town, Vic takes a call. He doesn\'t say hello.', 0x9ec5ff));
+    this.later(a, 28, () => g.hud.toast(`${FIXER}: "…Yeah. I know where they sleep."`, 0xff8a6a));
+    this.later(a, 33, () => S.fade(() => { g.cutCam = null; S.end(true); }));
+  }
+
+  meridianShip() {
+    const G = new THREE.Group(), lit = (c) => std({ color: c, roughness: 0.8, emissive: c, emissiveIntensity: 0.45 }), hull = lit(0x2a2d33), sup = lit(0x4a4e54), red = lit(0x5a1a14);
+    const box = (w, h, d, x, y, z, m) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y + h / 2, z); G.add(o); return o; };
+    box(16, 3, 96, 0, 0, 0, red); box(16, 7, 96, 0, 3, 0, hull);
+    const bow = new THREE.Mesh(new THREE.CylinderGeometry(8, 8, 10, 3, 1), hull); bow.rotation.y = Math.PI / 6; bow.position.set(0, 5, 50); bow.scale.set(1, 1, 1.3); G.add(bow);
+    box(14, 9, 14, 0, 10, -38, sup); box(10, 3, 8, 0, 19, -38, sup); box(1.4, 7, 1.4, 0, 22, -38, hull);
+    for (let i = 0; i < 4; i++) box(12, 5, 14, 0, 10, -14 + i * 16, lit([0x4a5a6a, 0x6a3a2a, 0x3a4a3a, 0x5a5a5a][i]));
+    const name = new THREE.Mesh(new THREE.PlaneGeometry(12, 2.1), new THREE.MeshBasicMaterial({ map: textTex('MERIDIAN', '#2a2d33', '#f2ece0', 12 / 2.1), fog: false }));
+    name.position.set(0, 7.6, -48.05); name.rotation.y = Math.PI; G.add(name);
+    for (const sd of [-1, 1]) { const n2 = name.clone(); n2.scale.setScalar(1.9); n2.position.set(sd * 8.05, 6.2, -26); n2.rotation.y = sd * Math.PI / 2; G.add(n2); }
+    for (const z of [-30, 0, 30]) { const L = new THREE.PointLight(0xffe0b0, 3, 40, 1.6); L.position.set(18, 14, z); G.add(L); } /* (the quay's floodlights on her side) */
+    for (const z of [-46, 46]) { const L = new THREE.PointLight(0xff3020, 0.6, 30, 2); L.position.set(0, 12, z); G.add(L); }
+    G.rotation.y = 0.15; /* (bow towards the quay) */
+    return G;
+  }
+
+  actM17(pos, a) {
+    const g = this.game, near = (w, r) => w && Math.hypot(pos.x - w.x, pos.z - w.z) < r && Math.abs(pos.y - w.y) < 3;
+    if (a.stage === 'square' && a.vivian && near(a.vivian.body.translation(), 3.2)) return { label: 'Give Vivian Ash the evidence', run: () => this.goLive(a) };
+    if (a.stage === 'run' && a.pratt && near(a.pratt.body.translation(), 2.6)) return { label: 'Tackle Pratt', run: () => this.catchPratt(a) };
+    return null;
+  }
+
+  goLive(a) {
+    const g = this.game, S = this.story;
+    a.stage = 'live'; a.wp = null;
+    g.police.clearWanted();
+    g.hud.flashBanner('LIVE ON CHANNEL 6', '#c01a10');
+    g.news?.add('LIVE: Channel 6\'s Vivian Ash is broadcasting from Verian Central Square, with the suspect in the Hollows bombing beside her.', 'crime');
+    const lines = ['Vivian: "We\'re live. Officers, lower your weapons. You\'re on camera, and so is this."'];
+    if (S.has('ledger')) lines.push('Vivian: "These are Verian National\'s books. Pratt Developments, paying the Ashen Hand. Every month. Since before Verian Central."');
+    if (S.has('hollowsplans')) lines.push('Vivian: "Demolition plans for six blocks of the Hollows. \'Vacant by Q3.\' Dated a month before tonight\'s bomb."');
+    if (S.has('blastregister')) lines.push('Vivian: "And a quarry\'s explosives register. Charges signed out to Pratt\'s own company. The same batch as Verian Central."');
+    lines.push('Vivian: "Mr Pratt? Mr Pratt, would you like to comment?"');
+    this.say(a, lines, () => this.prattRuns(a), 4.6);
+  }
+
+  prattRuns(a) {
+    const g = this.game;
+    a.stage = 'run'; a.stuckT = 0; a.lastP = null;
+    const P = a.pratt; if (!P) return;
+    P.faceYaw = null; P.walkTo = a.carAt.clone(); P.walkSpeed = 4.3;
+    for (const n of a.guards) if (g.citizens.list.includes(n)) { n.alerted = true; const p = g.shorePlayer.body.translation(); n.lastSeen = V3(p.x, p.y, p.z); }
+    g.hud.flashBanner('HE\'S RUNNING', '#ffd166');
+    g.hud.toast('Pratt drops the microphone and runs for his car. His security reach for their guns.', 0xffd166);
+  }
+
+  catchPratt(a) {
+    const g = this.game, P = a.pratt;
+    a.stage = 'caught'; a.wp = null;
+    P.walkTo = null; P.faceYaw = P.heading; P.handsUp = 1e9; P.stunT = 1e9;
+    g.sfx.play('punch'); g.shake = Math.max(g.shake, 0.4);
+    for (const n of a.guards) if (g.citizens.list.includes(n)) g.citizens.despawn(n);
+    this.say(a, ['You put Gideon Pratt on the paving stones of Verian Central Square, live on Channel 6. His security drop their guns and step away.',
+      'Pratt: "You think this was mine? I build on what\'s left. Somebody else decides what\'s left." He laughs. "Ask your friend Vic."',
+      'Two officers pull him up and cuff him. The camera follows him all the way to the car. The other car, with the bars.'], () => {
+      if (g.citizens.list.includes(P)) g.citizens.despawn(P);
+      this.epilogue(a);
+    }, 5);
+  }
+
+  updM17(a, p, dt) {
+    const g = this.game, C = g.citizens;
+    for (const e of [...a.queue]) if (a.t >= e.at) { a.queue.splice(a.queue.indexOf(e), 1); e.fn(); if (this.story.active !== a) return; }
+    if (a.ship) a.ship.position.z += dt * 2.2; /* (coming alongside) */
+    a.goons = a.goons.filter((n) => C.list.includes(n));
+    if (a.fire) a.fire.intensity = 10 + Math.sin(g.time * 11) * 2 + Math.sin(g.time * 6.7) * 1.5;
+    if (['square', 'live'].includes(a.stage) && !(a.vivian && C.list.includes(a.vivian))) { this.story.end(false, 'Vivian Ash is dead. Nobody else will put it on air'); return; }
+    if (['square', 'live', 'run'].includes(a.stage) && !(a.pratt && C.list.includes(a.pratt))) { this.story.end(false, 'Pratt\'s dead. Whatever he knew about MERIDIAN died with him'); return; }
+    const Pz = g.city.plaza, dP = Math.hypot(p.x - Pz.x, p.z - Pz.z);
+    if (a.stage === 'square') {
+      a.text = dP < 60 ? 'Vivian Ash is by the Channel 6 van, at the side of the square. Get to her' : 'FULL LOCKDOWN. Get to Verian Central Square, downtown, alive. Vivian Ash is broadcasting from Pratt\'s groundbreaking';
+      a.wp = a.vivAt.clone();
+      if (!a.vicCalled && dP < 420) {
+        a.vicCalled = true;
+        this.say(a, [`${FIXER}: "Kid, where are you? I said the marina. I've got a boat waiting. … You're going to the square? Don't. Kid, listen to me. Don't."`]);
+      }
+      return;
+    }
+    if (a.stage === 'live') { a.text = 'You\'re live on Channel 6. Stay with Vivian'; a.wp = null; return; }
+    if (a.stage === 'run') {
+      const t = a.pratt.body.translation();
+      a.wp = V3(t.x, t.y + 0.8, t.z);
+      const left = Math.hypot(t.x - a.carAt.x, t.z - a.carAt.z);
+      a.text = `Pratt's running for his car! Catch him (alive) before he gets there: <b>${Math.round(left)} m</b>`;
+      this.story.updateNades(a, dt, p);
+      // (if a lamp post or a tree has him, he goes round it)
+      if (a.lastP && Math.hypot(t.x - a.lastP.x, t.z - a.lastP.z) < 0.4 * dt * 30 * 0.05) a.stuckT += dt; else a.stuckT = 0;
+      a.lastP = V3(t.x, t.y, t.z);
+      if (a.stuckT > 1.2) { a.stuckT = 0; const d = V3(a.carAt.x - t.x, 0, a.carAt.z - t.z).normalize(); a.pratt.body.setTranslation({ x: t.x + d.x * 1.2 + d.z * 0.8, y: t.y + 0.2, z: t.z + d.z * 1.2 - d.x * 0.8 }, true); }
+      if (left < 2.6 || a.pratt.arrived) {
+        if (a.car) { a.car.visible = false; }
+        this.story.end(false, 'Pratt got to his car. By the time anyone stops it, he\'s gone');
+      }
+    }
   }
 
   // ---------------------------------------------------------------- m16: The Quarry Job
@@ -1030,7 +1251,8 @@ export class Act3 {
   }
 
   completeText() {
-    return `<p>Pratt Developments is rebuilding Verian Central. The Ashen Hand cleared the ground for it. And the money from both goes somewhere offshore called MERIDIAN.</p>
-      <p>Vic's phone keeps ringing. He keeps not answering it in front of you.</p>`;
+    return `<p>Gideon Pratt is in a cell, and the whole city watched him go into it. The Ashen Hand cleared the ground; Pratt built on it; and the money from both went somewhere offshore called MERIDIAN.</p>
+      <p>Tonight MERIDIAN tied up at a naval base. The Courier's dead phone wants to meet you. And Vic knows where you sleep.</p>
+      <p><b>Act IV</b> is coming.</p>`;
   }
 }
