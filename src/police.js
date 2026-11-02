@@ -48,7 +48,7 @@ export class Police {
 
   // The player just did something. Anyone (or any officer) who sees it may call it in.
   crime(kind, severity, pos) {
-    if (this.game.story?.quietZone(pos)) return; // nobody to see it
+    if (this.game.story?.quietZone(pos) || this.game.cutCam) return; // nobody to see it (or a cutscene)
     const now = this.game.time * 1000;
     this.crimes.push({ kind, severity, pos: pos.clone(), t: now });
     this.crimes = this.crimes.filter((c) => now - c.t < 3000);
@@ -57,7 +57,7 @@ export class Police {
 
   // A witness (or officer) called the police. playerSeen: they can describe you.
   report(severity, pos, playerSeen, why = '') {
-    if (!this.enabled || this.game.health.dead) return;
+    if (!this.enabled || this.game.health.dead || this.game.cutCam) return;
     const now = this.game.time * 1000;
     this.reports = this.reports.filter((r) => now - r.t < 4000);
     const dup = this.reports.find((r) => r.why === why && r.pos.distanceTo(pos) < 25 && r.sev >= severity);

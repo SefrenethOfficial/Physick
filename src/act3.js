@@ -411,10 +411,12 @@ export class Act3 {
   epilogue(a) {
     const g = this.game, S = this.story;
     a.stage = 'epilogue'; a.text = '';
+    g.police.clearWanted(); g.firing = false; // (nothing you did before the cutscene follows you into it)
+    g.cutCam = { pos: g.camera.position.clone(), at: g.camera.position.clone().add(g.camera.getWorldDirection(V3())) }; // (hold the shot through the fade: the controls go now)
     const Q = { x: QUAY_X, y: LAND_Y };
     S.fade(() => {
       const ship = this.meridianShip(); ship.position.set(Q.x - 22, Q.y - 6.5, -420); g.scene.add(ship); a.fx.push(ship); a.ship = ship;
-      g.cutCam = { pos: V3(Q.x + 12, Q.y + 7, -372), at: V3(Q.x - 16, Q.y + 5, -398) };
+      g.cutCam = { pos: V3(Q.x + 12, Q.y + 7, -372), at: V3(Q.x - 16, Q.y + 5, -398) }; g.police.clearWanted();
       g.cullFar?.();
       g.hud.toast('NAS Halyard. The same night.', 0x9ec5ff);
     });

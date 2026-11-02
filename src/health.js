@@ -19,7 +19,7 @@ export class Health {
   }
 
   damage(amount, kind = '') {
-    if (this.dead || this.god || amount <= 0.5) return;
+    if (this.dead || this.god || this.game.cutCam || amount <= 0.5) return; // (nothing hurts you during a cutscene)
     // El Monstruo is bulletproof: rounds spark off the armoured glass
     const v = this.game.vehicles?.active;
     if ((v?.monster || v?.bulletproof) && ['goon', 'police', 'gang', 'clerk'].includes(kind)) return;

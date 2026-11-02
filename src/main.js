@@ -1302,7 +1302,7 @@ class Game {
       else this.player.look(dx * (this.zoomK > 0.5 ? 0.25 : 1), dy * (this.zoomK > 0.5 ? 0.25 : 1)); // (steadier through a scope)
     });
     addEventListener('mousedown', (e) => {
-      if (!this.locked || this.health.dead) return;
+      if (!this.locked || this.health.dead || this.cutCam) return; // (no shooting during a cutscene)
       if (this.flying) { if (e.button === 0) this.jetTrigger = true; return; }
       if (this.gunnery.active) { if (e.button === 0) this.gunnery.trigger = true; return; }
       if (this.vehicles.active?.tank && e.button === 0) { this.police.esc.playerTankFire(); return; } // a stolen tank's main gun
@@ -1352,6 +1352,7 @@ class Game {
     }, { passive: true });
     addEventListener('keydown', (e) => {
       if (e.code === 'Space' || e.code === 'Tab') e.preventDefault();
+      if (this.cutCam && e.code !== 'Escape') return; // (no controls during a story cutscene)
       if (e.code === 'KeyJ' && !e.repeat && this.locked && !this.panelOpen) { this.endDrag(false); this.story.phone.toggle(); return; }
       if (e.code === 'KeyM' && !e.repeat && (this.locked || this.hud.bigMapOpen) && !this.panelOpen) { this.hud.toggleBigMap(); this.bigMapT = 0; return; }
       if (this.story.phone.isOpen) return; // the phone handles its own keys
@@ -1633,7 +1634,8 @@ class Game {
     const steer = this.atHelm ? (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0) : 0;
     this.ship.update(dt, this.ocean, steer);
 
-    const alive = this.locked && !this.health.dead && !this.panelOpen;
+    const alive = this.locked && !this.health.dead && !this.panelOpen && !this.cutCam; // (a cutscene takes the controls away)
+    if (this.cutCam) { this.firing = false; this.keys.clear(); }
     const walking = alive && !this.atHelm && !this.gunnery.active && !this.flying && !this.boats.active && !this.vehicles.active && !this.pragdoll.active && !this.skydive.active;
     this.fireT = Math.max(0, this.fireT - dt);
     if (this.firing && this.held?.gun && alive && this.fireT <= 0) this.fire();
@@ -1709,7 +1711,7 @@ class Game {
     const under = this.story.underground;
     this.music.update(dt, this.started && this.settings.music && !this.health.dead ? Math.max(this.police.wanted, this.gangs.war.active ? 1 : 0) : 0, this.started && under, this.started && this.settings.music && !this.health.dead ? this.story.musicTrack : null, this.started && this.settings.music && !this.health.dead && this.police.swatActive, this.started && this.settings.music && !this.health.dead && !!this.activities?.cur?.racers, this.started && this.settings.music && !this.health.dead && !!this.volcano?.playerInside);
     this.setUnderground(under ? 'lab' : this.homes?.inside ? 'home' : this.volcano?.playerInside && !this.volcano?.cine ? 'cave' : false);
-    this.police.update(dt);
+    if (!this.cutCam) this.police.update(dt); // (the police can't touch you during a cutscene)
     this.updatePickpocket(dt);
     this.blood.update(dt);
     this.worldBlood.update(dt);
