@@ -2,9 +2,13 @@
 // after you (3+), *Oversized* once the SWAT teams are out (10+ stars), *Studiopolis Zone* at 20+ stars, *Sparkler* at 35+ (the military), *Bounty Hunter B* inside the volcano base, and *Time Trial* in a street race. Tracks crossfade as the level changes and fade out when you lose the police.
 export class Track {
   constructor(url, max) {
-    this.el = new Audio(url);
+    // (nothing's downloaded until the track first plays: nine songs is ~40 MB nobody needs at the title screen)
+    this.url = url;
+    this.el = new Audio();
+    this.el.preload = 'none';
     this.el.loop = true;
-    this.el.preload = 'auto';
+    const play = this.el.play.bind(this.el);
+    this.el.play = () => { if (!this.el.src) { this.el.preload = 'auto'; this.el.src = this.url; } return play(); };
     this.el.volume = 0;
     this.vol = 0;
     this.max = max;

@@ -11,6 +11,7 @@ import { Health } from './health.js';
 import { Ocean } from './ocean.js';
 import { Ship, HELM, DECK } from './ship.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { Viewmodel } from './viewmodel.js';
 import { PlayerRagdoll } from './ragdoll.js';
 import { ITEMS, ITEM_BY_ID, LOOT_COMMON, LOOT_RARE } from './items.js';
@@ -224,7 +225,7 @@ class Game {
     }
 
     await this.loadStep('Loading your arm…', 88);
-    const gltf = await new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}assets/robotic_arm.glb`, (e) => {
+    const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(`${import.meta.env.BASE_URL}assets/robotic_arm.glb`, (e) => {
       if (e.total) loadingEl.textContent = `Loading your arm… ${Math.round((e.loaded / e.total) * 100)}%`;
     });
     this.viewmodel = new Viewmodel(gltf.scene, FOV);
@@ -308,6 +309,7 @@ class Game {
     this.fleet = new Fleet(this);
     this.dealer = new Dealership(this);
     this.marcos = new Marcos(this);
+    mergeStatic(this.marcos.group); // (all brick, glass and booths: a couple of hundred meshes, a dozen draw calls)
     this.insides = new Insides(this); // (inside every building)
     this.news = new News(this);
     this.daynight = new DayNight(this);
@@ -1496,7 +1498,35 @@ class Game {
       m.visible = Math.hypot(b.center.x - c.x, b.center.z - c.z) - b.radius < fog;
     }
     const sp = this.frame.position;
-    this.frame.visible = !this.onShore || this.flying || near(sp.x, sp.z, v.ship);
+    this.frame.visible = !this.onShore || this.flying || near(sp.x, sp.z, v.ship);    this.cullZones(c, fog);
+  }
+
+  // Whole sets of scenery you can't see from here: the furnished insides built far underground (only when the
+  // camera's down there, near them), and big unmerged places (the volcano base, the dealership, MARCOS, the
+  // stunt park) past the haze. Hidden ones aren't drawn, and their matrices aren't walked every frame either.
+  cullZones(c, fog) {
+    if (!this.zones) {
+      this.zones = [];
+      const named = new Set([this.volcano?.group, this.dealer?.group, this.marcos?.group, this.stunts?.group].filter(Boolean));
+      const box = new THREE.Box3(), sph = new THREE.Sphere();
+      for (const o of this.scene.children) {
+        if (!o.isGroup || o === this.frame || o.userData.noCull) continue;
+        let n = 0; o.traverse((m) => { if (m.isMesh) n++; }); if (n < 20) continue;
+        box.setFromObject(o); if (box.isEmpty()) continue;
+        const under = box.max.y < -8;
+        if (!under && !named.has(o)) continue;
+        box.getBoundingSphere(sph);
+        this.zones.push({ o, under, c: sph.center.clone(), r: sph.radius, min: box.min.clone(), max: box.max.clone(), near: o === this.volcano?.group ? 260 : 0 }); // (the base is inside the mountain: only from close by, or over the crater)
+      }
+    }
+    for (const z of this.zones) {
+      let on;
+      if (z.under) { // underground: only from underground, and only nearby
+        const dx = Math.max(z.min.x - c.x, 0, c.x - z.max.x), dz = Math.max(z.min.z - c.z, 0, c.z - z.max.z);
+        on = c.y < -4 && Math.hypot(dx, dz) < 60;
+      } else on = Math.hypot(z.c.x - c.x, z.c.z - c.z) - z.r < (z.near || fog);
+      if (on !== z.o.visible) { z.o.visible = on; z.o.matrixWorldAutoUpdate = on; if (on) z.o.updateMatrixWorld(true); }
+    }
   }
 
   placeATMs() {
